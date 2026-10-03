@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'features/library/domain/library_provider.dart';
 import 'features/library/ui/library_screen.dart';
 import 'features/export/domain/export_service.dart';
@@ -12,21 +14,24 @@ void main() {
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
 
-    // media_kit init can fail if native libs are missing — must not crash the app
+    if (Platform.isWindows || Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     try {
       MediaKit.ensureInitialized();
     } catch (e) {
-      debugPrint('[E-Player] MediaKit init failed (playback may not work): $e');
+      debugPrint('[E-Player] MediaKit init failed: \$e');
     }
 
     FlutterError.onError = (details) {
-      debugPrint('[E-Player] FlutterError: ${details.exceptionAsString()}');
+      debugPrint('[E-Player] FlutterError: \${details.exceptionAsString()}');
     };
 
     runApp(const EPlayerApp());
   }, (error, stack) {
-    debugPrint('[E-Player] Uncaught error: $error');
-    debugPrint('[E-Player] Stack: $stack');
+    debugPrint('[E-Player] Uncaught error: \$error');
   });
 }
 

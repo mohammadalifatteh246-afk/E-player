@@ -58,7 +58,7 @@ class LibraryScreen extends StatelessWidget {
         ],
       ),
       body: Consumer<LibraryProvider>(
-        builder: (context, provider, child) {
+        builder: (ctx, provider, child) {
           return CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
