@@ -34,7 +34,7 @@ class _VaultScreenState extends State<VaultScreen> {
 
   Future<void> _unlock() async {
     final service = context.read<VaultService>();
-    final unlocked = await service.authenticate();
+    final unlocked = await service.authenticate(context);
     if (unlocked) {
       _loadItems();
     }

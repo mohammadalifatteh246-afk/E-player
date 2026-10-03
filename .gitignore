@@ -8,3 +8,5 @@ test.mp4
 # Ignore local build folders that might not be caught
 build/
 .dart_tool/
+
+app-release.apk

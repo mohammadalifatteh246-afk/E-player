@@ -1,56 +1,84 @@
 import 'dart:io';
 import 'package:encrypt/encrypt.dart' as enc;
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../../../core/models/media_item.dart';
 
 class VaultService extends ChangeNotifier {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-  final LocalAuthentication _auth = LocalAuthentication();
-  
   bool _isUnlocked = false;
   bool get isUnlocked => _isUnlocked;
   
   enc.Key? _masterKey;
 
   Future<void> initialize() async {
-    String? keyBase64 = await _storage.read(key: 'vault_master_key');
+    final prefs = await SharedPreferences.getInstance();
+    String? keyBase64 = prefs.getString('vault_master_key');
     if (keyBase64 == null) {
       final secureRandomKey = enc.Key.fromSecureRandom(32);
-      await _storage.write(key: 'vault_master_key', value: secureRandomKey.base64);
+      await prefs.setString('vault_master_key', secureRandomKey.base64);
       _masterKey = secureRandomKey;
     } else {
       _masterKey = enc.Key.fromBase64(keyBase64);
     }
   }
 
-  Future<bool> authenticate() async {
-    try {
-      final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
-      final bool canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+  Future<bool> authenticate(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasPin = prefs.getString('vault_pin') != null;
 
-      if (!canAuthenticate) {
-        _isUnlocked = true;
-        notifyListeners();
-        return true;
-      }
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text(hasPin ? 'Enter Vault PIN' : 'Set New Vault PIN'),
+          content: TextField(
+            controller: controller,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: 'Enter 4-digit PIN'),
+            maxLength: 4,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final pin = controller.text;
+                if (pin.length != 4) return;
+                
+                if (!hasPin) {
+                  await prefs.setString('vault_pin', pin);
+                  Navigator.pop(ctx, true);
+                } else {
+                  final savedPin = prefs.getString('vault_pin');
+                  if (pin == savedPin) {
+                    Navigator.pop(ctx, true);
+                  } else {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Incorrect PIN')));
+                    Navigator.pop(ctx, false);
+                  }
+                }
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
 
-      final bool didAuthenticate = await _auth.authenticate(
-        localizedReason: 'Please authenticate to access your private vault',
-      );
-
-      if (didAuthenticate) {
-        _isUnlocked = true;
-        notifyListeners();
-      }
-      return didAuthenticate;
-    } catch (e) {
-      debugPrint('Biometric error: $e');
-      return false;
+    if (result == true) {
+      _isUnlocked = true;
+      notifyListeners();
+      return true;
     }
+    return false;
   }
 
   void lock() {
@@ -65,22 +93,18 @@ class VaultService extends ChangeNotifier {
     return vaultDir;
   }
 
-  /// Encrypts file in 1MB chunks using AES-GCM. 
-  /// Format per chunk: [Ciphertext(ChunkSize)]
-  /// We generate a random IV per chunk to guarantee nonce uniqueness.
   Future<String> moveToVault(MediaItem item) async {
     if (_masterKey == null) await initialize();
     if (!_isUnlocked) throw Exception("Vault is locked");
 
     final sourceFile = File(item.path);
     final vaultDir = await getVaultDirectory();
-    final String destPath = p.join(vaultDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(item.path)}.enc');
+    final String destPath = p.join(vaultDir.path, '\_\.enc');
     final destFile = File(destPath);
 
     final encrypter = enc.Encrypter(enc.AES(_masterKey!, mode: enc.AESMode.gcm));
     final destSink = destFile.openWrite();
 
-    // 1MB chunks
     const chunkSize = 1024 * 1024;
     final raf = await sourceFile.open(mode: FileMode.read);
     
@@ -89,11 +113,9 @@ class VaultService extends ChangeNotifier {
         final bytes = await raf.read(chunkSize);
         if (bytes.isEmpty) break;
         
-        // Generate a 12-byte IV for GCM
         final iv = enc.IV.fromSecureRandom(12);
         final encrypted = encrypter.encryptBytes(bytes, iv: iv);
         
-        // Write IV length (1 byte), IV (12 bytes), Ciphertext length (4 bytes), Ciphertext
         destSink.add([iv.bytes.length]);
         destSink.add(iv.bytes);
         
@@ -106,13 +128,12 @@ class VaultService extends ChangeNotifier {
     } finally {
       await raf.close();
       await destSink.close();
-      await sourceFile.delete(); // Delete original after secure encryption
+      await sourceFile.delete(); 
     }
     
     return destPath;
   }
 
-  /// Decrypts file back to original location
   Future<String> restoreFromVault(String encryptedPath, String originalDir, String originalName) async {
     if (_masterKey == null) await initialize();
     if (!_isUnlocked) throw Exception("Vault is locked");
@@ -128,7 +149,7 @@ class VaultService extends ChangeNotifier {
     try {
       while (true) {
         final ivLenBytes = await raf.read(1);
-        if (ivLenBytes.isEmpty) break; // EOF
+        if (ivLenBytes.isEmpty) break; 
         
         final ivLen = ivLenBytes[0];
         final ivBytes = await raf.read(ivLen);
@@ -152,7 +173,6 @@ class VaultService extends ChangeNotifier {
     return destPath;
   }
 
-  /// Lists all files currently in the vault
   Future<List<File>> getVaultItems() async {
     if (!_isUnlocked) return [];
     final vaultDir = await getVaultDirectory();
@@ -160,13 +180,11 @@ class VaultService extends ChangeNotifier {
     return entities.whereType<File>().where((f) => f.path.endsWith('.enc')).toList();
   }
 
-  /// Decrypts a vault file to a temporary directory for playback
   Future<String> decryptToTemp(File encryptedFile) async {
     if (_masterKey == null) await initialize();
     if (!_isUnlocked) throw Exception("Vault is locked");
 
     final tempDir = await getTemporaryDirectory();
-    // Extract original name from format: timestamp_originalName.enc
     final baseName = p.basename(encryptedFile.path).replaceAll('.enc', '');
     final nameParts = baseName.split('_');
     final originalName = nameParts.length > 1 ? nameParts.sublist(1).join('_') : 'vault_media.mp4';
@@ -174,7 +192,6 @@ class VaultService extends ChangeNotifier {
     final String destPath = p.join(tempDir.path, originalName);
     final destFile = File(destPath);
     
-    // If temp file exists, clear it
     if (await destFile.exists()) await destFile.delete();
 
     final encrypter = enc.Encrypter(enc.AES(_masterKey!, mode: enc.AESMode.gcm));
@@ -184,7 +201,7 @@ class VaultService extends ChangeNotifier {
     try {
       while (true) {
         final ivLenBytes = await raf.read(1);
-        if (ivLenBytes.isEmpty) break; // EOF
+        if (ivLenBytes.isEmpty) break; 
         
         final ivLen = ivLenBytes[0];
         final ivBytes = await raf.read(ivLen);
