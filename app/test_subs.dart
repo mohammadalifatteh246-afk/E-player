@@ -1,0 +1,1 @@
+import 'package:media_kit/media_kit.dart'; void main() async { MediaKit.ensureInitialized(); final p = Player(); try { await p.platform?.setProperty('sub-delay', '1.5'); print('Delay set successfully'); } catch(e) { print('Error: '); } }

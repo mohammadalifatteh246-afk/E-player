@@ -1,0 +1,1 @@
+import 'package:media_kit/media_kit.dart'; void main() async { MediaKit.ensureInitialized(); final p = Player(); try { await p.platform?.setProperty('af', 'dynaudnorm,bass=g=10'); print('Filter set successfully'); } catch(e) { print('Error: '); } }

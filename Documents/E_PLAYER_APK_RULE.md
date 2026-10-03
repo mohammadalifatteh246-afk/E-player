@@ -1,0 +1,1 @@
+STRICT NOTE: Always remember when you have a task to make an Apk file, copy the updated codes and files to the C:\E-player folder project, and then run the command for making the Apk file from the C: drive. Do not build APKs on the D: drive due to Gradle caching cross-drive root errors.

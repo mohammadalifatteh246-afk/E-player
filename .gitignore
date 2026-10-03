@@ -1,0 +1,10 @@
+# Root gitignore
+.DS_Store
+.vscode/
+.idea/
+test.mp4
+*.log
+
+# Ignore local build folders that might not be caught
+build/
+.dart_tool/
