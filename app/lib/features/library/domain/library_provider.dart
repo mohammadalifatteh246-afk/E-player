@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
+
 import '../../../core/models/media_item.dart';
 import '../../../core/db/database_helper.dart';
 
@@ -13,6 +13,14 @@ class LibraryProvider extends ChangeNotifier {
   List<MediaItem> get recentFiles => _recentFiles;
   List<MediaItem> get favorites => _favorites;
   List<MediaItem> get allFiles => _allFiles;
+
+  Map<String, List<MediaItem>> get groupedFolders {
+    final map = <String, List<MediaItem>>{};
+    for (var item in _allFiles) {
+      map.putIfAbsent(item.parentFolder, () => []).add(item);
+    }
+    return map;
+  }
 
   LibraryProvider() {
     _loadFromDB();
@@ -107,7 +115,7 @@ class LibraryProvider extends ChangeNotifier {
   String scanProgress = '';
 
   Future<void> scanDirectory() async {
-    if (Platform.isAndroid) { await Permission.manageExternalStorage.request(); await Permission.storage.request(); }
+    
     String? selectedDirectory = await FilePicker.getDirectoryPath();
     if (selectedDirectory == null) return;
 

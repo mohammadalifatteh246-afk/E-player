@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../domain/library_provider.dart';
 import '../../player/ui/player_screen.dart';
+import 'package:path/path.dart' as p;
+import '../../../core/models/media_item.dart';
+import 'folder_detail_screen.dart';
 import '../../export/ui/export_screen.dart';
 import '../../settings/ui/settings_screen.dart';
 import '../../vault/ui/vault_screen.dart';
@@ -136,10 +139,10 @@ class LibraryScreen extends StatelessWidget {
                 _buildSliverSectionTitle('Recent Media'),
               if (provider.recentFiles.isNotEmpty)
                 _buildSliverGrid(provider.recentFiles, provider),
-              if (provider.allFiles.isNotEmpty)
-                _buildSliverSectionTitle('All Media'),
-              if (provider.allFiles.isNotEmpty)
-                _buildSliverGrid(provider.allFiles, provider),
+              if (provider.groupedFolders.isNotEmpty)
+                _buildSliverSectionTitle('Folders'),
+              if (provider.groupedFolders.isNotEmpty)
+                _buildFolderList(provider.groupedFolders, context),
               if (provider.allFiles.isEmpty && provider.recentFiles.isEmpty && provider.favorites.isEmpty)
                 SliverFillRemaining(
                   child: Center(
@@ -315,4 +318,46 @@ class LibraryScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildFolderList(Map<String, List<MediaItem>> folders, BuildContext context) {
+    final folderEntries = folders.entries.toList();
+    folderEntries.sort((a, b) => p.basename(a.key).toLowerCase().compareTo(p.basename(b.key).toLowerCase()));
+    
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final entry = folderEntries[index];
+          final folderPath = entry.key;
+          final items = entry.value;
+          final folderName = p.basename(folderPath);
+          
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            leading: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.folder, color: Colors.amber, size: 32),
+            ),
+            title: Text(folderName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            subtitle: Text('${items.length} video${items.length > 1 ? 's' : ''}', style: const TextStyle(color: Colors.white54)),
+            trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FolderDetailScreen(folderName: folderName, items: items),
+                ),
+              );
+            },
+          );
+        },
+        childCount: folderEntries.length,
+      ),
+    );
+  }
+
 }
