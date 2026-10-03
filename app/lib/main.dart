@@ -5,6 +5,8 @@ import 'package:media_kit/media_kit.dart';
 import 'features/library/domain/library_provider.dart';
 import 'features/library/ui/library_screen.dart';
 import 'features/export/domain/export_service.dart';
+import 'features/vault/domain/vault_service.dart';
+import 'features/trash/domain/trash_service.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -37,6 +39,8 @@ class EPlayerApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LibraryProvider()),
         ChangeNotifierProvider(create: (_) => ExportService()),
+        ChangeNotifierProvider(create: (_) => VaultService()),
+        ChangeNotifierProvider(create: (_) => TrashService()),
       ],
       child: MaterialApp(
         title: 'E-Player',

@@ -4,6 +4,10 @@ import '../domain/library_provider.dart';
 import '../../player/ui/player_screen.dart';
 import '../../export/ui/export_screen.dart';
 import '../../settings/ui/settings_screen.dart';
+import '../../vault/ui/vault_screen.dart';
+import '../../trash/ui/trash_screen.dart';
+import '../../vault/domain/vault_service.dart';
+import '../../trash/domain/trash_service.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -17,6 +21,20 @@ class LibraryScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.security, color: Colors.blueAccent),
+            tooltip: 'Private Vault',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            tooltip: 'Trash',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.download, color: Colors.amber),
             tooltip: 'Export Jobs',
@@ -197,17 +215,77 @@ class LibraryScreen extends StatelessWidget {
                       Positioned(
                         top: 4,
                         right: 4,
-                        child: Semantics(
-                          label: item.isFavorite ? 'Remove from favorites' : 'Add to favorites',
-                          button: true,
-                          child: IconButton(
-                            icon: Icon(
-                              item.isFavorite ? Icons.star : Icons.star_border,
-                              color: item.isFavorite ? Colors.amber : Colors.white54,
-                              size: 20,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Semantics(
+                              label: item.isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                              button: true,
+                              child: IconButton(
+                                icon: Icon(
+                                  item.isFavorite ? Icons.star : Icons.star_border,
+                                  color: item.isFavorite ? Colors.amber : Colors.white54,
+                                  size: 20,
+                                ),
+                                onPressed: () => provider.toggleFavorite(item.path),
+                              ),
                             ),
-                            onPressed: () => provider.toggleFavorite(item.path),
-                          ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, color: Colors.white70, size: 20),
+                              color: const Color(0xFF2A2A35),
+                              onSelected: (value) async {
+                                if (value == 'vault') {
+                                  try {
+                                    final vaultService = context.read<VaultService>();
+                                    await vaultService.moveToVault(item);
+                                    provider.scanDirectory(); // Refresh library
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Moved to Private Vault')));
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Vault Error: $e')));
+                                    }
+                                  }
+                                } else if (value == 'trash') {
+                                  try {
+                                    final trashService = context.read<TrashService>();
+                                    await trashService.moveToTrash(item);
+                                    provider.scanDirectory(); // Refresh library
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Moved to Trash')));
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Trash Error: $e')));
+                                    }
+                                  }
+                                }
+                              },
+                              itemBuilder: (BuildContext context) => [
+                                const PopupMenuItem(
+                                  value: 'vault',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.security, color: Colors.blueAccent, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Move to Vault', style: TextStyle(color: Colors.white)),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'trash',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Colors.redAccent, size: 20),
+                                      SizedBox(width: 8),
+                                      Text('Move to Trash', style: TextStyle(color: Colors.white)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                       Positioned(
