@@ -68,7 +68,14 @@ class _EnhanceScreenState extends State<EnhanceScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('AI Enhancement Profile Applied successfully.'),
+                      backgroundColor: Color(0xFF00E5FF),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00E5FF),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),

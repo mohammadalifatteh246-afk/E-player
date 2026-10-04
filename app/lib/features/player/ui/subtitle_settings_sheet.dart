@@ -65,7 +65,7 @@ class _SubtitleSettingsSheetState extends State<SubtitleSettingsSheet> {
     _config = widget.config;
   }
 
-  void _update() {
+  void _debouncedApply() {
     _config.apply(widget.player);
     setState(() {});
   }

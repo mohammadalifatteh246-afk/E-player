@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+import '../domain/settings_provider.dart';
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -13,59 +16,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF09090E),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionTitle('Playback'),
-            const SizedBox(height: 12),
-            _buildSettingsCard([
-              _buildSwitchRow('Hardware Acceleration', Icons.memory, _hwAcceleration, (val) => setState(() => _hwAcceleration = val)),
-              _buildDivider(),
-              _buildValueRow('Decoding Mode', Icons.settings_suggest, 'HW+'),
-              _buildDivider(),
-              _buildValueRow('Aspect Ratio', Icons.aspect_ratio, 'Fit'),
-            ]),
-            const SizedBox(height: 24),
-            
-            _buildSectionTitle('Player'),
-            const SizedBox(height: 12),
-            _buildSettingsCard([
-              _buildValueRow('Playback Speed', Icons.speed, '1.0x'),
-              _buildDivider(),
-              _buildSwitchRow('Gesture Controls', Icons.touch_app, _gestureControls, (val) => setState(() => _gestureControls = val)),
-            ]),
-            const SizedBox(height: 24),
+    return Consumer<SettingsProvider>(
+      builder: (context, provider, child) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF09090E),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            centerTitle: true,
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionTitle('Playback'),
+                const SizedBox(height: 12),
+                _buildSettingsCard([
+                  _buildSwitchRow('Hardware Acceleration', Icons.memory, provider.hwAcceleration, (val) => provider.setHwAcceleration(val)),
+                  _buildDivider(),
+                  _buildValueRow('Decoding Mode', Icons.settings_suggest, provider.decodingMode),
+                  _buildDivider(),
+                  _buildValueRow('Aspect Ratio', Icons.aspect_ratio, provider.aspectRatio),
+                ]),
+                const SizedBox(height: 24),
+                
+                _buildSectionTitle('Player'),
+                const SizedBox(height: 12),
+                _buildSettingsCard([
+                  _buildValueRow('Playback Speed', Icons.speed, provider.playbackSpeed),
+                  _buildDivider(),
+                  _buildSwitchRow('Gesture Controls', Icons.touch_app, provider.gestureControls, (val) => provider.setGestureControls(val)),
+                ]),
+                const SizedBox(height: 24),
 
-            _buildSectionTitle('Subtitles'),
-            const SizedBox(height: 12),
-            _buildSettingsCard([
-              _buildValueRow('Font Size', Icons.format_size, 'Medium'),
-              _buildDivider(),
-              _buildValueRow('Text Color', Icons.format_color_text, 'White'),
-              _buildDivider(),
-              _buildValueRow('Outline', Icons.border_outer, '2px'),
-            ]),
-            const SizedBox(height: 24),
+                _buildSectionTitle('Subtitles'),
+                const SizedBox(height: 12),
+                _buildSettingsCard([
+                  _buildValueRow('Font Size', Icons.format_size, provider.fontSize),
+                  _buildDivider(),
+                  _buildValueRow('Text Color', Icons.format_color_text, provider.textColor),
+                  _buildDivider(),
+                  _buildValueRow('Outline', Icons.border_outer, provider.outline),
+                ]),
+                const SizedBox(height: 24),
 
-            _buildSectionTitle('Audio'),
-            const SizedBox(height: 12),
-            _buildSettingsCard([
-              _buildValueRow('Equalizer', Icons.equalizer, ''),
-            ]),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
+                _buildSectionTitle('Audio'),
+                const SizedBox(height: 12),
+                _buildSettingsCard([
+                  _buildValueRow('Equalizer', Icons.equalizer, ''),
+                ]),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
