@@ -6,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'features/library/domain/library_provider.dart';
 import 'features/library/ui/library_screen.dart';
+import 'ui/main_scaffold.dart';
 import 'features/export/domain/export_service.dart';
 import 'features/vault/domain/vault_service.dart';
 import 'features/trash/domain/trash_service.dart';
@@ -53,9 +54,9 @@ class EPlayerApp extends StatelessWidget {
           brightness: Brightness.dark,
           primarySwatch: Colors.blue,
           useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF121212),
+          scaffoldBackgroundColor: const Color(0xFF09090E), fontFamily: 'Inter',
         ),
-        home: const LibraryScreen(),
+        home: const MainScaffold(),
       ),
     );
   }
