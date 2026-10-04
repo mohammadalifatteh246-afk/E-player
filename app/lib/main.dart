@@ -10,6 +10,7 @@ import 'ui/main_scaffold.dart';
 import 'features/export/domain/export_service.dart';
 import 'features/vault/domain/vault_service.dart';
 import 'features/trash/domain/trash_service.dart';
+import 'features/settings/domain/settings_provider.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -47,6 +48,7 @@ class EPlayerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ExportService()),
         ChangeNotifierProvider(create: (_) => VaultService()),
         ChangeNotifierProvider(create: (_) => TrashService()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: MaterialApp(
         title: 'E-Player',

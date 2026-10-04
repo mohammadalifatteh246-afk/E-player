@@ -100,21 +100,35 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F0F13),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Audio Studio', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               Switch(
                 value: _config.enabled,
-                activeColor: Colors.blueAccent,
+                activeColor: const Color(0xFF00E5FF),
+                activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                inactiveThumbColor: Colors.grey,
+                inactiveTrackColor: Colors.white12,
                 onChanged: (v) {
                   _config.enabled = v;
                   _config.apply(widget.player);
@@ -123,37 +137,62 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
               )
             ],
           ),
-          const Divider(color: Colors.white24),
+          const SizedBox(height: 16),
           if (!_config.enabled)
             const Expanded(child: Center(child: Text('Audio Studio is disabled.', style: TextStyle(color: Colors.white54))))
           else
             Expanded(
               child: ListView(
+                physics: const BouncingScrollPhysics(),
                 children: [
-                  _buildEqSliders(),
+                  _buildToggleRow('Night Mode (Dynamic Range Compress)', _config.nightMode, (v) {
+                    _config.nightMode = v;
+                    _debouncedApply();
+                  }),
+                  _buildToggleRow('Vocal Boost', _config.dialogueBoost, (v) {
+                    _config.dialogueBoost = v;
+                    _debouncedApply();
+                  }),
+                  _buildToggleRow('Virtualizer (Stereo Widening)', _config.virtualizer, (v) {
+                    _config.virtualizer = v;
+                    _debouncedApply();
+                  }),
+                  const SizedBox(height: 24),
+                  const Text('Bass Boost', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                  Slider(
+                    value: _config.bassBoost,
+                    min: 0,
+                    max: 15,
+                    activeColor: const Color(0xFF00E5FF),
+                    inactiveColor: Colors.white12,
+                    onChanged: (v) {
+                      _config.bassBoost = v;
+                      _debouncedApply();
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('5-Band Equalizer (dB)', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 16),
-                  _buildSlider('Bass Boost', _config.bassBoost, 0, 15, (v) => _config.bassBoost = v),
-                  const Divider(color: Colors.white24),
-                  SwitchListTile(
-                    title: const Text('Night Mode', style: TextStyle(color: Colors.white)),
-                    subtitle: const Text('Dynamic loudness normalization', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    value: _config.nightMode,
-                    activeColor: Colors.blueAccent,
-                    onChanged: (v) { _config.nightMode = v; _debouncedApply(); },
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildEqSlider(0, '65Hz'),
+                      _buildEqSlider(1, '250Hz'),
+                      _buildEqSlider(2, '1kHz'),
+                      _buildEqSlider(3, '4kHz'),
+                      _buildEqSlider(4, '12kHz'),
+                    ],
                   ),
-                  SwitchListTile(
-                    title: const Text('Virtualizer (3D)', style: TextStyle(color: Colors.white)),
-                    subtitle: const Text('Stereo widening for headphones', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    value: _config.virtualizer,
-                    activeColor: Colors.blueAccent,
-                    onChanged: (v) { _config.virtualizer = v; _debouncedApply(); },
-                  ),
-                  SwitchListTile(
-                    title: const Text('Dialogue Boost', style: TextStyle(color: Colors.white)),
-                    subtitle: const Text('Enhances vocal clarity', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                    value: _config.dialogueBoost,
-                    activeColor: Colors.blueAccent,
-                    onChanged: (v) { _config.dialogueBoost = v; _debouncedApply(); },
+                  const SizedBox(height: 24),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        _config.reset(widget.player);
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.refresh, color: Colors.white54),
+                      label: const Text('Reset to Defaults', style: TextStyle(color: Colors.white54)),
+                    ),
                   ),
                 ],
               ),
@@ -163,80 +202,52 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
     );
   }
 
-  Widget _buildEqSliders() {
-    final labels = ['65Hz', '250Hz', '1kHz', '4kHz', '12kHz'];
+  Widget _buildToggleRow(String title, bool value, Function(bool) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A24),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: SwitchListTile(
+        title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        value: value,
+        onChanged: onChanged,
+        activeColor: const Color(0xFF00E5FF),
+        activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+        inactiveThumbColor: Colors.grey,
+        inactiveTrackColor: Colors.white12,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+    );
+  }
+
+  Widget _buildEqSlider(int index, String label) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('5-Band Equalizer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            TextButton(
-              onPressed: () {
-                _config.eq = [0.0, 0.0, 0.0, 0.0, 0.0];
+        SizedBox(
+          height: 120,
+          child: RotatedBox(
+            quarterTurns: 3,
+            child: Slider(
+              value: _config.eq[index],
+              min: -15.0,
+              max: 15.0,
+              activeColor: const Color(0xFF00E5FF),
+              inactiveColor: Colors.white12,
+              onChanged: (v) {
+                _config.eq[index] = v;
                 _debouncedApply();
               },
-              child: const Text('Flat', style: TextStyle(color: Colors.blueAccent)),
-            )
-          ],
+            ),
+          ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(5, (i) {
-            return Column(
-              children: [
-                Text('${_config.eq[i] > 0 ? '+' : ''}${_config.eq[i].toInt()} dB', style: const TextStyle(color: Colors.white70, fontSize: 10)),
-                SizedBox(
-                  height: 150,
-                  child: RotatedBox(
-                    quarterTurns: 3,
-                    child: Slider(
-                      value: _config.eq[i],
-                      min: -15,
-                      max: 15,
-                      divisions: 30,
-                      activeColor: Colors.blueAccent,
-                      onChanged: (v) {
-                        _config.eq[i] = v;
-                        _debouncedApply();
-                      },
-                    ),
-                  ),
-                ),
-                Text(labels[i], style: const TextStyle(color: Colors.white54, fontSize: 10)),
-              ],
-            );
-          }),
-        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Text(_config.eq[index].toStringAsFixed(1), style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 10, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _buildSlider(String label, double value, double min, double max, Function(double) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(color: Colors.white)),
-            Text('${value > 0 ? '+' : ''}${value.toInt()} dB', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: (max - min).toInt(),
-          activeColor: Colors.blueAccent,
-          onChanged: (v) {
-            onChanged(v);
-            _debouncedApply();
-          },
-        ),
-      ],
-    );
-  }
 }

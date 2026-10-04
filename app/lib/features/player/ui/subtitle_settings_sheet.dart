@@ -73,51 +73,85 @@ class _SubtitleSettingsSheetState extends State<SubtitleSettingsSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F0F13),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Subtitle Styles', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              TextButton(
-                onPressed: () {
-                  _config.reset(widget.player);
-                  setState(() {});
-                },
-                child: const Text('Reset', style: TextStyle(color: Colors.redAccent)),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
-            ],
+            ),
           ),
-          const Divider(color: Colors.white24),
+          const Text('Subtitle Customization', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
           Expanded(
             child: ListView(
+              physics: const BouncingScrollPhysics(),
               children: [
-                _buildSlider('Delay (s)', _config.delay, -10.0, 10.0, (v) => _config.delay = v, 20),
-                _buildSlider('Font Size', _config.fontSize, 10.0, 100.0, (v) => _config.fontSize = v, 90),
-                _buildSlider('Position', _config.position, 0.0, 100.0, (v) => _config.position = v, 100),
-                _buildSlider('Outline Size', _config.outlineSize, 0.0, 10.0, (v) => _config.outlineSize = v, 20),
+                _buildSectionTitle('Timing & Position'),
+                _buildSliderRow('Delay (s)', _config.delay, -10.0, 10.0, (v) { _config.delay = v; _debouncedApply(); }),
+                _buildSliderRow('Position', _config.position, 0.0, 150.0, (v) { _config.position = v; _debouncedApply(); }),
+                
+                const SizedBox(height: 24),
+                _buildSectionTitle('Appearance'),
+                _buildSliderRow('Font Size', _config.fontSize, 10.0, 100.0, (v) { _config.fontSize = v; _debouncedApply(); }),
+                _buildSliderRow('Outline Size', _config.outlineSize, 0.0, 10.0, (v) { _config.outlineSize = v; _debouncedApply(); }),
+                
                 const SizedBox(height: 16),
-                const Text('Colors', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                _buildColorPicker('Text Color', _config.fontColor, (c) => _config.fontColor = c),
-                _buildColorPicker('Outline', _config.outlineColor, (c) => _config.outlineColor = c),
-                _buildColorPicker('Background', _config.backgroundColor, (c) => _config.backgroundColor = c),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  title: const Text('Override ASS/SSA Styles', style: TextStyle(color: Colors.white)),
-                  subtitle: const Text('Forces text subtitle styles on animated subtitles', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                  value: _config.overrideAss,
-                  activeColor: Colors.blueAccent,
-                  onChanged: (v) {
-                    _config.overrideAss = v;
-                    _update();
-                  },
+                _buildColorRow('Font Color', _config.fontColor, (c) { _config.fontColor = c; _debouncedApply(); }),
+                _buildColorRow('Outline Color', _config.outlineColor, (c) { _config.outlineColor = c; _debouncedApply(); }),
+                _buildColorRow('Background', _config.backgroundColor, (c) { _config.backgroundColor = c; _debouncedApply(); }),
+                
+                const SizedBox(height: 24),
+                _buildSectionTitle('Advanced'),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A24),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: SwitchListTile(
+                    title: const Text('Override ASS Styles', style: TextStyle(color: Colors.white, fontSize: 14)),
+                    subtitle: const Text('Force custom styling on ASS/SSA subs', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    value: _config.overrideAss,
+                    activeColor: const Color(0xFF00E5FF),
+                    activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                    inactiveThumbColor: Colors.grey,
+                    inactiveTrackColor: Colors.white12,
+                    onChanged: (v) {
+                      _config.overrideAss = v;
+                      _debouncedApply();
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      // Reset logic
+                      _config.delay = 0.0;
+                      _config.fontSize = 45.0;
+                      _config.fontColor = Colors.white;
+                      _config.outlineColor = Colors.black;
+                      _config.backgroundColor = Colors.transparent;
+                      _config.outlineSize = 2.0;
+                      _config.position = 100.0;
+                      _config.overrideAss = false;
+                      _debouncedApply();
+                    },
+                    icon: const Icon(Icons.refresh, color: Colors.white54),
+                    label: const Text('Reset', style: TextStyle(color: Colors.white54)),
+                  ),
                 ),
               ],
             ),
@@ -127,70 +161,64 @@ class _SubtitleSettingsSheetState extends State<SubtitleSettingsSheet> {
     );
   }
 
-  Widget _buildSlider(String label, double value, double min, double max, Function(double) onChanged, int divisions) {
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Widget _buildSliderRow(String label, double value, double min, double max, Function(double) onChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(color: Colors.white70)),
-            Text(value.toStringAsFixed(1), style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Text(value.toStringAsFixed(1), style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 14, fontWeight: FontWeight.bold)),
           ],
         ),
         Slider(
           value: value,
           min: min,
           max: max,
-          divisions: divisions,
-          activeColor: Colors.blueAccent,
-          onChanged: (v) {
-            onChanged(v);
-            _update();
-          },
+          activeColor: const Color(0xFF00E5FF),
+          inactiveColor: Colors.white12,
+          onChanged: onChanged,
         ),
       ],
     );
   }
 
-  Widget _buildColorPicker(String label, Color currentColor, Function(Color) onChanged) {
-    final colors = [
-      Colors.transparent, Colors.black, Colors.white, Colors.red, Colors.green, Colors.blue, Colors.yellow, Colors.cyan,
-    ];
+  Widget _buildColorRow(String label, Color currentColor, Function(Color) onColorSelected) {
+    final colors = [Colors.transparent, Colors.white, Colors.black, Colors.yellow, Colors.cyan, Colors.red];
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(color: Colors.white70))),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: colors.map((c) {
-                  final isSelected = c.value == currentColor.value;
-                  return GestureDetector(
-                    onTap: () {
-                      onChanged(c);
-                      _update();
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: c == Colors.transparent ? Colors.grey[800] : c,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isSelected ? Colors.blueAccent : Colors.white24, width: isSelected ? 3 : 1),
-                      ),
-                      child: c == Colors.transparent ? const Icon(Icons.format_color_reset, size: 16, color: Colors.white54) : null,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
+          Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14))),
+          Row(
+            children: colors.map((c) {
+              final isSelected = currentColor.value == c.value;
+              return GestureDetector(
+                onTap: () => onColorSelected(c),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isSelected ? const Color(0xFF00E5FF) : Colors.white24, width: isSelected ? 2 : 1),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
     );
   }
+
 }

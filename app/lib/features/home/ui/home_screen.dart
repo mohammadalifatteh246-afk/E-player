@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'dart:io';
 import '../../../ui/components/e_logo.dart';
+import '../../library/domain/library_provider.dart';
+import '../../../core/models/media_item.dart';
+import '../../player/ui/player_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF09090E),
-      appBar: AppBar(
+    return Consumer<LibraryProvider>(
+      builder: (context, provider, child) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF09090E),
+          appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const ELogo(withText: true, size: 32),
@@ -28,13 +35,15 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _buildCategoryChips(),
             const SizedBox(height: 32),
-            _buildContinueWatching(),
+            _buildContinueWatching(context, provider),
             const SizedBox(height: 32),
-            _buildMyMedia(),
+            _buildMyMedia(provider),
             const SizedBox(height: 40),
           ],
         ),
       ),
+    );
+      },
     );
   }
 
@@ -73,7 +82,9 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildContinueWatching() {
+  Widget _buildContinueWatching(BuildContext context, LibraryProvider provider) {
+    final recent = provider.recentFiles.isNotEmpty ? provider.recentFiles.first : null;
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -94,98 +105,135 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Container(
-            height: 200,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: const Color(0xFF1A1A24),
-              image: const DecorationImage(
-                image: NetworkImage('https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&q=80&w=800'),
-                fit: BoxFit.cover,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    const Color(0xFF09090E).withValues(alpha: 0.9),
+          if (recent != null)
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PlayerScreen(item: recent),
+                  ),
+                );
+              },
+              child: Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFF1A1A24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
                   ],
                 ),
-              ),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00E5FF).withValues(alpha: 0.9),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
-                            blurRadius: 12,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        const Color(0xFF09090E).withValues(alpha: 0.9),
+                      ],
+                    ),
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withValues(alpha: 0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                                blurRadius: 12,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.play_arrow, color: Colors.black, size: 32),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        recent.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Text(
+                            'Recently Played',
+                            style: TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          SizedBox(
+                            width: 100,
+                            child: LinearProgressIndicator(
+                              value: 0.0,
+                              backgroundColor: Colors.white24,
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00E5FF)),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.play_arrow, color: Colors.black, size: 32),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Text(
-                    'The Last Horizon.mkv',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text(
-                        '01:24:16',
-                        style: TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      const Text(
-                        ' / 02:15:30',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        width: 100,
-                        child: LinearProgressIndicator(
-                          value: 0.62,
-                          backgroundColor: Colors.white24,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00E5FF)),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
                     ],
                   ),
-                ],
+                ),
+              ),
+            )
+          else
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFF1A1A24),
+              ),
+              child: const Center(
+                child: Text('No recent media found.', style: TextStyle(color: Colors.white54)),
               ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildMyMedia() {
+  Widget _buildMyMedia(LibraryProvider provider) {
+    int moviesCount = 0;
+    int seriesCount = 0;
+    int animeCount = 0;
+    int musicCount = 0;
+
+    for (var file in provider.allFiles) {
+      final path = file.path.toLowerCase();
+      if (path.contains('movie')) {
+        moviesCount++;
+      } else if (path.contains('series') || path.contains('season')) {
+        seriesCount++;
+      } else if (path.contains('anime')) {
+        animeCount++;
+      } else if (path.endsWith('.mp3') || path.endsWith('.flac') || path.endsWith('.m4a') || path.endsWith('.wav')) {
+        musicCount++;
+      } else {
+        // Default assignment for demo
+        moviesCount++;
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -208,10 +256,10 @@ class HomeScreen extends StatelessWidget {
             crossAxisSpacing: 16,
             childAspectRatio: 1.5,
             children: [
-              _buildMediaCard('Movies', '24 items', Icons.movie_outlined, const Color(0xFF2979FF)),
-              _buildMediaCard('Series', '12 items', Icons.tv_outlined, const Color(0xFF00C853)),
-              _buildMediaCard('Anime', '18 items', Icons.animation, const Color(0xFFFF3D00)),
-              _buildMediaCard('Music', '32 items', Icons.music_note_outlined, const Color(0xFFAA00FF)),
+              _buildMediaCard('Movies', ' items', Icons.movie_outlined, const Color(0xFF2979FF)),
+              _buildMediaCard('Series', ' items', Icons.tv_outlined, const Color(0xFF00C853)),
+              _buildMediaCard('Anime', ' items', Icons.animation, const Color(0xFFFF3D00)),
+              _buildMediaCard('Music', ' items', Icons.music_note_outlined, const Color(0xFFAA00FF)),
             ],
           ),
         ],
