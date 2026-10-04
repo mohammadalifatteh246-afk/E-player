@@ -111,7 +111,7 @@ class HomeScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => PlayerScreen(item: recent),
+                    builder: (_) => PlayerScreen(mediaPath: recent.path),
                   ),
                 );
               },
