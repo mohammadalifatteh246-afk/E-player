@@ -731,7 +731,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     'Resolution: \${_player.state.width}x\${_player.state.height}\n'
                     'Video Codec: \${_player.state.track.video.title ?? _player.state.track.video.id}\n'
                     'Audio Codec: \${_player.state.track.audio.title ?? _player.state.track.audio.id}\n'
-                    'Bitrate: \${_player.state.audioBitrate ?? 'Unknown'}',
+                    'Bitrate: \${_player.state.audioBitrate ?? "Unknown"}',
                     style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 10, fontFamily: 'monospace'),
                   ),
                 ),
