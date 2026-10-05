@@ -479,10 +479,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
       body: GestureDetector(
-        onDoubleTapDown: (details) => _handleDoubleTap(details, context),
-        onScaleStart: _handleScaleStart,
-        onScaleUpdate: _handleScaleUpdate,
-        onScaleEnd: _handleScaleEnd,
+        onDoubleTapDown: _onDoubleTapDown,
+        onScaleStart: _onScaleStart,
+        onScaleUpdate: _onScaleUpdate,
+        onScaleEnd: _onScaleEnd,
+        behavior: HitTestBehavior.opaque,
         child: Stack(
           children: [
             // Video Layer
@@ -726,16 +727,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Decoder: 
-'
-                    'Resolution: x
-'
-                    'Video Codec: 
-'
-                    'Audio Codec: 
-'
-                    'Bitrate: ',
-                    style: const TextStyle(color: const Color(0xFF00E5FF), fontSize: 10, fontFamily: 'monospace'),
+                    'Decoder: \$_decoderMode\n'
+                    'Resolution: \${_player.state.width}x\${_player.state.height}\n'
+                    'Video Codec: \${_player.state.track.video.title ?? _player.state.track.video.id}\n'
+                    'Audio Codec: \${_player.state.track.audio.title ?? _player.state.track.audio.id}\n'
+                    'Bitrate: \${_player.state.audioBitrate ?? 'Unknown'}',
+                    style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 10, fontFamily: 'monospace'),
                   ),
                 ),
               ),
