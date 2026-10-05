@@ -1,363 +1,272 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import '../domain/library_provider.dart';
 import '../../player/ui/player_screen.dart';
-import 'package:path/path.dart' as p;
 import '../../../core/models/media_item.dart';
 import 'folder_detail_screen.dart';
 import '../../export/ui/export_screen.dart';
-import '../../settings/ui/settings_screen.dart';
 import '../../vault/ui/vault_screen.dart';
 import '../../trash/ui/trash_screen.dart';
 import '../../vault/domain/vault_service.dart';
 import '../../trash/domain/trash_service.dart';
+import 'package:path/path.dart' as p;
 
-class LibraryScreen extends StatelessWidget {
+class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
 
   @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  String _selectedChip = 'All';
+  final List<String> _chips = ['All', 'Videos', 'Audio', 'Folders'];
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F13), // Deep premium dark background
-      appBar: AppBar(
-        title: const Text('E-Player', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.security, color: Colors.blueAccent),
-            tooltip: 'Private Vault',
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
-            },
+    return Consumer<LibraryProvider>(
+      builder: (context, provider, child) {
+        return Scaffold(
+          backgroundColor: const Color(0xFF09090E),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text('Media Library', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.search, color: Colors.white),
+                onPressed: () {},
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                color: const Color(0xFF1A1A24),
+                onSelected: (val) {
+                  if (val == 'vault') {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
+                  } else if (val == 'trash') {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
+                  } else if (val == 'export') {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportScreen()));
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'vault', child: Text('Private Vault', style: TextStyle(color: Colors.white))),
+                  const PopupMenuItem(value: 'trash', child: Text('Trash', style: TextStyle(color: Colors.white))),
+                  const PopupMenuItem(value: 'export', child: Text('Export Jobs', style: TextStyle(color: Colors.white))),
+                ],
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.white70),
-            tooltip: 'Trash',
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
-            },
+          floatingActionButton: FloatingActionButton(
+            onPressed: provider.isScanning ? null : () => provider.scanDirectory(),
+            backgroundColor: const Color(0xFF00E5FF),
+            child: provider.isScanning 
+                ? const CircularProgressIndicator(color: Colors.black)
+                : const Icon(Icons.create_new_folder, color: Colors.black),
           ),
-          IconButton(
-            icon: const Icon(Icons.download, color: Colors.amber),
-            tooltip: 'Export Jobs',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ExportScreen()),
-              );
-            },
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCategoryChips(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _buildMainContent(provider),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.white70),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Consumer<LibraryProvider>(
-        builder: (ctx, provider, child) {
-          return CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final path = await provider.pickFile();
-                            if (path != null && context.mounted) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: path)),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.folder_open),
-                          label: const Text('Open File'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber,
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: provider.isScanning ? null : () => provider.scanDirectory(),
-                          icon: provider.isScanning 
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber))
-                              : const Icon(Icons.search),
-                          label: Text(provider.isScanning ? 'Scanning...' : 'Scan Folder'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey[800],
-                            foregroundColor: Colors.amber,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      if (provider.recentFiles.isNotEmpty)
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              final latest = provider.recentFiles.first;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: latest.path)),
-                              );
-                            },
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('Continue'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white10,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                        ),
-                    ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: _chips.map((chip) {
+          final isSelected = _selectedChip == chip;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedChip = chip),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF00E5FF).withValues(alpha: 0.15) : Colors.transparent,
+                  border: Border.all(color: isSelected ? const Color(0xFF00E5FF) : Colors.white24),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  chip,
+                  style: TextStyle(
+                    color: isSelected ? const Color(0xFF00E5FF) : Colors.white70,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ),
-              if (provider.favorites.isNotEmpty)
-                _buildSliverSectionTitle('Favorites'),
-              if (provider.favorites.isNotEmpty)
-                _buildSliverGrid(provider.favorites, provider),
-              if (provider.recentFiles.isNotEmpty)
-                _buildSliverSectionTitle('Recent Media'),
-              if (provider.recentFiles.isNotEmpty)
-                _buildSliverGrid(provider.recentFiles, provider),
-              if (provider.groupedFolders.isNotEmpty)
-                _buildSliverSectionTitle('Folders'),
-              if (provider.groupedFolders.isNotEmpty)
-                _buildFolderList(provider.groupedFolders, context),
-              if (provider.allFiles.isEmpty && provider.recentFiles.isEmpty && provider.favorites.isEmpty)
-                SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.video_library_rounded, size: 80, color: Colors.white.withValues(alpha: 0.1)),
-                        const SizedBox(height: 20),
-                        Text(provider.isScanning ? provider.scanProgress : 'Your Library is Empty', style: const TextStyle(color: Colors.white54, fontSize: 18)),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
+            ),
           );
-        },
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildSliverSectionTitle(String title) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.only(left: 20.0, right: 20.0, bottom: 10.0, top: 10.0),
-        child: Text(
-          title,
-          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+  Widget _buildMainContent(LibraryProvider provider) {
+    if (provider.allFiles.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.video_library_rounded, size: 80, color: Colors.white.withValues(alpha: 0.1)),
+            const SizedBox(height: 20),
+            Text(provider.isScanning ? provider.scanProgress : 'Your Library is Empty', style: const TextStyle(color: Colors.white54, fontSize: 18)),
+          ],
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildSliverGrid(List items, LibraryProvider provider) {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      sliver: SliverGrid(
+    if (_selectedChip == 'Folders') {
+      final map = provider.groupedFolders;
+      if (map.isEmpty) {
+         return const Center(child: Text('No folders found.', style: TextStyle(color: Colors.white54)));
+      }
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        physics: const BouncingScrollPhysics(),
+        itemCount: map.keys.length,
+        itemBuilder: (context, index) {
+          final folderName = map.keys.elementAt(index);
+          final items = map[folderName]!;
+          return _buildFolderTile(folderName, items, provider);
+        },
+      );
+    } else {
+      List<MediaItem> displayItems = [];
+      if (_selectedChip == 'All') {
+        displayItems = provider.allFiles;
+      } else if (_selectedChip == 'Videos') {
+        displayItems = provider.allFiles.where((i) => i.path.toLowerCase().endsWith('.mp4') || i.path.toLowerCase().endsWith('.mkv') || i.path.toLowerCase().endsWith('.avi')).toList();
+      } else if (_selectedChip == 'Audio') {
+        displayItems = provider.allFiles.where((i) => i.path.toLowerCase().endsWith('.mp3') || i.path.toLowerCase().endsWith('.flac') || i.path.toLowerCase().endsWith('.m4a') || i.path.toLowerCase().endsWith('.wav')).toList();
+      }
+
+      if (displayItems.isEmpty) {
+        return Center(child: Text('No \ found.', style: const TextStyle(color: Colors.white54)));
+      }
+
+      return GridView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        physics: const BouncingScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
-          childAspectRatio: 16 / 10,
+          childAspectRatio: 1.5,
         ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final item = items[index];
-            return Semantics(
-              label: 'Media file: ${item.name}',
-              hint: 'Double tap to play',
-              child: InkWell(
-                onTap: () {
-                  provider.addRecent(item.path);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2A2A35), Color(0xFF1E1E26)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4)),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      const Center(child: Icon(Icons.play_circle_fill, color: Colors.white24, size: 48)),
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Semantics(
-                              label: item.isFavorite ? 'Remove from favorites' : 'Add to favorites',
-                              button: true,
-                              child: IconButton(
-                                icon: Icon(
-                                  item.isFavorite ? Icons.star : Icons.star_border,
-                                  color: item.isFavorite ? Colors.amber : Colors.white54,
-                                  size: 20,
-                                ),
-                                onPressed: () => provider.toggleFavorite(item.path),
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Colors.white70, size: 20),
-                              color: const Color(0xFF2A2A35),
-                              onSelected: (value) async {
-                                if (value == 'vault') {
-                                  try {
-                                    final vaultService = context.read<VaultService>();
-                                    await vaultService.moveToVault(item);
-                                    provider.scanDirectory(); // Refresh library
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Moved to Private Vault')));
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Vault Error: $e')));
-                                    }
-                                  }
-                                } else if (value == 'trash') {
-                                  try {
-                                    final trashService = context.read<TrashService>();
-                                    await trashService.moveToTrash(item);
-                                    provider.scanDirectory(); // Refresh library
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Moved to Trash')));
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Trash Error: $e')));
-                                    }
-                                  }
-                                }
-                              },
-                              itemBuilder: (BuildContext context) => [
-                                const PopupMenuItem(
-                                  value: 'vault',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.security, color: Colors.blueAccent, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('Move to Vault', style: TextStyle(color: Colors.white)),
-                                    ],
-                                  ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'trash',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, color: Colors.redAccent, size: 20),
-                                      SizedBox(width: 8),
-                                      Text('Move to Trash', style: TextStyle(color: Colors.white)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 0, left: 0, right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-                          ),
-                          child: Text(
-                            item.name,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-          childCount: items.length,
-        ),
-      ),
-    );
+        itemCount: displayItems.length,
+        itemBuilder: (context, index) {
+          final item = displayItems[index];
+          return _buildMediaCard(item, provider);
+        },
+      );
+    }
   }
 
-  Widget _buildFolderList(Map<String, List<MediaItem>> folders, BuildContext context) {
-    final folderEntries = folders.entries.toList();
-    folderEntries.sort((a, b) => p.basename(a.key).toLowerCase().compareTo(p.basename(b.key).toLowerCase()));
-    
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final entry = folderEntries[index];
-          final folderPath = entry.key;
-          final items = entry.value;
-          final folderName = p.basename(folderPath);
-          
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            leading: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.folder, color: Colors.amber, size: 32),
-            ),
-            title: Text(folderName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            subtitle: Text('${items.length} video${items.length > 1 ? 's' : ''}', style: const TextStyle(color: Colors.white54)),
-            trailing: const Icon(Icons.chevron_right, color: Colors.white24),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => FolderDetailScreen(folderName: folderName, items: items),
-                ),
-              );
-            },
+  Widget _buildFolderTile(String folderName, List<MediaItem> items, LibraryProvider provider) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A24),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: const Icon(Icons.folder_outlined, color: Color(0xFF00E5FF), size: 32),
+        title: Text(p.basename(folderName), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        subtitle: Text('\ items', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => FolderDetailScreen(folderName: folderName, items: items)),
           );
         },
-        childCount: folderEntries.length,
       ),
     );
   }
 
+  Widget _buildMediaCard(MediaItem item, LibraryProvider provider) {
+    return InkWell(
+      onTap: () {
+        provider.addRecent(item.path);
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)));
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A24),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Icon(
+                item.path.toLowerCase().endsWith('.mp3') || item.path.toLowerCase().endsWith('.flac') 
+                  ? Icons.music_note 
+                  : Icons.play_circle_fill, 
+                color: Colors.white.withValues(alpha: 0.1), size: 48
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.white70, size: 20),
+                color: const Color(0xFF1A1A24),
+                onSelected: (value) async {
+                  if (value == 'vault') {
+                    try {
+                      final vaultService = context.read<VaultService>();
+                      await vaultService.moveToVault(item);
+                      provider.scanDirectory();
+                    } catch (e) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ')));
+                    }
+                  } else if (value == 'trash') {
+                    try {
+                      final trashService = context.read<TrashService>();
+                      await trashService.moveToTrash(item);
+                      provider.scanDirectory();
+                    } catch (e) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ')));
+                    }
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'vault', child: Text('Move to Vault', style: TextStyle(color: Colors.white))),
+                  const PopupMenuItem(value: 'trash', child: Text('Move to Trash', style: TextStyle(color: Colors.white))),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 12,
+              left: 12,
+              right: 12,
+              child: Text(
+                item.name,
+                style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

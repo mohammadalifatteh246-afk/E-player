@@ -458,95 +458,144 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final videoAspect = _getAspectRatio() ?? 
-        (_player.state.width != null && _player.state.height != null && _player.state.height! > 0 
-            ? _player.state.width!.toDouble() / _player.state.height!.toDouble() 
-            : 16/9);
-
     return Scaffold(
       backgroundColor: Colors.black,
       endDrawer: Drawer(
-        backgroundColor: Colors.grey[900],
-        child: SafeArea(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              ),
-              const Divider(color: Colors.white24),
-              SwitchListTile(
-                title: const Text('Gestures Enabled', style: TextStyle(color: Colors.white)),
-                value: _gesturesEnabled,
-                activeColor: Colors.blueAccent,
-                onChanged: (v) => setState(() => _gesturesEnabled = v),
-              ),
-            ],
-          ),
+        backgroundColor: const Color(0xFF0F0F13),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color(0xFF1A1A24)),
+              child: Text('Player Settings', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+            ),
+            SwitchListTile(
+              title: const Text('Gesture Controls', style: TextStyle(color: Colors.white)),
+              value: _gesturesEnabled,
+              activeColor: const Color(0xFF00E5FF),
+              onChanged: (v) => setState(() => _gesturesEnabled = v),
+            ),
+          ],
         ),
       ),
-      body: SafeArea(
+      body: GestureDetector(
+        onDoubleTapDown: (details) => _handleDoubleTap(details, context),
+        onScaleStart: _handleScaleStart,
+        onScaleUpdate: _handleScaleUpdate,
+        onScaleEnd: _handleScaleEnd,
         child: Stack(
           children: [
-            // Video & Gestures
-            GestureDetector(
-              onDoubleTapDown: _onDoubleTapDown,
-              onScaleStart: _onScaleStart,
-              onScaleUpdate: _onScaleUpdate,
-              onScaleEnd: _onScaleEnd,
-              behavior: HitTestBehavior.opaque,
-              child: SizedBox.expand(
-                child: ClipRect(
-                  child: Transform.translate(
-                    offset: _offset,
-                    child: Transform.scale(
-                      scale: _scale,
-                      child: Center(
-                        child: AspectRatio(
-                          aspectRatio: videoAspect,
-                          child: Video(
-                            controller: _controller,
-                            controls: NoVideoControls,
-                            fit: _getFit(),
-                            subtitleViewConfiguration: const SubtitleViewConfiguration(visible: false),
-                          ),
-                        ),
-                      ),
-                    ),
+            // Video Layer
+            Center(
+              child: Transform.translate(
+                offset: _offset,
+                child: Transform.scale(
+                  scale: _scale,
+                  child: Video(
+                    controller: _controller,
+                    fit: _aspectRatio == 'Fit' ? BoxFit.contain 
+                        : _aspectRatio == 'Fill' ? BoxFit.fill 
+                        : _aspectRatio == 'Crop' ? BoxFit.cover 
+                        : _aspectRatio == '16:9' ? BoxFit.contain
+                        : _aspectRatio == '4:3' ? BoxFit.contain
+                        : _aspectRatio == '21:9' ? BoxFit.contain
+                        : BoxFit.contain,
+                    controls: NoVideoControls,
                   ),
                 ),
               ),
             ),
 
-            // Top bar
+            // Top Gradient Overlay (Cinematic)
             Positioned(
-              top: 10,
-              left: 10,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
-            
-            // Telemetry Overlay
-            if (_showTelemetry)
-              Positioned(
-                top: 60,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  color: Colors.black54,
-                  child: Text(
-                    'Decoder: $_decoderMode\\n'
-                    'Resolution: ${_player.state.width}x${_player.state.height}\\n'
-                    'Video Codec: ${_player.state.track.video.title ?? _player.state.track.video.id}\\n'
-                    'Audio Codec: ${_player.state.track.audio.title ?? _player.state.track.audio.id}\\n'
-                    'Bitrate: ${_player.state.audioBitrate ?? 'Unknown'}',
-                    style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontFamily: 'monospace'),
+              top: 0, left: 0, right: 0,
+              height: 100,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
                   ),
                 ),
               ),
+            ),
+            
+            // Top Bar Controls
+            Positioned(
+              top: 24, left: 16, right: 16,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Text('E-PLAYER', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2.0)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.auto_awesome, color: _enhancementConfig.masterToggle ? const Color(0xFF00E5FF) : Colors.white),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (context) {
+                              return SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: EnhancementStudioSheet(
+                                  aiEngine: _aiEngine, mediaPath: widget.mediaPath, config: _enhancementConfig,
+                                ),
+                              );
+                            },
+                          ).then((_) {
+                            setState(() {});
+                            _applyEnhancements();
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.equalizer, color: Colors.white),
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => AudioStudioSheet(player: _player, config: _audioConfig),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.subtitles, color: Colors.white),
+                        onPressed: _showSubtitleMenu,
+                      ),
+                      Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(Icons.settings, color: Colors.white),
+                          onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Bottom Gradient Overlay
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              height: 160,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black.withValues(alpha: 0.9), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
 
             // Visual Feedback Overlay
             if (_showFeedback)
@@ -554,7 +603,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -568,160 +617,128 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ),
               ),
 
-            // Enhancement Badge
-            if (_enhancementConfig.masterToggle && _aiEngine.isLoaded)
-              Positioned(
-                top: 16,
-                right: 60,
+            // Bottom Controls (Glassmorphic vibe)
+            Positioned(
+              bottom: 24, left: 24, right: 24,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.8),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Row(
+                  color: const Color(0xFF1A1A24).withValues(alpha: 0.6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.auto_awesome, size: 16, color: Colors.black),
-                      SizedBox(width: 4),
-                      Text('ENHANCED', style: TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          Text(_formatDuration(_position), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                activeTrackColor: const Color(0xFF00E5FF),
+                                inactiveTrackColor: Colors.white24,
+                                thumbColor: const Color(0xFF00E5FF),
+                                overlayColor: const Color(0xFF00E5FF).withValues(alpha: 0.2),
+                                trackHeight: 4.0,
+                              ),
+                              child: Slider(
+                                value: _position.inMilliseconds.toDouble(),
+                                min: 0.0,
+                                max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                                onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())),
+                              ),
+                            ),
+                          ),
+                          Text(_formatDuration(_duration), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        ],
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              TextButton(
+                                onPressed: _showSpeedMenu,
+                                child: Text('x', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.aspect_ratio, color: Colors.white70),
+                                onPressed: _showAspectRatioMenu,
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.replay_10, color: Colors.white, size: 28),
+                                onPressed: () {
+                                  final newPos = _position - const Duration(seconds: 10);
+                                  _player.seek(newPos < Duration.zero ? Duration.zero : newPos);
+                                },
+                              ),
+                              Container(
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF00E5FF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.black, size: 32),
+                                  onPressed: () => _isPlaying ? _player.pause() : _player.play(),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.forward_10, color: Colors.white, size: 28),
+                                onPressed: () {
+                                  final newPos = _position + const Duration(seconds: 10);
+                                  _player.seek(newPos > _duration ? _duration : newPos);
+                                },
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.memory, color: Colors.white70),
+                                onPressed: _showDecoderMenu,
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.analytics, color: _showTelemetry ? const Color(0xFF00E5FF) : Colors.white70),
+                                onPressed: () => setState(() => _showTelemetry = !_showTelemetry),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ),
-
-            // Enhancement button
-            Positioned(
-              top: 10,
-              right: 10,
-              child: IconButton(
-                icon: Icon(Icons.auto_awesome, color: _enhancementConfig.masterToggle ? Colors.amber : Colors.white),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    isScrollControlled: true,
-                    builder: (context) {
-                      return SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.6,
-                        child: EnhancementStudioSheet(
-                          aiEngine: _aiEngine, mediaPath: widget.mediaPath, config: _enhancementConfig,
-                        ),
-                      );
-                    },
-                  ).then((_) {
-                    setState(() {});
-                    _applyEnhancements();
-                  });
-                },
-              ),
             ),
-
-            // Bottom controls
-            Positioned(
-              bottom: 20,
-              left: 10,
-              right: 10,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        Text(_formatDuration(_position), style: const TextStyle(color: Colors.white)),
-                        Expanded(
-                          child: Slider(
-                            value: _position.inMilliseconds.toDouble(),
-                            min: 0.0,
-                            max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
-                            onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())),
-                            activeColor: Colors.blueAccent,
-                          ),
-                        ),
-                        Text(_formatDuration(_duration), style: const TextStyle(color: Colors.white)),
-                      ],
-                    ),
+            
+            // Telemetry Overlay
+            if (_showTelemetry)
+              Positioned(
+                top: 80,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Builder(
-                        builder: (ctx) => IconButton(
-                          icon: const Icon(Icons.settings, color: Colors.white),
-                          onPressed: () => Scaffold.of(ctx).openEndDrawer(),
-                        ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.replay_10, color: Colors.white),
-                            onPressed: () {
-                              final newPos = _position - const Duration(seconds: 10);
-                              _player.seek(newPos < Duration.zero ? Duration.zero : newPos);
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 32),
-                            onPressed: () => _isPlaying ? _player.pause() : _player.play(),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.forward_10, color: Colors.white),
-                            onPressed: () {
-                              final newPos = _position + const Duration(seconds: 10);
-                              _player.seek(newPos > _duration ? _duration : newPos);
-                            },
-                          ),
-                        ],
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextButton(
-                            onPressed: _showSpeedMenu,
-                            child: Text('${_playbackSpeed.toStringAsFixed(2)}x', style: const TextStyle(color: Colors.white)),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.subtitles, color: Colors.white),
-                            onPressed: _showSubtitleMenu,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.equalizer, color: Colors.white),
-                            onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (context) => AudioStudioSheet(player: _player, config: _audioConfig),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.analytics, color: _showTelemetry ? Colors.blueAccent : Colors.white),
-                            onPressed: () => setState(() => _showTelemetry = !_showTelemetry),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.memory, color: Colors.white),
-                            onPressed: _showDecoderMenu,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.aspect_ratio, color: Colors.white),
-                            onPressed: _showAspectRatioMenu,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.fullscreen, color: Colors.white),
-                            onPressed: () {
-                              // Skipping nested full screen to save code length here, keeping standard exit logic
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
+                  child: Text(
+                    'Decoder: 
+'
+                    'Resolution: x
+'
+                    'Video Codec: 
+'
+                    'Audio Codec: 
+'
+                    'Bitrate: ',
+                    style: const TextStyle(color: const Color(0xFF00E5FF), fontSize: 10, fontFamily: 'monospace'),
                   ),
-                ],
+                ),
               ),
-            ),
           ],
         ),
       ),
