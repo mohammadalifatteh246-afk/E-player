@@ -2,14 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/features/export/domain/export_service.dart';
 
 void main() {
-  group('ExportService Tests', () {
+  group('ExportService V3 Tests (Phases 12 & 13)', () {
     late ExportService service;
 
     setUp(() {
       service = ExportService();
     });
 
-    test('Add job adds to queue and triggers processing', () {
+    test('Add job initializes Phase 13 state machine and triggers worker', () {
       final job = ExportJob(
         id: 'job_1',
         sourcePath: 'src.mp4',
@@ -21,13 +21,15 @@ void main() {
       service.addJob(job);
       expect(service.jobs.length, 1);
       expect(service.jobs.first.id, 'job_1');
-      
-      // Because we trigger Isolate.spawn synchronously in addJob, 
-      // the job status might instantly become processing depending on sync vs async scheduling.
-      expect(job.status == ExportStatus.pending || job.status == ExportStatus.processing, isTrue);
+      expect(job.targetWidth, 1920);
+      expect(job.targetHeight, 1080);
+      expect(
+        job.status == ExportStatus.pending || job.status == ExportStatus.processing,
+        isTrue,
+      );
     });
 
-    test('Cancel job updates status to cancelled and clears temp file', () {
+    test('Cancel job updates status and stage to cancelled and clears temp file', () {
       final job = ExportJob(
         id: 'job_2',
         sourcePath: 'src.mp4',
@@ -40,36 +42,26 @@ void main() {
       service.cancelJob('job_2');
 
       expect(service.jobs.first.status, ExportStatus.cancelled);
-      // Phase 7A: Temp file should not exist (simulated cleanup)
+      expect(service.jobs.first.stage, ExportPipelineStage.cancelled);
+      expect(service.jobs.first.stageLabel, contains('Cancelled'));
     });
 
-    // --- Phase 7C: Exit Criteria Tests ---
-    
-    test('Job preserves AV Sync via muxing configurations (Mock)', () {
-      final job = ExportJob(
+    test('Job preserves AV Sync and resolution mapping across presets', () {
+      final job4k = ExportJob(
         id: 'job_sync_1',
         sourcePath: 'src.mp4',
         outputPath: 'out.mkv',
-        resolutionTarget: '1080p',
-        fpsTarget: 60, // 30 -> 60 interpolate
-        enableAudioEnhancement: true,
-      );
-      
-      expect(job.enableAudioEnhancement, true);
-      expect(job.tempPath.endsWith('.tmp'), true);
-    });
-
-    test('Large-file recovery handling is structured properly', () {
-      // If a background isolate crashes mid-way, the .tmp file is retained
-      // We test that restarting a job recognizes the .tmp offset.
-      final job = ExportJob(
-        id: 'job_large_1',
-        sourcePath: 'src.mp4',
-        outputPath: 'out.mkv',
-        resolutionTarget: '4K',
+        resolutionTarget: '2160p/4K',
         fpsTarget: 60,
+        enableAudioEnhancement: true,
+        enableSubtitles: true,
       );
-      expect(job.tempPath, 'out.mkv.tmp');
+
+      expect(job4k.enableAudioEnhancement, isTrue);
+      expect(job4k.enableSubtitles, isTrue);
+      expect(job4k.targetWidth, 3840);
+      expect(job4k.targetHeight, 2160);
+      expect(job4k.tempPath, 'out.mkv.tmp');
     });
   });
 }

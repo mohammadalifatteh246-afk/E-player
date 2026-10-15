@@ -46,14 +46,18 @@ class NativeEngineOrchestrator {
     if (model == nullptr) {
       final errorPtr = _bindings!.getLastError(_engine!);
       String errorMsg = errorPtr != nullptr ? errorPtr.toDartString() : "Unknown native error";
-      
+
       // Phase 9C: Reliability - Model load failure / corrupt weights handling
       if (errorMsg.contains("corrupt") || errorMsg.contains("invalid model")) {
-        throw Exception("CRITICAL: AI Model '$modelPath' is corrupt or incomplete. Please re-download the model package.");
+        throw Exception(
+          "CRITICAL: AI Model '$modelPath' is corrupt or incomplete. Please re-download the model package.",
+        );
       } else if (errorMsg.contains("memory") || errorMsg.contains("alloc")) {
-        throw Exception("CRITICAL: Insufficient memory to load '$modelPath'. Please close other applications.");
+        throw Exception(
+          "CRITICAL: Insufficient memory to load '$modelPath'. Please close other applications.",
+        );
       }
-      
+
       throw Exception("Failed to load model '$modelPath': $errorMsg");
     }
 
@@ -65,29 +69,84 @@ class NativeEngineOrchestrator {
     _bindings!.modelUnload(_engine!, model);
   }
 
-  // Frame operations would be added here
+  void cancelAllJobs() {
+    if (_engine == null) return;
+    _bindings!.jobCancelAll(_engine!);
+  }
+
+  int getQueueDepth() {
+    if (_engine == null) return 0;
+    return _bindings!.getQueueDepth(_engine!);
+  }
+
+  // --- Phase 12 & 13: Tiled Inference & Offline AI Export Execution ---
+
+  int processExportChunk({
+    Pointer<EPModelHandle>? model,
+    required String sourcePath,
+    required String tempOutputPath,
+    required int targetWidth,
+    required int targetHeight,
+    required int targetFps,
+    required int chunkIndex,
+    required int totalChunks,
+  }) {
+    if (_engine == null || _bindings == null) return -1;
+    final fn = _bindings!.exportProcessChunk;
+    if (fn == null) return -1;
+
+    final srcPtr = sourcePath.toNativeUtf8();
+    final tmpPtr = tempOutputPath.toNativeUtf8();
+    try {
+      return fn(
+        _engine!,
+        model ?? nullptr,
+        srcPtr,
+        tmpPtr,
+        targetWidth,
+        targetHeight,
+        targetFps,
+        chunkIndex,
+        totalChunks,
+      );
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(tmpPtr);
+    }
+  }
+
+  bool validateExportContainer(String filePath) {
+    if (_engine == null || _bindings == null) return false;
+    final fn = _bindings!.validateExportContainer;
+    if (fn == null) return false;
+
+    final pathPtr = filePath.toNativeUtf8();
+    try {
+      return fn(_engine!, pathPtr);
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
 
   // --- Phase 5: RIFE Frame Interpolation Controls ---
-  
+
   void setRifeConfig(int targetFps, bool enableSceneCutDetection) {
     if (_engine == null) return;
     _bindings!.setRifeConfig(_engine!, targetFps, enableSceneCutDetection);
   }
 
   void invalidateQueue() {
-    // Called on video seek to prevent stale frames from interpolating into the new scene
     if (_engine == null) return;
     _bindings!.queueInvalidate(_engine!);
   }
 
   void setAudioTimestampOffset(int offsetMs) {
-    // Phase 5C: Keep audio perfectly synchronized with RIFE interpolated frames
     if (_engine == null) return;
     _bindings!.setAudioTimestampOffset(_engine!, offsetMs);
   }
 
   // --- Phase 6: Audio Enhancement ---
-  
+
   void setAudioDspConfig({
     bool enableEq = false,
     bool enableNormalization = false,
@@ -95,19 +154,23 @@ class NativeEngineOrchestrator {
     bool enableDialogueBoost = false,
     bool enableNightMode = false,
   }) {
-    // Phase 6A: DSP
     if (_engine == null) return;
-    _bindings!.setAudioDspConfig(_engine!, enableEq, enableNormalization, enableCompressor, enableDialogueBoost, enableNightMode);
+    _bindings!.setAudioDspConfig(
+      _engine!,
+      enableEq,
+      enableNormalization,
+      enableCompressor,
+      enableDialogueBoost,
+      enableNightMode,
+    );
   }
 
   void setAudioAiConfig(bool enableRnnoise, double strength) {
-    // Phase 6B: AI speech/noise
     if (_engine == null) return;
     _bindings!.setAudioAiConfig(_engine!, enableRnnoise, strength);
   }
 
   void bypassAudioEnhancement(bool bypass) {
-    // Phase 6 Exit Criteria: instant bypass
     if (_engine == null) return;
     _bindings!.bypassAudioEnhancement(_engine!, bypass);
   }
@@ -115,7 +178,6 @@ class NativeEngineOrchestrator {
   // --- Phase 8: Advanced Features ---
 
   void generateSubtitles(String audioPath, String outputSrtPath) {
-    // Phase 8A: ASR
     if (_engine == null) return;
     final audioPtr = audioPath.toNativeUtf8();
     final outPtr = outputSrtPath.toNativeUtf8();
@@ -125,7 +187,6 @@ class NativeEngineOrchestrator {
   }
 
   void setDepthConfig(bool enableSbs, double depthStrength, double convergence) {
-    // Phase 8B: 2D to 3D Depth
     if (_engine == null) return;
     _bindings!.setDepthConfig(_engine!, enableSbs, depthStrength, convergence);
   }
@@ -136,8 +197,13 @@ class NativeEngineOrchestrator {
     bool needsAudio = false,
     bool needsDepth = false,
   }) {
-    // Phase 8C Exit Criteria: Capability / Thermal Gating
     if (_engine == null) return false;
-    return _bindings!.canEnablePipeline(_engine!, needsSpatial, needsTemporal, needsAudio, needsDepth);
+    return _bindings!.canEnablePipeline(
+      _engine!,
+      needsSpatial,
+      needsTemporal,
+      needsAudio,
+      needsDepth,
+    );
   }
 }

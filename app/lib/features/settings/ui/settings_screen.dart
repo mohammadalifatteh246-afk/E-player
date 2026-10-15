@@ -11,9 +11,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _hwAcceleration = true;
-  bool _gestureControls = true;
-
   @override
   Widget build(BuildContext context) {
     return Consumer<SettingsProvider>(

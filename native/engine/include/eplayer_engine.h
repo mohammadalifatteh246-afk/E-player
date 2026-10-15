@@ -32,10 +32,41 @@ EPLAYER_EXPORT void eplayer_model_unload(EPEngineHandle engine, EPModelHandle mo
 EPLAYER_EXPORT EPFrameHandle eplayer_frame_acquire(EPEngineHandle engine, int width, int height, int channels);
 EPLAYER_EXPORT void eplayer_frame_release(EPEngineHandle engine, EPFrameHandle frame);
 EPLAYER_EXPORT uint8_t* eplayer_frame_get_data(EPFrameHandle frame);
+EPLAYER_EXPORT int eplayer_frame_get_width(EPFrameHandle frame);
+EPLAYER_EXPORT int eplayer_frame_get_height(EPFrameHandle frame);
 
 // Inference execution
 // Returns 0 on success, < 0 on error
 EPLAYER_EXPORT int eplayer_frame_submit(EPEngineHandle engine, EPModelHandle model, EPFrameHandle input_frame, EPFrameHandle* output_frame);
+
+// Phase 12.5 & 12.6: Tiled Spatial Super-Resolution Inference with overlap blending
+EPLAYER_EXPORT int eplayer_frame_submit_tiled(
+    EPEngineHandle engine,
+    EPModelHandle model,
+    EPFrameHandle input_frame,
+    int tile_size,
+    int tile_overlap,
+    int scale_factor,
+    EPFrameHandle* output_frame
+);
+
+// Phase 12.7, 12.8 & Phase 13: Offline AI Export Pipeline Step & Container Validation
+EPLAYER_EXPORT int eplayer_export_process_chunk(
+    EPEngineHandle engine,
+    EPModelHandle model,
+    const char* source_path,
+    const char* temp_output_path,
+    int target_width,
+    int target_height,
+    int target_fps,
+    int chunk_index,
+    int total_chunks
+);
+
+EPLAYER_EXPORT bool eplayer_validate_export_container(
+    EPEngineHandle engine,
+    const char* file_path
+);
 
 // Queue and Cancelation
 EPLAYER_EXPORT void eplayer_job_cancel_all(EPEngineHandle engine);

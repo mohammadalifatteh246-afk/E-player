@@ -10,3 +10,5 @@ build/
 .dart_tool/
 
 app-release.apk
+flat_files/
+workspace_tree/

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'features/library/domain/library_provider.dart';
-import 'features/library/ui/library_screen.dart';
 import 'ui/main_scaffold.dart';
 import 'features/export/domain/export_service.dart';
 import 'features/vault/domain/vault_service.dart';

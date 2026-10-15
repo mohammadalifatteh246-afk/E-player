@@ -30,7 +30,7 @@ class LibraryProvider extends ChangeNotifier {
     try {
       final allItems = await DatabaseHelper.instance.getAllItems();
       _allFiles = allItems;
-      
+
       // Sort by lastPlayed desc for recents
       final recents = List<MediaItem>.from(allItems);
       recents.sort((a, b) => b.lastPlayed.compareTo(a.lastPlayed));
@@ -39,12 +39,38 @@ class LibraryProvider extends ChangeNotifier {
       // Favorites
       _favorites = allItems.where((i) => i.isFavorite).toList();
     } catch (e) {
-      // Database not ready or corrupted — start with empty state
       _allFiles = [];
       _recentFiles = [];
       _favorites = [];
     }
     notifyListeners();
+  }
+
+  Future<void> refreshLibrary() async {
+    await _loadFromDB();
+  }
+
+  Future<void> removeItemFromLibrary(String path) async {
+    try {
+      await DatabaseHelper.instance.deleteItem(path);
+    } catch (_) {}
+    await _loadFromDB();
+  }
+
+  Future<void> updateWatchProgress(String path, int positionMs, int durationMs) async {
+    try {
+      final allItems = await DatabaseHelper.instance.getAllItems();
+      final existingIndex = allItems.indexWhere((item) => item.path == path);
+      if (existingIndex >= 0) {
+        final updated = allItems[existingIndex].copyWith(
+          lastPositionMs: positionMs,
+          durationMs: durationMs > 0 ? durationMs : allItems[existingIndex].durationMs,
+          lastPlayed: DateTime.now(),
+        );
+        await DatabaseHelper.instance.insertOrUpdateItem(updated);
+        await _loadFromDB();
+      }
+    } catch (_) {}
   }
 
   Future<String?> pickFile() async {
@@ -68,12 +94,11 @@ class LibraryProvider extends ChangeNotifier {
     final parent = file.parent.path;
     final size = await file.length();
 
-    // Check if exists in memory
-    final existingIndex = _recentFiles.indexWhere((item) => item.path == path);
+    final existingIndex = _allFiles.indexWhere((item) => item.path == path);
     MediaItem item;
-    
+
     if (existingIndex >= 0) {
-      item = _recentFiles[existingIndex].copyWith(lastPlayed: DateTime.now());
+      item = _allFiles[existingIndex].copyWith(lastPlayed: DateTime.now());
     } else {
       item = MediaItem(
         path: path,
@@ -89,18 +114,21 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(String path) async {
-    // Find item
     final allItems = await DatabaseHelper.instance.getAllItems();
     final existingIndex = allItems.indexWhere((item) => item.path == path);
-    
+
     if (existingIndex >= 0) {
       final item = allItems[existingIndex];
-      await DatabaseHelper.instance.insertOrUpdateItem(item.copyWith(isFavorite: !item.isFavorite));
+      await DatabaseHelper.instance.insertOrUpdateItem(
+        item.copyWith(isFavorite: !item.isFavorite),
+      );
     } else {
+      final file = File(path);
+      final name = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : 'Unknown';
       final item = MediaItem(
         path: path,
-        name: 'Unknown',
-        parentFolder: '',
+        name: name,
+        parentFolder: file.parent.path,
         lastPlayed: DateTime.now(),
         isFavorite: true,
       );
@@ -110,12 +138,11 @@ class LibraryProvider extends ChangeNotifier {
     await _loadFromDB();
   }
 
-  // --- Phase 6: Library Indexer ---
+  // --- Phase 7: Library Indexer ---
   bool isScanning = false;
   String scanProgress = '';
 
   Future<void> scanDirectory() async {
-    
     String? selectedDirectory = await FilePicker.getDirectoryPath();
     if (selectedDirectory == null) return;
 
@@ -125,7 +152,21 @@ class LibraryProvider extends ChangeNotifier {
     try {
       final dir = Directory(selectedDirectory);
       final List<MediaItem> foundItems = [];
-      final validExtensions = ['.mp4', '.mkv', '.avi', '.webm', '.mov', '.flv', '.wmv'];
+      const validExtensions = [
+        '.mp4',
+        '.mkv',
+        '.avi',
+        '.webm',
+        '.mov',
+        '.flv',
+        '.wmv',
+        '.ts',
+        '.vob',
+        '.mp3',
+        '.flac',
+        '.m4a',
+        '.wav',
+      ];
 
       scanProgress = 'Scanning $selectedDirectory...';
       notifyListeners();
@@ -137,13 +178,15 @@ class LibraryProvider extends ChangeNotifier {
             final ext = entity.path.substring(dotIndex).toLowerCase();
             if (validExtensions.contains(ext)) {
               final stat = await entity.stat();
-              foundItems.add(MediaItem(
-                path: entity.path,
-                name: entity.uri.pathSegments.last,
-                parentFolder: entity.parent.path,
-                sizeBytes: stat.size,
-                lastPlayed: DateTime.now(), // default value
-              ));
+              foundItems.add(
+                MediaItem(
+                  path: entity.path,
+                  name: entity.uri.pathSegments.last,
+                  parentFolder: entity.parent.path,
+                  sizeBytes: stat.size,
+                  lastPlayed: DateTime.now(),
+                ),
+              );
             }
           }
         }
@@ -153,7 +196,7 @@ class LibraryProvider extends ChangeNotifier {
       notifyListeners();
 
       await DatabaseHelper.instance.insertBatch(foundItems);
-      
+
       scanProgress = 'Scan complete!';
       await _loadFromDB();
     } catch (e) {
