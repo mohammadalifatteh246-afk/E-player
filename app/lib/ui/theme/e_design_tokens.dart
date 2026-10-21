@@ -30,7 +30,9 @@ class EDesign {
   // --- Radii (DESIGN.md: 6 / 10 / 14 / 18 / 24px) ---
   static const double r6 = 6.0;
   static const double r10 = 10.0;
+  static const double r12 = 12.0;
   static const double r14 = 14.0;
+  static const double r16 = 16.0;
   static const double r18 = 18.0;
   static const double r24 = 24.0;
 

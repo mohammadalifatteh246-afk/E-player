@@ -1,79 +1,152 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
+import '../../../ui/theme/e_design_tokens.dart';
 
 class AudioConfig {
-  bool enabled = false;
-  
-  // 5-band EQ (dB gain: -15 to +15)
-  // Bands: 65Hz, 250Hz, 1kHz, 4kHz, 12kHz
-  List<double> eq = [0.0, 0.0, 0.0, 0.0, 0.0];
-  
-  double bassBoost = 0.0; // 0 to 15 dB
-  bool nightMode = false;
-  bool virtualizer = false;
-  bool dialogueBoost = false;
+  bool enabled = true;
+  String preset = 'Rock';
 
-  void apply(Player player) {
+  // 10-band Graphic EQ (dB gain: -12.0 to +12.0 dB)
+  // Bands: 60Hz, 170Hz, 310Hz, 600Hz, 1kHz, 3kHz, 6kHz, 12kHz, 14kHz, 16kHz
+  static const List<int> freqs = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
+  static const List<String> freqLabels = ['60', '170', '310', '600', '1K', '3K', '6K', '12K', '14K', '16K'];
+
+  List<double> eq = [4.5, 3.0, -1.5, -2.5, -1.0, 2.0, 4.0, 5.5, 6.0, 6.5]; // Default Rock
+
+  double bassBoost = 6.0; // 0 to 12 dB
+  bool bassBoostEnabled = true;
+  bool virtualizer = true;
+  bool threeDAudio = true;
+  bool nightMode = false;
+
+  static const Map<String, List<double>> presets = {
+    'Flat': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    'Rock': [4.5, 3.0, -1.5, -2.5, -1.0, 2.0, 4.0, 5.5, 6.0, 6.5],
+    'Pop': [-1.5, -1.0, 1.0, 2.5, 4.0, 3.5, 1.5, -1.0, -1.5, -2.0],
+    'Jazz': [3.0, 2.0, 1.0, 1.5, -1.5, -1.5, 0.0, 1.5, 3.0, 3.5],
+    'Classical': [4.0, 3.0, 2.5, 2.0, -1.5, -1.5, 0.0, 2.5, 3.5, 4.0],
+    'Bass Boost': [8.0, 7.0, 5.0, 3.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    'Vocal Boost': [-2.0, -2.5, -1.0, 2.0, 5.0, 5.0, 3.5, 1.5, 0.0, -1.5],
+    'Techno': [6.0, 5.0, 0.0, -3.0, -2.5, 0.0, 4.0, 6.0, 6.5, 6.5],
+    'Club': [0.0, 0.0, 2.0, 3.5, 3.5, 3.5, 2.0, 0.0, 0.0, 0.0],
+  };
+
+  void applyPreset(String name) {
+    if (presets.containsKey(name)) {
+      preset = name;
+      eq = List<double>.from(presets[name]!);
+    }
+  }
+
+  void apply(Player? player) {
+    if (player == null) return;
     try {
+      final dynamic platform = player.platform;
       if (!enabled) {
-        (player.platform as dynamic).setProperty('af', '');
+        platform.setProperty('af', '');
         return;
       }
 
-      List<String> filters = [];
+      final List<String> filters = [];
 
-      // Night Mode (Loudness normalization / Dynamic Range Compression)
+      // Bass Boost
+      if (bassBoostEnabled && bassBoost > 0) {
+        filters.add('bass=g=${bassBoost.toStringAsFixed(1)}');
+      }
+
+      // Night Mode (Loudness normalization)
       if (nightMode) {
         filters.add('dynaudnorm=f=200:g=15');
       }
 
-      // Dialogue Boost (Center channel boost / Vocal frequency boost)
-      if (dialogueBoost) {
-        filters.add('equalizer=f=2500:width_type=q:width=1:g=5');
-      }
-
       // Virtualizer (Stereo widening)
       if (virtualizer) {
-        filters.add('extrastereo=m=2.5');
+        filters.add('extrastereo=m=2.2');
       }
 
-      // Bass Boost
-      if (bassBoost > 0) {
-        filters.add('bass=g=${bassBoost.toStringAsFixed(1)}');
+      // 3D Audio (Spatial sound widening)
+      if (threeDAudio) {
+        filters.add('stereowiden=level=0.7');
       }
 
-      // 5-Band EQ
-      final freqs = [65, 250, 1000, 4000, 12000];
-      for (int i = 0; i < 5; i++) {
-        if (eq[i] != 0.0) {
-          filters.add('equalizer=f=${freqs[i]}:width_type=q:width=1:g=${eq[i].toStringAsFixed(1)}');
+      // 10-Band Graphic Equalizer
+      for (int i = 0; i < freqs.length; i++) {
+        if (eq[i].abs() > 0.05) {
+          filters.add('equalizer=f=${freqs[i]}:width_type=q:width=1.2:g=${eq[i].toStringAsFixed(1)}');
         }
       }
 
       final afString = filters.join(',');
-      (player.platform as dynamic).setProperty('af', afString);
+      platform.setProperty('af', afString);
     } catch (e) {
-      debugPrint("Audio Config Error: $e");
+      debugPrint('[Audio Studio] mpv af error: $e');
     }
   }
 
-  void reset(Player player) {
-    enabled = false;
-    eq = [0.0, 0.0, 0.0, 0.0, 0.0];
+  void reset(Player? player) {
+    enabled = true;
+    preset = 'Flat';
+    eq = List<double>.filled(10, 0.0);
     bassBoost = 0.0;
-    nightMode = false;
+    bassBoostEnabled = false;
     virtualizer = false;
-    dialogueBoost = false;
+    threeDAudio = false;
+    nightMode = false;
     apply(player);
   }
 }
 
-class AudioStudioSheet extends StatefulWidget {
-  final Player player;
-  final AudioConfig config;
+/// Standalone Full-Screen View (Matching Screen 7)
+class AudioEqualizerScreen extends StatelessWidget {
+  final Player? player;
+  final AudioConfig? config;
 
-  const AudioStudioSheet({super.key, required this.player, required this.config});
+  const AudioEqualizerScreen({super.key, this.player, this.config});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: EDesign.appBackground,
+      appBar: AppBar(
+        backgroundColor: EDesign.appBackground,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Audio Equalizer',
+          style: TextStyle(
+            color: EDesign.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: AudioStudioSheet(
+        player: player,
+        config: config ?? AudioConfig(),
+        isFullScreen: true,
+      ),
+    );
+  }
+}
+
+/// Modal Bottom Sheet & Embedded Equalizer Widget
+class AudioStudioSheet extends StatefulWidget {
+  final Player? player;
+  final AudioConfig config;
+  final bool isFullScreen;
+
+  const AudioStudioSheet({
+    super.key,
+    required this.player,
+    required this.config,
+    this.isFullScreen = false,
+  });
 
   @override
   State<AudioStudioSheet> createState() => _AudioStudioSheetState();
@@ -82,6 +155,7 @@ class AudioStudioSheet extends StatefulWidget {
 class _AudioStudioSheetState extends State<AudioStudioSheet> {
   late AudioConfig _config;
   Timer? _debounce;
+  int? _activeSliderIndex;
 
   @override
   void initState() {
@@ -91,163 +165,561 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
 
   void _debouncedApply() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce = Timer(const Duration(milliseconds: 250), () {
       _config.apply(widget.player);
     });
-    setState(() {}); // Update UI immediately
+    setState(() {});
+  }
+
+  void _showPresetPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: EDesign.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: EDesign.border),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text(
+                'Equalizer Preset',
+                style: TextStyle(
+                  color: EDesign.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: AudioConfig.presets.keys.map((p) {
+                  final isSelected = _config.preset == p;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      _config.applyPreset(p);
+                      _debouncedApply();
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: isSelected ? EDesign.primary : EDesign.elevatedSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? EDesign.primary : EDesign.border,
+                        ),
+                      ),
+                      child: Text(
+                        p,
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : EDesign.textPrimary,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F0F13),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    final content = SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: widget.isFullScreen ? 12 : 16,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(2),
+          if (!widget.isFullScreen) ...[
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Audio Studio', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-              Switch(
-                value: _config.enabled,
-                activeColor: const Color(0xFF00E5FF),
-                activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
-                inactiveThumbColor: Colors.grey,
-                inactiveTrackColor: Colors.white12,
-                onChanged: (v) {
-                  _config.enabled = v;
-                  _config.apply(widget.player);
-                  setState(() {});
-                },
-              )
-            ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Audio Equalizer',
+                  style: TextStyle(
+                    color: EDesign.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white70, size: 22),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // 1. Master Switch Card
+          Container(
+            decoration: BoxDecoration(
+              color: EDesign.surface,
+              borderRadius: BorderRadius.circular(EDesign.r16),
+              border: Border.all(color: EDesign.border),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Enable Equalizer',
+                  style: TextStyle(
+                    color: EDesign.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Switch(
+                  value: _config.enabled,
+                  activeThumbColor: EDesign.primary,
+                  activeTrackColor: EDesign.primary.withValues(alpha: 0.35),
+                  inactiveThumbColor: EDesign.disabled,
+                  inactiveTrackColor: Colors.white12,
+                  onChanged: (v) {
+                    _config.enabled = v;
+                    _config.apply(widget.player);
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
-          if (!_config.enabled)
-            const Expanded(child: Center(child: Text('Audio Studio is disabled.', style: TextStyle(color: Colors.white54))))
-          else
-            Expanded(
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
+
+          // 2. Preset Selector Dropdown Pill
+          Row(
+            children: [
+              const Text(
+                'Preset',
+                style: TextStyle(
+                  color: EDesign.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _config.enabled ? _showPresetPicker : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: EDesign.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: EDesign.border),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _config.preset,
+                          style: TextStyle(
+                            color: _config.enabled ? EDesign.primary : EDesign.textMuted,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          color: _config.enabled ? EDesign.primary : EDesign.textMuted,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // 3. 10-Band Graphic Equalizer Scale (Reference Screen 7)
+          AnimatedOpacity(
+            opacity: _config.enabled ? 1.0 : 0.4,
+            duration: const Duration(milliseconds: 200),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+              decoration: BoxDecoration(
+                color: EDesign.surface,
+                borderRadius: BorderRadius.circular(EDesign.r18),
+                border: Border.all(color: EDesign.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
                 children: [
-                  _buildToggleRow('Night Mode (Dynamic Range Compress)', _config.nightMode, (v) {
-                    _config.nightMode = v;
-                    _debouncedApply();
-                  }),
-                  _buildToggleRow('Vocal Boost', _config.dialogueBoost, (v) {
-                    _config.dialogueBoost = v;
-                    _debouncedApply();
-                  }),
-                  _buildToggleRow('Virtualizer (Stereo Widening)', _config.virtualizer, (v) {
-                    _config.virtualizer = v;
-                    _debouncedApply();
-                  }),
-                  const SizedBox(height: 24),
-                  const Text('Bass Boost', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-                  Slider(
-                    value: _config.bassBoost,
-                    min: 0,
-                    max: 15,
-                    activeColor: const Color(0xFF00E5FF),
-                    inactiveColor: Colors.white12,
-                    onChanged: (v) {
-                      _config.bassBoost = v;
-                      _debouncedApply();
-                    },
+                  // Top Scale Labels (+12dB)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('+12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('+12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  const Text('5-Band Equalizer (dB)', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildEqSlider(0, '65Hz'),
-                      _buildEqSlider(1, '250Hz'),
-                      _buildEqSlider(2, '1kHz'),
-                      _buildEqSlider(3, '4kHz'),
-                      _buildEqSlider(4, '12kHz'),
-                    ],
+                  const SizedBox(height: 8),
+
+                  // 10 Vertical Sliders Stack with Center 0dB Datum Line
+                  SizedBox(
+                    height: 160,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Center 0dB Reference Line
+                        Positioned(
+                          left: 12,
+                          right: 12,
+                          child: Container(
+                            height: 1,
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        // 10 Vertical Sliders Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(10, (index) {
+                            return _build10BandSlider(index);
+                          }),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () {
-                        _config.reset(widget.player);
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.refresh, color: Colors.white54),
-                      label: const Text('Reset to Defaults', style: TextStyle(color: Colors.white54)),
+                  const SizedBox(height: 8),
+
+                  // Bottom Scale Labels (-12dB)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('-12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('-12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 24),
+
+          // 4. Audio Boost Switches & Controls (Reference Screen 7)
+          _buildBoostCard(
+            title: 'Bass Boost',
+            icon: Icons.speaker,
+            value: _config.bassBoostEnabled,
+            onToggle: (v) {
+              _config.bassBoostEnabled = v;
+              _debouncedApply();
+            },
+            sliderWidget: _config.bassBoostEnabled
+                ? Slider(
+                    value: _config.bassBoost,
+                    min: 0.0,
+                    max: 12.0,
+                    activeColor: EDesign.primary,
+                    inactiveColor: Colors.white12,
+                    onChanged: (v) {
+                      _config.bassBoost = v;
+                      _debouncedApply();
+                    },
+                  )
+                : null,
+            sliderLabel: '${_config.bassBoost.toStringAsFixed(1)} dB',
+          ),
+          const SizedBox(height: 12),
+
+          _buildBoostSwitchTile(
+            title: 'Virtualizer',
+            subtitle: 'Stereo soundstage widening',
+            icon: Icons.surround_sound,
+            value: _config.virtualizer,
+            onChanged: (v) {
+              _config.virtualizer = v;
+              _debouncedApply();
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _buildBoostSwitchTile(
+            title: '3D Audio',
+            subtitle: 'Spatial acoustic simulation',
+            icon: Icons.spatial_audio_off,
+            value: _config.threeDAudio,
+            onChanged: (v) {
+              _config.threeDAudio = v;
+              _debouncedApply();
+            },
+          ),
+          const SizedBox(height: 12),
+
+          _buildBoostSwitchTile(
+            title: 'Night Mode',
+            subtitle: 'Loudness normalization / DRC',
+            icon: Icons.nightlight_round,
+            value: _config.nightMode,
+            onChanged: (v) {
+              _config.nightMode = v;
+              _debouncedApply();
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // 5. Reset to Defaults
+          Center(
+            child: TextButton.icon(
+              onPressed: () {
+                _config.reset(widget.player);
+                setState(() {});
+              },
+              icon: const Icon(Icons.refresh, color: EDesign.textSecondary, size: 18),
+              label: const Text(
+                'Reset to Flat Defaults',
+                style: TextStyle(color: EDesign.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+
+    if (widget.isFullScreen) {
+      return content;
+    }
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.88,
+      decoration: BoxDecoration(
+        color: EDesign.appBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: EDesign.border),
+      ),
+      child: content,
+    );
+  }
+
+  Widget _build10BandSlider(int index) {
+    final value = _config.eq[index];
+    final isFocused = _activeSliderIndex == index;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Live dB badge when adjusted
+        SizedBox(
+          height: 18,
+          child: isFocused || value.abs() > 0.1
+              ? Text(
+                  '${value > 0 ? "+" : ""}${value.toStringAsFixed(1)}',
+                  style: TextStyle(
+                    color: isFocused ? EDesign.primary : Colors.white70,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+        // Rotated Vertical Slider
+        Expanded(
+          child: RotatedBox(
+            quarterTurns: 3,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: EDesign.primary,
+                inactiveTrackColor: Colors.white12,
+                thumbColor: EDesign.primary,
+                overlayColor: EDesign.primary.withValues(alpha: 0.25),
+                trackHeight: 3.0,
+                thumbShape: RoundSliderThumbShape(
+                  enabledThumbRadius: isFocused ? 7.0 : 5.0,
+                ),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+              ),
+              child: Slider(
+                value: value.clamp(-12.0, 12.0),
+                min: -12.0,
+                max: 12.0,
+                onChangeStart: (_) {
+                  setState(() => _activeSliderIndex = index);
+                },
+                onChangeEnd: (_) {
+                  setState(() => _activeSliderIndex = null);
+                },
+                onChanged: _config.enabled
+                    ? (v) {
+                        _config.preset = 'Custom';
+                        _config.eq[index] = v;
+                        _debouncedApply();
+                      }
+                    : null,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Frequency Label
+        Text(
+          AudioConfig.freqLabels[index],
+          style: TextStyle(
+            color: isFocused ? EDesign.primary : EDesign.textMuted,
+            fontSize: 10,
+            fontWeight: isFocused ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBoostCard({
+    required String title,
+    required IconData icon,
+    required bool value,
+    required ValueChanged<bool> onToggle,
+    Widget? sliderWidget,
+    String? sliderLabel,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: EDesign.surface,
+        borderRadius: BorderRadius.circular(EDesign.r14),
+        border: Border.all(color: EDesign.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: EDesign.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: EDesign.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Switch(
+                value: value,
+                activeThumbColor: EDesign.primary,
+                activeTrackColor: EDesign.primary.withValues(alpha: 0.35),
+                inactiveThumbColor: EDesign.disabled,
+                inactiveTrackColor: Colors.white12,
+                onChanged: onToggle,
+              ),
+            ],
+          ),
+          if (sliderWidget != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(child: sliderWidget),
+                if (sliderLabel != null)
+                  Text(
+                    sliderLabel,
+                    style: const TextStyle(
+                      color: EDesign.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildToggleRow(String title, bool value, Function(bool) onChanged) {
+  Widget _buildBoostSwitchTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A24),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
+        color: EDesign.surface,
+        borderRadius: BorderRadius.circular(EDesign.r14),
+        border: Border.all(color: EDesign.border),
       ),
       child: SwitchListTile(
-        title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: EDesign.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: EDesign.textMuted, fontSize: 11),
+        ),
+        secondary: Icon(icon, color: EDesign.primary, size: 20),
         value: value,
-        onChanged: onChanged,
-        activeColor: const Color(0xFF00E5FF),
-        activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
-        inactiveThumbColor: Colors.grey,
+        activeThumbColor: EDesign.primary,
+        activeTrackColor: EDesign.primary.withValues(alpha: 0.35),
+        inactiveThumbColor: EDesign.disabled,
         inactiveTrackColor: Colors.white12,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+        onChanged: onChanged,
       ),
     );
   }
-
-  Widget _buildEqSlider(int index, String label) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 120,
-          child: RotatedBox(
-            quarterTurns: 3,
-            child: Slider(
-              value: _config.eq[index],
-              min: -15.0,
-              max: 15.0,
-              activeColor: const Color(0xFF00E5FF),
-              inactiveColor: Colors.white12,
-              onChanged: (v) {
-                _config.eq[index] = v;
-                _debouncedApply();
-              },
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-        Text(_config.eq[index].toStringAsFixed(1), style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 10, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
 }

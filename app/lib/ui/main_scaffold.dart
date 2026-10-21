@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/e_player_components.dart';
+import '../ui/theme/e_design_tokens.dart';
 import '../../features/home/ui/home_screen.dart';
 import '../../features/library/ui/library_screen.dart';
 import '../../features/enhancement/ui/enhance_screen.dart';
@@ -26,13 +28,15 @@ class _MainScaffoldState extends State<MainScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: EDesign.appBackground,
       body: _screens[_currentIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: EDesign.elevatedBackground,
           border: Border(
             top: BorderSide(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 0.5,
+              color: EDesign.border.withValues(alpha: 0.6),
+              width: 1,
             ),
           ),
         ),
@@ -44,35 +48,65 @@ class _MainScaffoldState extends State<MainScaffold> {
             });
           },
           type: BottomNavigationBarType.fixed,
-          backgroundColor: const Color(0xFF09090E), // Deep cinematic navy/black
-          selectedItemColor: const Color(0xFF00E5FF), // Cyan accent
-          unselectedItemColor: Colors.white54,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 12),
+          backgroundColor: EDesign.elevatedBackground,
+          selectedItemColor: EDesign.primary,
+          unselectedItemColor: EDesign.textMuted,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'home', size: 20, color: EDesign.textMuted),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'home', size: 20, color: EDesign.primary),
+              ),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.folder_outlined),
-              activeIcon: Icon(Icons.folder),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'library', size: 20, color: EDesign.textMuted),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'library', size: 20, color: EDesign.primary),
+              ),
               label: 'Library',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.auto_awesome_outlined),
-              activeIcon: Icon(Icons.auto_awesome),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'enhance', size: 20, color: EDesign.textMuted),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'enhance', size: 20, color: EDesign.primary),
+              ),
               label: 'Enhance',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.cast),
-              activeIcon: Icon(Icons.cast_connected),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'cast', size: 20, color: EDesign.textMuted),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'cast', size: 20, color: EDesign.primary),
+              ),
               label: 'Casting',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.settings_outlined),
-              activeIcon: Icon(Icons.settings),
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'settings', size: 20, color: EDesign.textMuted),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: EVectorIcon(name: 'settings', size: 20, color: EDesign.primary),
+              ),
               label: 'Settings',
             ),
           ],

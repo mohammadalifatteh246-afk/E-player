@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
+import '../../player/ui/audio_studio_sheet.dart';
 import '../domain/settings_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -62,7 +63,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _buildSectionTitle('Audio'),
                 const SizedBox(height: 12),
                 _buildSettingsCard([
-                  _buildValueRow('Equalizer', Icons.equalizer, ''),
+                  _buildValueRow(
+                    'Equalizer',
+                    Icons.equalizer,
+                    '10-Band EQ',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AudioEqualizerScreen(),
+                        ),
+                      );
+                    },
+                  ),
                 ]),
                 const SizedBox(height: 40),
               ],
@@ -107,7 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF00E5FF),
+            activeThumbColor: const Color(0xFF00E5FF),
             activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
             inactiveThumbColor: Colors.grey,
             inactiveTrackColor: Colors.white12,
@@ -117,9 +129,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildValueRow(String title, IconData icon, String value) {
+  Widget _buildValueRow(String title, IconData icon, String value, {VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(

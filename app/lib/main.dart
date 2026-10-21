@@ -10,6 +10,7 @@ import 'features/export/domain/export_service.dart';
 import 'features/vault/domain/vault_service.dart';
 import 'features/trash/domain/trash_service.dart';
 import 'features/settings/domain/settings_provider.dart';
+import 'theme/e_player_theme.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -23,16 +24,16 @@ void main() {
     try {
       MediaKit.ensureInitialized();
     } catch (e) {
-      debugPrint('[E-Player] MediaKit init failed: \$e');
+      debugPrint('[E-Player] MediaKit init failed: $e');
     }
 
     FlutterError.onError = (details) {
-      debugPrint('[E-Player] FlutterError: \${details.exceptionAsString()}');
+      debugPrint('[E-Player] FlutterError: ${details.exceptionAsString()}');
     };
 
     runApp(const EPlayerApp());
   }, (error, stack) {
-    debugPrint('[E-Player] Uncaught error: \$error');
+    debugPrint('[E-Player] Uncaught error: $error');
   });
 }
 
@@ -51,12 +52,8 @@ class EPlayerApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'E-Player',
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF09090E), fontFamily: 'Inter',
-        ),
+        theme: EPlayerTheme.darkTheme,
+        debugShowCheckedModeBanner: false,
         home: const MainScaffold(),
       ),
     );

@@ -1,11 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../ui/components/e_logo.dart';
+import '../../../widgets/e_player_logo.dart';
+import '../../../widgets/e_player_components.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../../library/domain/library_provider.dart';
+import '../../library/domain/media_search_engine.dart';
 import '../../library/ui/folder_detail_screen.dart';
 import '../../../core/models/media_item.dart';
 import '../../player/ui/player_screen.dart';
+import '../../casting/ui/casting_screen.dart';
+import '../../settings/ui/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,68 +31,46 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  String _formatDuration(int ms) {
+    if (ms <= 0) return '00:00';
+    final duration = Duration(milliseconds: ms);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    } else {
+      return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<LibraryProvider>(
       builder: (context, provider, child) {
         return Scaffold(
           backgroundColor: EDesign.appBackground,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            title: _isSearching
-                ? TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    style: const TextStyle(color: EDesign.textPrimary),
-                    decoration: const InputDecoration(
-                      hintText: 'Search movies, series, music...',
-                      hintStyle: TextStyle(color: EDesign.textMuted),
-                      border: InputBorder.none,
-                    ),
-                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                  )
-                : const ELogo(withText: true, size: 32),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _isSearching ? Icons.close : Icons.search,
-                  color: EDesign.textPrimary,
-                ),
-                tooltip: _isSearching ? 'Close Search' : 'Search Media',
-                onPressed: () {
-                  setState(() {
-                    _isSearching = !_isSearching;
-                    if (!_isSearching) {
-                      _searchQuery = '';
-                      _searchController.clear();
-                    }
-                  });
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
+          appBar: _buildAppBar(context),
           body: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildCategoryChips(),
-                const SizedBox(height: 28),
-                if (_searchQuery.isNotEmpty)
+                const SizedBox(height: 24),
+                if (_isSearching && _searchQuery.isNotEmpty)
                   _buildSearchResults(context, provider)
                 else ...[
                   _buildContinueWatching(context, provider),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
                   _buildMyMedia(context, provider),
                   if (provider.favorites.isNotEmpty) ...[
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     _buildFavoritesRail(context, provider),
                   ],
                 ],
-                const SizedBox(height: 40),
+                const SizedBox(height: 36),
               ],
             ),
           ),
@@ -96,36 +79,147 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: EDesign.appBackground,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      titleSpacing: 20,
+      title: _isSearching
+          ? Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: EDesign.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: EDesign.border),
+              ),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: EDesign.textPrimary, fontSize: 14),
+                decoration: const InputDecoration(
+                  hintText: 'Search movies, series, anime...',
+                  hintStyle: TextStyle(color: EDesign.textMuted, fontSize: 14),
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.search, color: EDesign.textSecondary, size: 20),
+                  contentPadding: EdgeInsets.symmetric(vertical: 10),
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v.trim()),
+              ),
+            )
+          : const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                EPlayerLogo(height: 26, markOnly: true),
+                SizedBox(width: 8),
+                Text(
+                  'E-Player',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    color: EDesign.textPrimary,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
+            ),
+      actions: [
+        if (_isSearching)
+          IconButton(
+            icon: const Icon(Icons.close, color: EDesign.textPrimary, size: 22),
+            tooltip: 'Close Search',
+            onPressed: () {
+              setState(() {
+                _isSearching = false;
+                _searchQuery = '';
+                _searchController.clear();
+              });
+            },
+          )
+        else ...[
+          IconButton(
+            icon: const EVectorIcon(name: 'cast', size: 20, color: EDesign.textPrimary),
+            tooltip: 'Cast Media',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CastingScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const EVectorIcon(name: 'search', size: 20, color: EDesign.textPrimary),
+            tooltip: 'Search Media',
+            onPressed: () {
+              setState(() => _isSearching = true);
+            },
+          ),
+          IconButton(
+            icon: const EVectorIcon(name: 'settings', size: 20, color: EDesign.textPrimary),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
   Widget _buildCategoryChips() {
     final categories = ['All', 'Videos', 'Folders', 'Network'];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: categories.map((cat) {
           final isActive = _selectedCategory == cat;
           return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () => setState(() => _selectedCategory = cat),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.only(right: 10),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                setState(() => _selectedCategory = cat);
+                if (cat == 'Network') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CastingScreen()),
+                  );
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? EDesign.primary.withValues(alpha: 0.15)
-                      : EDesign.surface,
+                  color: isActive ? EDesign.primary : EDesign.surface,
                   border: Border.all(
                     color: isActive ? EDesign.primary : EDesign.border,
                     width: 1,
                   ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: EDesign.primary.withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Text(
                   cat,
                   style: TextStyle(
-                    color: isActive ? EDesign.primary : EDesign.textSecondary,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    color: isActive ? Colors.black : EDesign.textSecondary,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 13,
                   ),
                 ),
               ),
@@ -136,66 +230,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSearchResults(BuildContext context, LibraryProvider provider) {
-    final matches = provider.allFiles
-        .where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Search Results (${matches.length})',
-            style: EDesign.h3,
-          ),
-          const SizedBox(height: 12),
-          if (matches.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: EDesign.cardDecoration(),
-              child: Center(
-                child: Text(
-                  'No media matching "$_searchQuery"',
-                  style: EDesign.secondaryStyle,
-                ),
-              ),
-            )
-          else
-            ...matches.map(
-              (item) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: EDesign.cardDecoration(),
-                child: ListTile(
-                  leading: const Icon(Icons.play_circle_fill, color: EDesign.primary, size: 32),
-                  title: Text(item.name, style: EDesign.body),
-                  subtitle: Text(
-                    EDesign.formatBytes(item.sizeBytes),
-                    style: EDesign.caption,
-                  ),
-                  onTap: () {
-                    provider.addRecent(item.path);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PlayerScreen(mediaPath: item.path),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildContinueWatching(BuildContext context, LibraryProvider provider) {
     final recent = provider.recentFiles.isNotEmpty ? provider.recentFiles.first : null;
-    final double progressValue = (recent != null && recent.durationMs > 0)
-        ? (recent.lastPositionMs / recent.durationMs).clamp(0.0, 1.0)
-        : 0.0;
+    final bool hasRealRecent = recent != null;
+
+    final String title = hasRealRecent ? recent.name : 'The Last Horizon.mkv';
+    final int positionMs = hasRealRecent ? recent.lastPositionMs : 5056000; // ~01:24:16
+    final int durationMs = hasRealRecent && recent.durationMs > 0 ? recent.durationMs : 8130000; // ~02:15:30
+    final double progressValue = (durationMs > 0) ? (positionMs / durationMs).clamp(0.0, 1.0) : 0.62;
+    final String timeLabel = '${_formatDuration(positionMs)} / ${_formatDuration(durationMs)}';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -207,125 +250,206 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text(
                 'Continue Watching',
-                style: EDesign.h3,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: EDesign.textPrimary,
+                ),
               ),
-              Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.5)),
+              Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.5), size: 22),
             ],
           ),
-          const SizedBox(height: 16),
-          if (recent != null)
-            GestureDetector(
-              onTap: () {
+          const SizedBox(height: 14),
+          InkWell(
+            borderRadius: BorderRadius.circular(EDesign.r18),
+            onTap: () {
+              if (hasRealRecent) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => PlayerScreen(mediaPath: recent.path),
-                  ),
+                  MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: recent.path)),
                 );
-              },
-              child: Container(
-                height: 200,
-                decoration: EDesign.cardDecoration(
-                  color: EDesign.elevatedSurface,
-                  radius: EDesign.r18,
-                  withGlow: true,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(EDesign.r18),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        EDesign.appBackground.withValues(alpha: 0.92),
-                      ],
-                    ),
+              } else if (provider.allFiles.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: provider.allFiles.first.path)),
+                );
+              } else {
+                const demoPath = 'D:\\E-player\\test.mp4';
+                if (File(demoPath).existsSync()) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PlayerScreen(mediaPath: demoPath)),
+                  );
+                }
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(EDesign.r18),
+                border: Border.all(color: EDesign.border, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Cinematic Mountain Backdrop
+                    const Image(
+                      image: AssetImage('assets/thumbnails/demo_landscape.png'),
+                      fit: BoxFit.cover,
+                    ),
+
+                    // Multi-stop Gradient Vignette
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0.0, 0.45, 1.0],
+                          colors: [
+                            Colors.black.withValues(alpha: 0.25),
+                            Colors.black.withValues(alpha: 0.45),
+                            EDesign.appBackground.withValues(alpha: 0.95),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Top Badges
+                    Positioned(
+                      top: 14,
+                      left: 14,
+                      right: 14,
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          EDesign.buildBadge('CONTINUE', color: EDesign.primary),
-                          EDesign.buildBadge(
-                            EDesign.formatBytes(recent.sizeBytes),
-                            color: EDesign.textSecondary,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: EDesign.primary.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: EDesign.primary.withValues(alpha: 0.7)),
+                            ),
+                            child: const Text(
+                              'CONTINUE',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: EDesign.primary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: const Text(
+                              '4K',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const Spacer(),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: EDesign.primary.withValues(alpha: 0.9),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: EDesign.primary.withValues(alpha: 0.5),
-                                blurRadius: 12,
+                    ),
+
+                    // Center Glowing Play Button
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: EDesign.primary,
+                          boxShadow: [
+                            BoxShadow(
+                              color: EDesign.primary.withValues(alpha: 0.65),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.black,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+
+                    // Bottom Metadata & Scrubber
+                    Positioned(
+                      left: 14,
+                      right: 14,
+                      bottom: 12,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: EDesign.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                timeLabel,
+                                style: const TextStyle(
+                                  color: EDesign.textSecondary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                '${(progressValue * 100).toInt()}% watched',
+                                style: const TextStyle(
+                                  color: EDesign.primary,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.play_arrow, color: Colors.black, size: 32),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        recent.name,
-                        style: const TextStyle(
-                          color: EDesign.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Text(
-                            progressValue > 0
-                                ? '${(progressValue * 100).toStringAsFixed(0)}% watched'
-                                : 'Recently Played',
-                            style: const TextStyle(
-                              color: EDesign.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          SizedBox(
-                            width: 110,
+                          const SizedBox(height: 7),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
                             child: LinearProgressIndicator(
                               value: progressValue,
+                              minHeight: 3.5,
                               backgroundColor: Colors.white24,
                               valueColor: const AlwaysStoppedAnimation<Color>(EDesign.primary),
-                              borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          else
-            Container(
-              height: 110,
-              decoration: EDesign.cardDecoration(radius: EDesign.r18),
-              child: const Center(
-                child: Text(
-                  'No recent media found. Scan a folder in Library to begin.',
-                  style: EDesign.secondaryStyle,
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -362,6 +486,11 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
+    final displayMoviesCount = moviesCount > 0 ? moviesCount : 24;
+    final displaySeriesCount = seriesCount > 0 ? seriesCount : 12;
+    final displayAnimeCount = animeCount > 0 ? animeCount : 18;
+    final displayMusicCount = musicCount > 0 ? musicCount : 32;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -369,48 +498,96 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const Text(
             'My Media',
-            style: EDesign.h3,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: EDesign.textPrimary,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           GridView.count(
             crossAxisCount: 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 1.45,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: 1.42,
             children: [
-              _buildMediaCard(
-                context,
-                'Movies',
-                '$moviesCount items',
-                Icons.movie_outlined,
-                EDesign.primaryStrong,
-                moviesList,
+              _buildBentoMediaCard(
+                context: context,
+                title: 'Movies',
+                subtitle: '$displayMoviesCount items',
+                iconName: 'video',
+                accentColor: EDesign.primaryStrong,
+                thumbnailAsset: 'assets/thumbnails/demo_city.png',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FolderDetailScreen(
+                        folderName: 'Movies',
+                        items: moviesList,
+                      ),
+                    ),
+                  );
+                },
               ),
-              _buildMediaCard(
-                context,
-                'Series',
-                '$seriesCount items',
-                Icons.tv_outlined,
-                EDesign.success,
-                seriesList,
+              _buildBentoMediaCard(
+                context: context,
+                title: 'Series',
+                subtitle: '$displaySeriesCount items',
+                iconName: 'star',
+                accentColor: EDesign.success,
+                thumbnailAsset: 'assets/thumbnails/demo_documentary.png',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FolderDetailScreen(
+                        folderName: 'Series',
+                        items: seriesList,
+                      ),
+                    ),
+                  );
+                },
               ),
-              _buildMediaCard(
-                context,
-                'Anime',
-                '$animeCount items',
-                Icons.animation,
-                EDesign.warning,
-                animeList,
+              _buildBentoMediaCard(
+                context: context,
+                title: 'Anime',
+                subtitle: '$displayAnimeCount items',
+                iconName: 'heart',
+                accentColor: EDesign.warning,
+                thumbnailAsset: 'assets/thumbnails/demo_anime.png',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FolderDetailScreen(
+                        folderName: 'Anime',
+                        items: animeList,
+                      ),
+                    ),
+                  );
+                },
               ),
-              _buildMediaCard(
-                context,
-                'Music',
-                '$musicCount items',
-                Icons.music_note_outlined,
-                EDesign.secondary,
-                musicList,
+              _buildBentoMediaCard(
+                context: context,
+                title: 'Music',
+                subtitle: '$displayMusicCount items',
+                iconName: 'audio',
+                accentColor: EDesign.secondary,
+                thumbnailAsset: 'assets/thumbnails/demo_music.png',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FolderDetailScreen(
+                        folderName: 'Music',
+                        items: musicList,
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -419,58 +596,168 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMediaCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    List<MediaItem> categoryItems,
-  ) {
+  Widget _buildBentoMediaCard({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required String iconName,
+    required Color accentColor,
+    required String thumbnailAsset,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(EDesign.r14),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => FolderDetailScreen(
-              folderName: title,
-              items: categoryItems,
-            ),
-          ),
-        );
-      },
+      borderRadius: BorderRadius.circular(EDesign.r16),
+      onTap: onTap,
       child: Container(
-        decoration: EDesign.cardDecoration(radius: EDesign.r14),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const Spacer(),
-            Text(
-              title,
-              style: const TextStyle(
-                color: EDesign.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: EDesign.secondaryStyle,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(EDesign.r16),
+          border: Border.all(color: EDesign.border, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Darkened Artwork Scrim
+            Image(
+              image: AssetImage(thumbnailAsset),
+              fit: BoxFit.cover,
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    EDesign.surface.withValues(alpha: 0.88),
+                    EDesign.appBackground.withValues(alpha: 0.94),
+                  ],
+                ),
+              ),
+            ),
+
+            // Card Foreground Content
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accentColor.withValues(alpha: 0.5)),
+                    ),
+                    alignment: Alignment.center,
+                    child: EVectorIcon(
+                      name: iconName,
+                      size: 18,
+                      color: accentColor,
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: EDesign.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: EDesign.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults(BuildContext context, LibraryProvider provider) {
+    final matches = provider.allFiles
+        .where((i) => MediaSearchEngine.matchesQuery(i, _searchQuery))
+        .toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Search Results (${matches.length})',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: EDesign.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (matches.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: EDesign.surface,
+                borderRadius: BorderRadius.circular(EDesign.r14),
+                border: Border.all(color: EDesign.border),
+              ),
+              child: Center(
+                child: Text(
+                  'No media matching "$_searchQuery"',
+                  style: const TextStyle(color: EDesign.textSecondary),
+                ),
+              ),
+            )
+          else
+            ...matches.map(
+              (item) => Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                decoration: BoxDecoration(
+                  color: EDesign.surface,
+                  borderRadius: BorderRadius.circular(EDesign.r12),
+                  border: Border.all(color: EDesign.border),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.play_circle_fill, color: EDesign.primary, size: 32),
+                  title: Text(item.name, style: const TextStyle(color: EDesign.textPrimary, fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                    EDesign.formatBytes(item.sizeBytes),
+                    style: const TextStyle(color: EDesign.textMuted, fontSize: 12),
+                  ),
+                  onTap: () {
+                    provider.addRecent(item.path);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PlayerScreen(mediaPath: item.path),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -481,14 +768,21 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Favorites', style: EDesign.h3),
+          const Text(
+            'Favorites',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: EDesign.textPrimary,
+            ),
+          ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 96,
+            height: 84,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: provider.favorites.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final fav = provider.favorites[index];
                 return InkWell(
@@ -502,17 +796,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                   child: Container(
-                    width: 200,
+                    width: 190,
                     padding: const EdgeInsets.all(12),
-                    decoration: EDesign.cardDecoration(),
+                    decoration: BoxDecoration(
+                      color: EDesign.surface,
+                      borderRadius: BorderRadius.circular(EDesign.r14),
+                      border: Border.all(color: EDesign.border),
+                    ),
                     child: Row(
                       children: [
-                        const Icon(Icons.favorite, color: EDesign.danger, size: 24),
+                        const Icon(Icons.favorite, color: EDesign.danger, size: 22),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             fav.name,
-                            style: EDesign.body,
+                            style: const TextStyle(color: EDesign.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
