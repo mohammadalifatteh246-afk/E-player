@@ -102,6 +102,8 @@ class MediaGroupService extends ChangeNotifier {
     } catch (_) {}
   }
 
+  static int _idCounter = 0;
+
   /// Creates a new custom group
   Future<MediaGroup> createGroup({
     required String title,
@@ -110,8 +112,9 @@ class MediaGroupService extends ChangeNotifier {
     String iconName = 'group',
     List<String> initialPaths = const [],
   }) async {
+    _idCounter++;
     final newGroup = MediaGroup(
-      id: 'grp_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'grp_${DateTime.now().microsecondsSinceEpoch}_$_idCounter',
       title: title.trim().isEmpty ? 'New Group' : title.trim(),
       description: description.trim(),
       colorValue: color.toARGB32(),

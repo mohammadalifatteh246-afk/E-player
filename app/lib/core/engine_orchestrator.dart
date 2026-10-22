@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'ffi/engine_bindings.dart';
 
 class NativeEngineOrchestrator {
@@ -10,7 +11,7 @@ class NativeEngineOrchestrator {
     try {
       _bindings = EPlayerEngineBindings();
     } catch (e) {
-      print("Warning: Native AI engine DLL not found. AI features will be disabled. Error: $e");
+      debugPrint("Warning: Native AI engine DLL not found. AI features will be disabled. Error: $e");
     }
   }
 
@@ -21,7 +22,7 @@ class NativeEngineOrchestrator {
     try {
       _engine = _bindings!.engineCreate();
     } catch (e) {
-      print("Error creating engine: $e");
+      debugPrint("Error creating engine: $e");
     }
   }
 

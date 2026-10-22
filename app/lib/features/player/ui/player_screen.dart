@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:media_kit/media_kit.dart';
@@ -10,6 +11,7 @@ import '../../../../core/engine_orchestrator.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../../../widgets/e_player_components.dart';
 import '../../casting/ui/cast_sheet.dart';
+import '../../casting/domain/cast_service.dart';
 import '../../media_info/ui/media_info_sheet.dart';
 import '../../enhancement/ui/enhancement_studio_sheet.dart';
 import '../../library/domain/library_provider.dart';
@@ -1130,14 +1132,50 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: const EVectorIcon(name: 'cast', size: 19, color: Colors.white),
-                            tooltip: 'Cast Media',
-                            onPressed: () {
-                              CastSheet.show(
-                                context,
-                                player: _player,
-                                mediaTitle: p.basename(widget.mediaPath),
+                          Consumer<CastService>(
+                            builder: (context, castService, _) {
+                              final isCasting = castService.connectedDevice != null;
+                              return IconButton(
+                                icon: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    EVectorIcon(
+                                      name: 'cast',
+                                      size: 19,
+                                      color: isCasting ? EDesign.primaryCyan : Colors.white,
+                                    ),
+                                    if (isCasting)
+                                      Positioned(
+                                        right: -2,
+                                        top: -2,
+                                        child: Container(
+                                          width: 7,
+                                          height: 7,
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: EDesign.primaryCyan,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: EDesign.primaryCyan,
+                                                blurRadius: 4,
+                                                spreadRadius: 1,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                tooltip: isCasting
+                                    ? 'Casting to ${castService.connectedDevice!.name}'
+                                    : 'Cast Media (Wireless Display)',
+                                onPressed: () {
+                                  CastSheet.show(
+                                    context,
+                                    player: _player,
+                                    mediaTitle: p.basename(widget.mediaPath),
+                                  );
+                                },
                               );
                             },
                           ),
@@ -1225,6 +1263,111 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                   ),
                 ),
+              ),
+
+              // Active Wireless Casting HUD Banner (VLC sout Redirection Parity)
+              Consumer<CastService>(
+                builder: (context, castService, child) {
+                  final connected = castService.connectedDevice;
+                  if (connected == null) return const SizedBox.shrink();
+
+                  return Positioned(
+                    top: 86,
+                    left: 20,
+                    right: 20,
+                    child: AnimatedOpacity(
+                      opacity: _controlsVisible ? 1.0 : 0.45,
+                      duration: const Duration(milliseconds: 250),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: EDesign.surface.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(EDesign.r14),
+                          border: Border.all(color: EDesign.primaryCyan.withValues(alpha: 0.8)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: EDesign.primaryCyan.withValues(alpha: 0.25),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: EDesign.primaryCyan.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(EDesign.r8),
+                              ),
+                              child: const EVectorIcon(name: 'cast', color: EDesign.primaryCyan, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          'Streaming to ${connected.name}',
+                                          style: const TextStyle(
+                                            color: EDesign.textPrimary,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: EDesign.success.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text(
+                                          'ACTIVE SINK',
+                                          style: TextStyle(
+                                            color: EDesign.success,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${connected.protocol.label} · ${castService.activeSession?.transcodeProfile.label ?? "Direct Stream"} · ${castService.activeSession?.pingMs ?? 14}ms sync',
+                                    style: EDesign.caption.copyWith(color: EDesign.textSecondary, fontSize: 11),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: EDesign.danger,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              ),
+                              onPressed: () {
+                                HapticFeedback.lightImpact();
+                                castService.disconnect();
+                              },
+                              icon: const Icon(Icons.link_off_rounded, size: 16),
+                              label: const Text('Disconnect', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
 
             // Visual Feedback Overlay

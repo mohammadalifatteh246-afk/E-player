@@ -8,8 +8,9 @@ import '../../../widgets/e_player_components.dart';
 import '../domain/cast_service.dart';
 
 /// Screen 12: Cast Sheet & Network Device Radar
-/// Master Stitch Cyberpunk Aesthetics with Real-Time Discovery Radar,
+/// Master Cyberpunk Aesthetics with Real-Time Discovery Radar,
 /// Discovered Device Bento List, and Remote Synchronizer Dock.
+/// Architecture mirrors VLC's vlc_renderer_discovery and stream_out_chromecast.
 class CastSheet extends StatefulWidget {
   final Player? player;
   final String? mediaTitle;
@@ -53,12 +54,32 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     )..repeat();
+
+    // Attach active player to CastService for bi-directional state synchronization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.player != null) {
+        Provider.of<CastService>(context, listen: false).attachPlayer(
+          widget.player!,
+          mediaTitle: widget.mediaTitle,
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
     _radarController.dispose();
     super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (hours > 0) {
+      return '$hours:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
   }
 
   @override
@@ -235,7 +256,7 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
     );
   }
 
-  /// Animated Concentric Radar Scanner Scope
+  /// Animated Concentric Radar Scanner Scope (Mirroring VLC's background discovery loop)
   Widget _buildRadarScanner(CastService castService) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -334,6 +355,12 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
     CastService castService,
     CastDevice device,
   ) {
+    final session = castService.activeSession;
+    final currentPos = session?.position ?? widget.player?.state.position ?? Duration.zero;
+    final totalDur = session?.duration ?? widget.player?.state.duration ?? Duration.zero;
+    final maxSeconds = totalDur.inSeconds > 0 ? totalDur.inSeconds.toDouble() : 1.0;
+    final posSeconds = currentPos.inSeconds.toDouble().clamp(0.0, maxSeconds);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: EDesign.cardDecoration(
@@ -387,7 +414,7 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
 
           const SizedBox(height: 14),
 
-          // Live Stream Telemetry Grid
+          // Live Stream Telemetry Grid (Mirroring VLC sout telemetry)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -395,18 +422,81 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
               borderRadius: BorderRadius.circular(EDesign.r10),
               border: Border.all(color: EDesign.border),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _TelemetryItem(label: 'PIPELINE', value: 'HEVC Direct'),
-                _TelemetryItem(label: 'AUDIO', value: 'Dolby 5.1'),
-                _TelemetryItem(label: 'LATENCY', value: '14 ms sync'),
-                _TelemetryItem(label: 'BITRATE', value: '48.2 Mbps'),
+                _TelemetryItem(
+                  label: 'PIPELINE',
+                  value: session?.transcodeProfile.label ?? 'Direct Stream',
+                ),
+                _TelemetryItem(
+                  label: 'AUDIO',
+                  value: session?.audioRoute == 'tv' ? 'Display 5.1' : 'Device Audio',
+                ),
+                _TelemetryItem(
+                  label: 'LATENCY',
+                  value: '${session?.pingMs ?? 14} ms sync',
+                ),
+                _TelemetryItem(
+                  label: 'BITRATE',
+                  value: '${(session?.bitrateMbps ?? 48.2).toStringAsFixed(1)} Mbps',
+                ),
               ],
             ),
           ),
 
           const SizedBox(height: 16),
+
+          // Remote Playback Scrub Bar with Timestamps
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: EDesign.primary,
+                  inactiveTrackColor: EDesign.surface,
+                  thumbColor: EDesign.primary,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                  trackHeight: 3,
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                ),
+                child: Slider(
+                  value: posSeconds,
+                  min: 0.0,
+                  max: maxSeconds,
+                  onChanged: (val) {
+                    castService.seek(Duration(seconds: val.round()));
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatDuration(currentPos),
+                      style: EDesign.caption.copyWith(
+                        color: EDesign.primary,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      _formatDuration(totalDur),
+                      style: EDesign.caption.copyWith(
+                        color: EDesign.textSecondary,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
 
           // Remote Playback Sync Controls
           Row(
@@ -417,10 +507,12 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                 tooltip: 'Rewind 10s',
                 onPressed: () {
                   HapticFeedback.lightImpact();
-                  if (widget.player != null) {
-                    final current = widget.player!.state.position;
-                    widget.player!.seek(current - const Duration(seconds: 10));
-                  }
+                  final current = currentPos;
+                  castService.seek(
+                    current > const Duration(seconds: 10)
+                        ? current - const Duration(seconds: 10)
+                        : Duration.zero,
+                  );
                 },
               ),
               const SizedBox(width: 16),
@@ -428,9 +520,6 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                 onTap: () {
                   HapticFeedback.lightImpact();
                   castService.toggleRemotePlayPause();
-                  if (widget.player != null) {
-                    widget.player!.playOrPause();
-                  }
                 },
                 child: Container(
                   width: 52,
@@ -458,10 +547,8 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                 tooltip: 'Forward 10s',
                 onPressed: () {
                   HapticFeedback.lightImpact();
-                  if (widget.player != null) {
-                    final current = widget.player!.state.position;
-                    widget.player!.seek(current + const Duration(seconds: 10));
-                  }
+                  final current = currentPos;
+                  castService.seek(current + const Duration(seconds: 10));
                 },
               ),
             ],
@@ -483,9 +570,6 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   castService.toggleMute();
-                  if (widget.player != null) {
-                    widget.player!.setVolume(castService.isMuted ? 0 : castService.remoteVolume * 100);
-                  }
                 },
               ),
               Expanded(
@@ -501,9 +585,6 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                     value: castService.isMuted ? 0.0 : castService.remoteVolume,
                     onChanged: (val) {
                       castService.setRemoteVolume(val);
-                      if (widget.player != null) {
-                        widget.player!.setVolume(val * 100);
-                      }
                     },
                   ),
                 ),
@@ -786,7 +867,10 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                     ),
                     onPressed: () async {
                       HapticFeedback.mediumImpact();
-                      await castService.connect(device);
+                      await castService.connect(
+                        device,
+                        mediaTitle: widget.mediaTitle,
+                      );
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

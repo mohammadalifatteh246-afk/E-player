@@ -278,9 +278,7 @@ class LibraryProvider extends ChangeNotifier {
     }
 
     String? selectedDirectory = directoryPath;
-    if (selectedDirectory == null) {
-      selectedDirectory = await FilePicker.getDirectoryPath();
-    }
+    selectedDirectory ??= await FilePicker.getDirectoryPath();
 
     if (selectedDirectory == null) return;
 
