@@ -10,6 +10,8 @@ import 'features/export/domain/export_service.dart';
 import 'features/vault/domain/vault_service.dart';
 import 'features/trash/domain/trash_service.dart';
 import 'features/settings/domain/settings_provider.dart';
+import 'features/casting/domain/cast_service.dart';
+import 'features/home/domain/media_group_service.dart';
 import 'theme/e_player_theme.dart';
 
 void main() {
@@ -49,6 +51,8 @@ class EPlayerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => VaultService()),
         ChangeNotifierProvider(create: (_) => TrashService()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => CastService()),
+        ChangeNotifierProvider(create: (_) => MediaGroupService()),
       ],
       child: MaterialApp(
         title: 'E-Player',

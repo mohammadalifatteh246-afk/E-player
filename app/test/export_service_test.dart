@@ -63,5 +63,34 @@ void main() {
       expect(job4k.targetHeight, 2160);
       expect(job4k.tempPath, 'out.mkv.tmp');
     });
+
+    test('Create demo job adds 4K 60FPS job and clearCompleted purges finished jobs', () {
+      service.createDemoJob();
+      expect(service.jobs.length, 1);
+      final demoJob = service.jobs.first;
+      expect(demoJob.resolutionTarget, '4K');
+      expect(demoJob.fpsTarget, 60);
+      expect(demoJob.totalFrames, 3600);
+
+      demoJob.status = ExportStatus.completed;
+      service.clearCompleted();
+      expect(service.jobs.isEmpty, isTrue);
+    });
+
+    test('ExportJob calculated metrics for frames and ETA', () {
+      final job = ExportJob(
+        id: 'job_metrics',
+        sourcePath: 'sample.mp4',
+        outputPath: 'sample_out.mkv',
+        resolutionTarget: '1080p',
+        fpsTarget: 60,
+        totalFrames: 1000,
+        currentFps: 50.0,
+        progress: 0.5,
+      );
+
+      expect(job.processedFrames, 500);
+      expect(job.etaString, isNotEmpty);
+    });
   });
 }

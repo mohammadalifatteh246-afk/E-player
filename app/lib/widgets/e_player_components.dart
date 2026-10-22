@@ -184,7 +184,7 @@ class EMediaBottomNavigation extends StatelessWidget {
     NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
     NavigationDestination(icon: Icon(Icons.video_library_outlined), selectedIcon: Icon(Icons.video_library), label: 'Library'),
     NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome), label: 'Enhance'),
-    NavigationDestination(icon: Icon(Icons.cast_outlined), selectedIcon: Icon(Icons.cast), label: 'Cast'),
+    NavigationDestination(icon: EVectorIcon(name: 'cast', size: 24, color: EPlayerColors.textMuted), selectedIcon: EVectorIcon(name: 'cast', size: 24, color: EPlayerColors.primary), label: 'Cast'),
     NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
   ]);
 }

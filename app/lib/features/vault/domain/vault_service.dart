@@ -76,6 +76,10 @@ class VaultService extends ChangeNotifier {
   bool _isUnlocked = false;
   bool get isUnlocked => _isUnlocked;
 
+  bool _isDecoyMode = false;
+  bool get isDecoyMode => _isDecoyMode;
+  static const String defaultDecoyPin = '0000';
+
   bool _autoLockOnExit = true;
   bool get autoLockOnExit => _autoLockOnExit;
 
@@ -154,6 +158,17 @@ class VaultService extends ChangeNotifier {
     if (isLockedOut) return false;
 
     final prefs = await SharedPreferences.getInstance();
+    final decoyPin = prefs.getString('vault_decoy_pin') ?? defaultDecoyPin;
+    if (pin == decoyPin) {
+      _failedAttempts = 0;
+      _lockoutUntil = null;
+      _isUnlocked = true;
+      _isDecoyMode = true;
+      _manifest.clear();
+      notifyListeners();
+      return true;
+    }
+
     final saltB64 = prefs.getString('vault_pin_salt');
     final expectedHash = prefs.getString('vault_pin_hash');
 
@@ -169,6 +184,7 @@ class VaultService extends ChangeNotifier {
       _failedAttempts = 0;
       _lockoutUntil = null;
       _isUnlocked = true;
+      _isDecoyMode = false;
       await _loadEncryptedManifest();
       notifyListeners();
       return true;
@@ -341,6 +357,7 @@ class VaultService extends ChangeNotifier {
 
   Future<void> lock() async {
     _isUnlocked = false;
+    _isDecoyMode = false;
     await cleanupTempFiles();
     notifyListeners();
   }
@@ -697,7 +714,7 @@ class VaultService extends ChangeNotifier {
   }
 
   Future<List<File>> getVaultItems() async {
-    if (!_isUnlocked) return [];
+    if (!_isUnlocked || _isDecoyMode) return [];
     final vaultDir = await getVaultDirectory();
     final List<FileSystemEntity> entities = await vaultDir.list().toList();
     final files = entities

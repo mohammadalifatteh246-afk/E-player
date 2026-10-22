@@ -9,7 +9,8 @@ import 'package:provider/provider.dart';
 import '../../../../core/engine_orchestrator.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../../../widgets/e_player_components.dart';
-import '../../casting/ui/casting_screen.dart';
+import '../../casting/ui/cast_sheet.dart';
+import '../../media_info/ui/media_info_sheet.dart';
 import '../../enhancement/ui/enhancement_studio_sheet.dart';
 import '../../library/domain/library_provider.dart';
 import '../../video_effects/models/video_effects_config.dart';
@@ -668,6 +669,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
                   builder: (context) => SubtitleSettingsSheet(
                     player: _player,
                     config: _subtitleConfig,
@@ -1132,9 +1134,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             icon: const EVectorIcon(name: 'cast', size: 19, color: Colors.white),
                             tooltip: 'Cast Media',
                             onPressed: () {
-                              Navigator.push(
+                              CastSheet.show(
                                 context,
-                                MaterialPageRoute(builder: (_) => const CastingScreen()),
+                                player: _player,
+                                mediaTitle: p.basename(widget.mediaPath),
                               );
                             },
                           ),
@@ -1174,6 +1177,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
                             tooltip: 'Subtitles',
                             onPressed: _showSubtitleMenu,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 20),
+                            tooltip: 'Technical Media Inspector',
+                            onPressed: () {
+                              MediaInfoSheet.show(
+                                context,
+                                mediaPath: widget.mediaPath,
+                              );
+                            },
                           ),
                           Builder(
                             builder: (ctx) => IconButton(
