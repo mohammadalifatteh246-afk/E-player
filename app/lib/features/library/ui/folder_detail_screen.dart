@@ -7,6 +7,7 @@ import '../domain/library_provider.dart';
 import '../../player/ui/player_screen.dart';
 import '../../trash/domain/trash_service.dart';
 import '../../vault/domain/vault_service.dart';
+import 'widgets/video_group_card.dart';
 
 class FolderDetailScreen extends StatefulWidget {
   final String folderName;
@@ -27,6 +28,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   bool _isGridView = true;
   String _sortBy = 'Name'; // 'Name', 'Size', 'Recent'
   String _searchQuery = '';
+  GroupMode _folderGroupMode = GroupMode.none;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -95,6 +97,51 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       ),
                       const SizedBox(width: 10),
                       Text('Sort by $opt', style: EDesign.body),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          PopupMenuButton<GroupMode>(
+            icon: Icon(
+              _folderGroupMode == GroupMode.byFolder
+                  ? Icons.folder_copy_rounded
+                  : _folderGroupMode == GroupMode.byName
+                      ? Icons.auto_awesome_motion_rounded
+                      : Icons.workspaces_outlined,
+              color: _folderGroupMode != GroupMode.none ? EDesign.primary : EDesign.textSecondary,
+              size: 20,
+            ),
+            tooltip: 'Group Media (${_folderGroupMode.label})',
+            color: EDesign.elevatedSurface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(EDesign.r14),
+              side: const BorderSide(color: EDesign.border),
+            ),
+            onSelected: (mode) => setState(() => _folderGroupMode = mode),
+            itemBuilder: (context) => [
+              for (final mode in GroupMode.values)
+                PopupMenuItem(
+                  value: mode,
+                  child: Row(
+                    children: [
+                      Icon(
+                        mode.icon,
+                        color: mode == _folderGroupMode ? EDesign.primary : EDesign.textSecondary,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        mode.label,
+                        style: TextStyle(
+                          color: mode == _folderGroupMode ? EDesign.primary : EDesign.textPrimary,
+                          fontWeight: mode == _folderGroupMode ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      if (mode == _folderGroupMode) ...[
+                        const Spacer(),
+                        const Icon(Icons.check, color: EDesign.primary, size: 16),
+                      ],
                     ],
                   ),
                 ),
@@ -188,7 +235,7 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
           const SizedBox(height: 16),
 
-          // Media Content (Grid or List)
+          // Media Content (Grid, List, or Grouped Hierarchy)
           Expanded(
             child: filtered.isEmpty
                 ? Center(
@@ -197,28 +244,63 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                       style: EDesign.secondaryStyle,
                     ),
                   )
-                : _isGridView
-                    ? GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.45,
-                        ),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          return _buildGridCard(context, filtered[index], libraryProvider);
+                : _folderGroupMode != GroupMode.none
+                    ? Builder(
+                        builder: (context) {
+                          final groups = VideoGroupingEngine.group(filtered, _folderGroupMode);
+                          if (groups.isEmpty) {
+                            return Center(
+                              child: Text(
+                                'No grouped media found.',
+                                style: EDesign.secondaryStyle,
+                              ),
+                            );
+                          }
+                          return AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            child: ListView.builder(
+                              key: ValueKey('folder_grouped_${_folderGroupMode.name}_${_isGridView}_${groups.length}'),
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: groups.length,
+                              itemBuilder: (context, index) {
+                                return VideoGroupCard(
+                                  key: ValueKey('folder_group_${groups[index].id}'),
+                                  group: groups[index],
+                                  isGridView: _isGridView,
+                                );
+                              },
+                            ),
+                          );
                         },
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          return _buildListCard(context, filtered[index], libraryProvider);
-                        },
+                    : AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _isGridView
+                            ? GridView.builder(
+                                key: const ValueKey('folder_flat_grid'),
+                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                                physics: const BouncingScrollPhysics(),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: 1.45,
+                                ),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  return _buildGridCard(context, filtered[index], libraryProvider);
+                                },
+                              )
+                            : ListView.builder(
+                                key: const ValueKey('folder_flat_list'),
+                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                                physics: const BouncingScrollPhysics(),
+                                itemCount: filtered.length,
+                                itemBuilder: (context, index) {
+                                  return _buildListCard(context, filtered[index], libraryProvider);
+                                },
+                              ),
                       ),
           ),
         ],

@@ -1,0 +1,27 @@
+# Progress — Hardware Decoder Pipeline Worker
+
+- Last visited: 2026-10-22T11:24:00Z
+- Status: Task Completed. Preparing handoff report and notification.
+- Completed:
+  - Initialized DISPATCH.md and BRIEFING.md
+  - Read ORIGINAL_REQUEST.md, PROJECT.md, spec_miner survey, and codebase explorer survey
+  - Verified baseline test integrity (67/67 tests passing)
+  - Created `app/lib/features/player/domain/decoder_models.dart`:
+    - Strongly typed `DecoderMode` enum (`auto`, `hw`, `hwPlus`, `sw`)
+    - `DecoderTelemetry` (`requestedMode`, `activeDecoder`, `codec`, `droppedFrames`, `fps`, `bitrate`, `width`, `height`, etc.)
+    - `DecoderSwitchResult` (`success`, `activeMode`, `backend`, `fallbackReason`)
+  - Created `app/lib/features/player/domain/decoder_pipeline_service.dart`:
+    - Binds to active `Player` and `libmpv` platform properties (`hwdec`: auto, yes, auto-copy, no)
+    - Dynamic fallback cascade (HW -> HW+ -> SW)
+    - Sliding 2000ms window drop-frame monitoring (>10 drops threshold)
+    - Re-seek position preservation with tolerance <= 250ms
+    - Hardware acceleration offload invariant (INV-HW-002)
+    - Real-time `telemetryStream`
+  - Integrated with `app/lib/features/player/ui/player_screen.dart`:
+    - Connected `DecoderPipelineService` to player lifecycle
+    - Modal decoder menu updated with detailed descriptions and active checkmarks
+    - Updated Telemetry HUD to display active hardware decoder, dropped frames, codec, and fps from `telemetryStream`
+    - Proper disposal of subscriptions and service
+  - Implemented 21 comprehensive unit tests in `app/test/unit/decoder_pipeline_test.dart`
+  - Static Analysis: `flutter analyze` reports 0 errors, 0 warnings on all owned files
+  - Test Suite: 87/87 tests passed (100% passing)

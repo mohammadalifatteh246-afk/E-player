@@ -14,6 +14,7 @@ import '../../player/ui/player_screen.dart';
 import '../../casting/ui/casting_screen.dart';
 import '../../settings/ui/settings_screen.dart';
 import '../domain/media_group_service.dart';
+import '../../library/ui/widgets/video_group_card.dart';
 
 /// Screen 2: Responsive Cyber-Stitch Home Screen (Android & Desktop)
 /// Features compact card architecture based on user-spec wireframe:
@@ -361,18 +362,111 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            if (provider.recentFiles.length > 1)
-              Text(
-                '${provider.recentFiles.length} recent',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: EDesign.textMuted,
-                  fontWeight: FontWeight.w500,
+            Row(
+              children: [
+                if (provider.recentFiles.length > 1)
+                  Text(
+                    '${provider.recentFiles.length} recent',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: EDesign.textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                PopupMenuButton<GroupMode>(
+                  tooltip: 'Group Recent Videos',
+                  color: EDesign.elevatedSurface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(EDesign.r12),
+                    side: const BorderSide(color: EDesign.border),
+                  ),
+                  onSelected: (mode) => provider.setGroupMode(mode),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: provider.groupMode != GroupMode.none
+                          ? EDesign.primary.withValues(alpha: 0.15)
+                          : EDesign.surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: provider.groupMode != GroupMode.none
+                            ? EDesign.primary
+                            : EDesign.border,
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          provider.groupMode == GroupMode.byFolder
+                              ? Icons.folder_outlined
+                              : provider.groupMode == GroupMode.byName
+                                  ? Icons.auto_awesome_motion_outlined
+                                  : Icons.workspaces_outlined,
+                          size: 13,
+                          color: provider.groupMode != GroupMode.none
+                              ? EDesign.primary
+                              : EDesign.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          provider.groupMode == GroupMode.none ? 'Group' : provider.groupMode.label,
+                          style: TextStyle(
+                            color: provider.groupMode != GroupMode.none
+                                ? EDesign.primary
+                                : EDesign.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  itemBuilder: (context) => [
+                    for (final mode in GroupMode.values)
+                      PopupMenuItem(
+                        value: mode,
+                        child: Row(
+                          children: [
+                            Icon(
+                              mode.icon,
+                              size: 16,
+                              color: mode == provider.groupMode ? EDesign.primary : EDesign.textSecondary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              mode.label,
+                              style: TextStyle(
+                                color: mode == provider.groupMode ? EDesign.primary : EDesign.textPrimary,
+                                fontWeight: mode == provider.groupMode ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            if (mode == provider.groupMode) ...[
+                              const Spacer(),
+                              const Icon(Icons.check, size: 14, color: EDesign.primary),
+                            ],
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-              ),
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 10),
+
+        if (provider.groupMode != GroupMode.none && provider.groupedRecentFiles.isNotEmpty) ...[
+          ...provider.groupedRecentFiles.take(4).map((group) {
+            return VideoGroupCard(
+              key: ValueKey('recent_group_${group.id}'),
+              group: group,
+              isGridView: false,
+            );
+          }),
+        ] else ...[
 
         // Compact History Container (Max Height ~130-150px)
         InkWell(
@@ -569,6 +663,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+        ],
       ],
     );
   }
@@ -886,15 +981,109 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Media Library',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: EDesign.textPrimary,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              provider.groupMode == GroupMode.none
+                  ? 'Media Library'
+                  : 'Media Library (${provider.groupMode.label})',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: EDesign.textPrimary,
+              ),
+            ),
+            PopupMenuButton<GroupMode>(
+              tooltip: 'Group Media Library',
+              color: EDesign.elevatedSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(EDesign.r12),
+                side: const BorderSide(color: EDesign.border),
+              ),
+              onSelected: (mode) => provider.setGroupMode(mode),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: provider.groupMode != GroupMode.none
+                      ? EDesign.primary.withValues(alpha: 0.15)
+                      : EDesign.surface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: provider.groupMode != GroupMode.none
+                        ? EDesign.primary
+                        : EDesign.border,
+                    width: 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      provider.groupMode == GroupMode.byFolder
+                          ? Icons.folder_outlined
+                          : provider.groupMode == GroupMode.byName
+                              ? Icons.auto_awesome_motion_outlined
+                              : Icons.workspaces_outlined,
+                      size: 13,
+                      color: provider.groupMode != GroupMode.none
+                          ? EDesign.primary
+                          : EDesign.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      provider.groupMode == GroupMode.none ? 'Group' : provider.groupMode.label,
+                      style: TextStyle(
+                        color: provider.groupMode != GroupMode.none
+                            ? EDesign.primary
+                            : EDesign.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              itemBuilder: (context) => [
+                for (final mode in GroupMode.values)
+                  PopupMenuItem(
+                    value: mode,
+                    child: Row(
+                      children: [
+                        Icon(
+                          mode.icon,
+                          size: 16,
+                          color: mode == provider.groupMode ? EDesign.primary : EDesign.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          mode.label,
+                          style: TextStyle(
+                            color: mode == provider.groupMode ? EDesign.primary : EDesign.textPrimary,
+                            fontWeight: mode == provider.groupMode ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        if (mode == provider.groupMode) ...[
+                          const Spacer(),
+                          const Icon(Icons.check, size: 14, color: EDesign.primary),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
         const SizedBox(height: 10),
+        if (provider.groupMode != GroupMode.none && provider.groupedAllFiles.isNotEmpty) ...[
+          ...provider.groupedAllFiles.map((group) {
+            return VideoGroupCard(
+              key: ValueKey('home_all_group_${group.id}'),
+              group: group,
+              isGridView: isDesktop,
+            );
+          }),
+        ] else ...[
         GridView.count(
           crossAxisCount: crossAxisCount,
           shrinkWrap: true,
@@ -965,6 +1154,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        ],
       ],
     );
   }
@@ -1274,6 +1464,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildFilterChip('Ascending', _currentOrder == SortOrder.ascending, () {
                         setModalState(() => _currentOrder = SortOrder.ascending);
                         provider.setSort(_currentSort, SortOrder.ascending);
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Group Videos (VLC Parity)', style: TextStyle(color: EDesign.textSecondary, fontSize: 13, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      _buildFilterChip('None (Flat)', provider.groupMode == GroupMode.none, () {
+                        setModalState(() {});
+                        provider.setGroupMode(GroupMode.none);
+                      }),
+                      _buildFilterChip('By Folder', provider.groupMode == GroupMode.byFolder, () {
+                        setModalState(() {});
+                        provider.setGroupMode(GroupMode.byFolder);
+                      }),
+                      _buildFilterChip('By Name', provider.groupMode == GroupMode.byName, () {
+                        setModalState(() {});
+                        provider.setGroupMode(GroupMode.byName);
                       }),
                     ],
                   ),

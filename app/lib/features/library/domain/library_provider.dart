@@ -2,16 +2,23 @@ import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/models/media_item.dart';
 import '../../../core/db/database_helper.dart';
 import 'media_scanner_service.dart';
 import 'media_search_engine.dart';
+import 'video_grouping_service.dart';
+
+export 'video_grouping_service.dart';
 
 class LibraryProvider extends ChangeNotifier {
   List<MediaItem> _recentFiles = [];
   List<MediaItem> _favorites = [];
   List<MediaItem> _allFiles = [];
+  GroupMode _groupMode = GroupMode.none;
+  static const String _kGroupModePrefKey = 'eplayer_video_grouping_mode';
+  bool _isDisposed = false;
 
   final MediaScannerService _scannerService = MediaScannerService();
   MediaSearchOptions _searchOptions = const MediaSearchOptions();
@@ -43,11 +50,55 @@ class LibraryProvider extends ChangeNotifier {
     return MediaSearchEngine.filterFolders(groupedFolders, _searchOptions.query);
   }
 
+  GroupMode get groupMode => _groupMode;
+
+  /// Sets video grouping mode and persists to SharedPreferences
+  Future<void> setGroupMode(GroupMode mode) async {
+    if (_groupMode == mode) return;
+    _groupMode = mode;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kGroupModePrefKey, mode.name);
+    } catch (_) {}
+  }
+
+  /// Groups search results in-memory with sub-16ms latency
+  List<VideoGroup> get groupedSearchResults {
+    return VideoGroupingEngine.group(searchResults, _groupMode);
+  }
+
+  /// Groups recent files in-memory
+  List<VideoGroup> get groupedRecentFiles {
+    return VideoGroupingEngine.group(recentFiles, _groupMode);
+  }
+
+  /// Groups all indexed files in-memory
+  List<VideoGroup> get groupedAllFiles {
+    return VideoGroupingEngine.group(allFiles, _groupMode);
+  }
+
+  /// Groups custom media items with specified or active mode
+  List<VideoGroup> groupCustomItems(List<MediaItem> items, [GroupMode? mode]) {
+    return VideoGroupingEngine.group(items, mode ?? _groupMode);
+  }
+
   LibraryProvider() {
     _loadFromDB();
   }
 
   Future<void> _loadFromDB() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedMode = prefs.getString(_kGroupModePrefKey);
+      if (savedMode != null) {
+        _groupMode = GroupMode.values.firstWhere(
+          (m) => m.name == savedMode,
+          orElse: () => GroupMode.none,
+        );
+      }
+    } catch (_) {}
+
     try {
       final allItems = await DatabaseHelper.instance.getAllItems();
       _allFiles = allItems;
@@ -64,7 +115,9 @@ class LibraryProvider extends ChangeNotifier {
       _recentFiles = [];
       _favorites = [];
     }
-    notifyListeners();
+    if (!_isDisposed) {
+      notifyListeners();
+    }
   }
 
   Future<void> refreshLibrary() async {
@@ -311,5 +364,11 @@ class LibraryProvider extends ChangeNotifier {
 
   Future<List<MediaItem>> getAllLibraryItems() async {
     return await DatabaseHelper.instance.getAllItems();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 }

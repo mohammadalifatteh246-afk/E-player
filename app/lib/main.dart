@@ -53,6 +53,7 @@ class EPlayerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => CastService()),
         ChangeNotifierProvider(create: (_) => MediaGroupService()),
+        ChangeNotifierProvider(create: (_) => VideoGroupingService()),
       ],
       child: MaterialApp(
         title: 'E-Player',

@@ -14,6 +14,7 @@ import '../../trash/ui/trash_screen.dart';
 import '../../media_info/ui/media_info_sheet.dart';
 import '../../vault/domain/vault_service.dart';
 import '../../trash/domain/trash_service.dart';
+import 'widgets/video_group_card.dart';
 
 /// Screen 8: Media Library (Cinematic Multi-Format Media Workstation)
 ///
@@ -249,6 +250,65 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           onPressed: () => setState(() => _isGridView = !_isGridView),
         ),
 
+        // Video Grouping Selector Pop-up Menu (VLC Parity)
+        PopupMenuButton<GroupMode>(
+          icon: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: provider.groupMode != GroupMode.none
+                  ? EDesign.primary.withValues(alpha: 0.18)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(EDesign.r8),
+              border: Border.all(
+                color: provider.groupMode != GroupMode.none
+                    ? EDesign.primary
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Icon(
+              provider.groupMode == GroupMode.byFolder
+                  ? Icons.folder_copy_rounded
+                  : provider.groupMode == GroupMode.byName
+                      ? Icons.auto_awesome_motion_rounded
+                      : Icons.workspaces_outlined,
+              color: provider.groupMode != GroupMode.none
+                  ? EDesign.primary
+                  : EDesign.textPrimary,
+              size: 20,
+            ),
+          ),
+          tooltip: 'Group Videos (${provider.groupMode.label})',
+          color: EDesign.elevatedSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(EDesign.r14),
+            side: const BorderSide(color: EDesign.border),
+          ),
+          onSelected: (mode) {
+            provider.setGroupMode(mode);
+          },
+          itemBuilder: (context) => [
+            _buildGroupMenuItem(
+              mode: GroupMode.none,
+              currentMode: provider.groupMode,
+              title: 'None (Flat List)',
+              icon: Icons.format_list_bulleted_rounded,
+            ),
+            _buildGroupMenuItem(
+              mode: GroupMode.byFolder,
+              currentMode: provider.groupMode,
+              title: 'Group by Folder',
+              icon: Icons.folder_outlined,
+            ),
+            _buildGroupMenuItem(
+              mode: GroupMode.byName,
+              currentMode: provider.groupMode,
+              title: 'Group by Name',
+              icon: Icons.auto_awesome_motion_outlined,
+            ),
+          ],
+        ),
+
         // Sort Options Pop-up Menu
         PopupMenuButton<SortField>(
           icon: const Icon(Icons.sort_rounded, color: EDesign.textPrimary),
@@ -369,6 +429,35 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     final isSelected = field == currentField;
     return PopupMenuItem(
       value: field,
+      child: Row(
+        children: [
+          Icon(icon, color: isSelected ? EDesign.primary : EDesign.textSecondary, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            title,
+            style: TextStyle(
+              color: isSelected ? EDesign.primary : EDesign.textPrimary,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          if (isSelected) ...[
+            const Spacer(),
+            const Icon(Icons.check, color: EDesign.primary, size: 16),
+          ],
+        ],
+      ),
+    );
+  }
+
+  PopupMenuItem<GroupMode> _buildGroupMenuItem({
+    required GroupMode mode,
+    required GroupMode currentMode,
+    required String title,
+    required IconData icon,
+  }) {
+    final isSelected = mode == currentMode;
+    return PopupMenuItem(
+      value: mode,
       child: Row(
         children: [
           Icon(icon, color: isSelected ? EDesign.primary : EDesign.textSecondary, size: 18),
@@ -630,7 +719,37 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       );
     }
 
-    // State 5: Videos / Audio / All Items Grid / List
+    // State 5: Grouped Mode View (By Folder or By Name - VLC Parity)
+    if (provider.groupMode != GroupMode.none) {
+      final groups = provider.groupedSearchResults;
+      if (groups.isEmpty) {
+        return _buildEmptySearchState(
+          'No ${_selectedTab.toLowerCase()} matching "${provider.searchOptions.query}"',
+        );
+      }
+
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: ListView.builder(
+          key: ValueKey('library_grouped_${provider.groupMode.name}_${_isGridView}_${groups.length}'),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          physics: const BouncingScrollPhysics(),
+          itemCount: groups.length,
+          itemBuilder: (context, index) {
+            final group = groups[index];
+            return VideoGroupCard(
+              key: ValueKey(group.id),
+              group: group,
+              isGridView: _isGridView,
+            );
+          },
+        ),
+      );
+    }
+
+    // State 6: Videos / Audio / All Items Flat Grid / List
     final displayItems = provider.searchResults;
 
     if (displayItems.isEmpty) {
@@ -639,38 +758,43 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       );
     }
 
-    if (_isGridView) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 700;
-          return GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            physics: const BouncingScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isWide ? 3 : 2,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-              childAspectRatio: isWide ? 1.25 : 1.15,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: _isGridView
+          ? LayoutBuilder(
+              key: const ValueKey('library_flat_grid'),
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 700;
+                return GridView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  physics: const BouncingScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: isWide ? 3 : 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: isWide ? 1.25 : 1.15,
+                  ),
+                  itemCount: displayItems.length,
+                  itemBuilder: (context, index) {
+                    final item = displayItems[index];
+                    return _buildPosterCard(item, provider);
+                  },
+                );
+              },
+            )
+          : ListView.builder(
+              key: const ValueKey('library_flat_list'),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              physics: const BouncingScrollPhysics(),
+              itemCount: displayItems.length,
+              itemBuilder: (context, index) {
+                final item = displayItems[index];
+                return _buildListRow(item, provider);
+              },
             ),
-            itemCount: displayItems.length,
-            itemBuilder: (context, index) {
-              final item = displayItems[index];
-              return _buildPosterCard(item, provider);
-            },
-          );
-        },
-      );
-    } else {
-      return ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        physics: const BouncingScrollPhysics(),
-        itemCount: displayItems.length,
-        itemBuilder: (context, index) {
-          final item = displayItems[index];
-          return _buildListRow(item, provider);
-        },
-      );
-    }
+    );
   }
 
   // --- 5. 16:9 CINEMATIC POSTER CARD (GRID MODE) ---

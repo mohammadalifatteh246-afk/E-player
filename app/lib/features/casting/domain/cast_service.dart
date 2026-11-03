@@ -1,127 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 
-/// Supported Wireless Cast Protocols (Mirroring VLC's services_discovery plugins)
-enum CastProtocol {
-  chromecast('Chromecast V2', 'Google Cast Protocol', 0xFF19BFFF),
-  airplay('AirPlay 2', 'Apple AirPlay RAOP', 0xFFE741FF),
-  dlna('DLNA / UPnP', 'Universal Media Renderer (SSDP)', 0xFF00E676),
-  miracast('Miracast Direct', 'Wi-Fi Display (WFD/RTSP)', 0xFFFFB300);
+import 'cast_models.dart';
+import 'local_streaming_daemon.dart';
 
-  final String label;
-  final String description;
-  final int colorHex;
-
-  const CastProtocol(this.label, this.description, this.colorHex);
-}
-
-/// Transcoding profile negotiated during connection handshake (Mirroring VLC's libstream_out_transcode)
-enum CastTranscodeProfile {
-  directPassthrough(
-    'Direct Passthrough',
-    'Native H.264/AAC bitstream passthrough without re-encoding',
-    0xFF00E676,
-  ),
-  audioRemux(
-    'Audio Remux (AAC)',
-    'Lossless video passthrough with DTS/AC3 -> AAC 256k transcoding',
-    0xFF19BFFF,
-  ),
-  videoTranscode(
-    'Real-time Transcode (H.264)',
-    'On-the-fly HEVC/VP9 to H.264 hardware-accelerated transcoding',
-    0xFFFFB300,
-  ),
-  fullRemux(
-    'MPEG-TS Container Remux',
-    'Container adaptation for legacy UPnP/DLNA renderers',
-    0xFFE741FF,
-  );
-
-  final String label;
-  final String description;
-  final int colorHex;
-
-  const CastTranscodeProfile(this.label, this.description, this.colorHex);
-}
-
-/// Represents a discovered wireless network display target (Mirroring VLC's vlc_renderer_item_t)
-class CastDevice {
-  final String id;
-  final String name;
-  final CastProtocol protocol;
-  final String model;
-  final String ipAddress;
-  final int signalPercentage;
-  final String resolutionCapability;
-  bool isConnected;
-  bool isConnecting;
-
-  CastDevice({
-    required this.id,
-    required this.name,
-    required this.protocol,
-    required this.model,
-    required this.ipAddress,
-    required this.signalPercentage,
-    required this.resolutionCapability,
-    this.isConnected = false,
-    this.isConnecting = false,
-  });
-
-  CastDevice copyWith({
-    bool? isConnected,
-    bool? isConnecting,
-  }) {
-    return CastDevice(
-      id: id,
-      name: name,
-      protocol: protocol,
-      model: model,
-      ipAddress: ipAddress,
-      signalPercentage: signalPercentage,
-      resolutionCapability: resolutionCapability,
-      isConnected: isConnected ?? this.isConnected,
-      isConnecting: isConnecting ?? this.isConnecting,
-    );
-  }
-}
-
-/// Active streaming session state with live pipeline telemetry (Mirroring VLC's sout_stream_t)
-class CastSession {
-  final CastDevice device;
-  final String mediaTitle;
-  final String mediaPath;
-  final DateTime startedAt;
-  final CastTranscodeProfile transcodeProfile;
-
-  Duration position;
-  Duration duration;
-  bool isPlaying;
-  double volume;
-  bool isMuted;
-  String audioRoute; // 'tv', 'device', 'bluetooth'
-  double bitrateMbps;
-  int pingMs;
-
-  CastSession({
-    required this.device,
-    required this.mediaTitle,
-    required this.mediaPath,
-    required this.startedAt,
-    required this.transcodeProfile,
-    this.position = Duration.zero,
-    this.duration = Duration.zero,
-    this.isPlaying = true,
-    this.volume = 0.85,
-    this.isMuted = false,
-    this.audioRoute = 'tv',
-    this.bitrateMbps = 46.2,
-    this.pingMs = 14,
-  });
-}
+export 'cast_models.dart';
+export 'local_streaming_daemon.dart';
 
 /// Service managing network device discovery radar and remote casting session
 /// Parity with VLC's vlc_renderer_discovery and stream_out_chromecast modules
@@ -135,6 +22,12 @@ class CastService extends ChangeNotifier {
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration>? _durationSubscription;
   StreamSubscription<bool>? _playingSubscription;
+
+  LocalStreamingDaemon? _streamingDaemon;
+
+  /// Underlying local streaming server instance
+  LocalStreamingDaemon get streamingDaemon =>
+      _streamingDaemon ??= LocalStreamingDaemon();
 
   final List<CastDevice> _devices = [
     CastDevice(
@@ -242,6 +135,8 @@ class CastService extends ChangeNotifier {
         mediaPath: mediaPath ?? _activeSession!.mediaPath,
         startedAt: _activeSession!.startedAt,
         transcodeProfile: _activeSession!.transcodeProfile,
+        streamUrl: _activeSession!.streamUrl,
+        subtitleUrl: _activeSession!.subtitleUrl,
         position: player.state.position,
         duration: player.state.duration,
         isPlaying: player.state.playing,
@@ -250,6 +145,7 @@ class CastService extends ChangeNotifier {
         audioRoute: _audioRoute,
         bitrateMbps: _activeSession!.bitrateMbps,
         pingMs: _activeSession!.pingMs,
+        connectionState: _activeSession!.connectionState,
       );
       notifyListeners();
     }
@@ -289,7 +185,7 @@ class CastService extends ChangeNotifier {
   }
 
   /// Resolve transcode profile based on target renderer protocol and source format
-  CastTranscodeProfile _resolveTranscodeProfile(String path, CastProtocol protocol) {
+  CastTranscodeProfile resolveTranscodeProfile(String path, CastProtocol protocol) {
     final ext = p.extension(path).toLowerCase();
     if (ext == '.mp4' || ext == '.m4v') {
       return CastTranscodeProfile.directPassthrough;
@@ -308,17 +204,19 @@ class CastService extends ChangeNotifier {
     return CastTranscodeProfile.directPassthrough;
   }
 
+  CastTranscodeProfile _resolveTranscodeProfile(String path, CastProtocol protocol) =>
+      resolveTranscodeProfile(path, protocol);
+
   /// Connect to selected target device and redirect stream output sink
   Future<bool> connect(
     CastDevice device, {
     String? mediaTitle,
     String? mediaPath,
+    String? subtitlePath,
   }) async {
     // If another device is connected, cleanly disconnect first
     if (_connectedDevice != null && _connectedDevice!.id != device.id) {
-      _connectedDevice!.isConnected = false;
-      _connectedDevice = null;
-      _activeSession = null;
+      await disconnect();
     }
 
     device.isConnecting = true;
@@ -337,12 +235,31 @@ class CastService extends ChangeNotifier {
     final resolvedPath = mediaPath ?? '';
     final profile = _resolveTranscodeProfile(resolvedPath, device.protocol);
 
+    String? streamUrl;
+    String? subtitleUrl;
+
+    if (mediaPath != null && mediaPath.isNotEmpty && File(mediaPath).existsSync()) {
+      try {
+        final daemon = streamingDaemon;
+        await daemon.startSession(
+          filePath: mediaPath,
+          subtitlePath: subtitlePath,
+        );
+        streamUrl = daemon.streamUrl;
+        subtitleUrl = daemon.subtitleUrl;
+      } catch (e) {
+        debugPrint('LocalStreamingDaemon startSession failed: $e');
+      }
+    }
+
     _activeSession = CastSession(
       device: device,
       mediaTitle: resolvedTitle,
       mediaPath: resolvedPath,
       startedAt: DateTime.now(),
       transcodeProfile: profile,
+      streamUrl: streamUrl,
+      subtitleUrl: subtitleUrl,
       position: _boundPlayer?.state.position ?? Duration.zero,
       duration: _boundPlayer?.state.duration ?? Duration.zero,
       isPlaying: _isRemotePlaying,
@@ -351,6 +268,7 @@ class CastService extends ChangeNotifier {
       audioRoute: _audioRoute,
       bitrateMbps: profile == CastTranscodeProfile.videoTranscode ? 38.5 : 52.8,
       pingMs: 14,
+      connectionState: CastSessionState.connected,
     );
 
     // Start background telemetry jitter timer
@@ -372,6 +290,10 @@ class CastService extends ChangeNotifier {
   Future<void> disconnect() async {
     _telemetryTimer?.cancel();
     _telemetryTimer = null;
+
+    if (_streamingDaemon != null && _streamingDaemon!.isRunning) {
+      await _streamingDaemon!.stopSession();
+    }
 
     if (_connectedDevice != null) {
       _connectedDevice!.isConnected = false;
@@ -456,6 +378,8 @@ class CastService extends ChangeNotifier {
     _detachPlayerListeners();
     _scanTimer?.cancel();
     _telemetryTimer?.cancel();
+    _streamingDaemon?.dispose();
+    _streamingDaemon = null;
     super.dispose();
   }
 }

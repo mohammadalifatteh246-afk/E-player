@@ -21,6 +21,12 @@ import '../../video_effects/ui/video_effects_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import 'audio_studio_sheet.dart';
 import '../domain/video_rotation_service.dart';
+import '../domain/decoder_models.dart';
+import '../domain/decoder_pipeline_service.dart';
+import 'gesture_models.dart';
+import 'cinematic_gesture_engine.dart';
+import '../../pip/domain/pip_models.dart';
+import '../../pip/domain/pip_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String mediaPath;
@@ -50,6 +56,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   VideoEffectsConfig? _userSavedEffectsConfig;
 
   String _decoderMode = 'Auto';
+  late final DecoderPipelineService _decoderPipelineService;
+  StreamSubscription<DecoderTelemetry>? _decoderTelemetrySubscription;
+  DecoderTelemetry? _latestDecoderTelemetry;
   String _aspectRatio = 'Fit';
   bool _pitchCorrection = true;
   bool _showTelemetry = false;
@@ -66,12 +75,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _gesturesEnabled = true;
   double _brightness = 0.5;
   double _volume = 100.0;
+  late final CinematicGestureEngine _gestureEngine;
+  StreamSubscription<GestureFeedbackEvent>? _gestureFeedbackSubscription;
+  StreamSubscription<SeekCommitEvent>? _seekCommitSubscription;
+  StreamSubscription<bool>? _controlsInhibitedSubscription;
 
-  bool _isSwiping = false;
-  double _swipeStartY = 0.0;
-  double _swipeStartX = 0.0;
-  String _swipeAction = '';
-  Duration _seekStartPos = Duration.zero;
+  // HUD Feedback Card states
+  GestureFeedbackEvent? _activeFeedbackEvent;
+  bool _showFeedbackOverlay = false;
+  Timer? _feedbackOverlayTimer;
+
+  // Wing ripple indicators
+  bool _leftWingRipple = false;
+  bool _rightWingRipple = false;
+  Timer? _wingRippleTimer;
+
+  bool get _isSwiping => _gestureEngine.currentMode != GestureMode.idle;
 
   // Visual feedback overlay
   String _feedbackText = '';
@@ -81,9 +100,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Zoom/Pan
   double _scale = 1.0;
-  double _baseScale = 1.0;
   Offset _offset = Offset.zero;
-  Offset _baseOffset = Offset.zero;
 
   // --- Auto-Hiding Controls Engine (VLC & YouTube Parity) ---
   bool _controlsVisible = true;
@@ -118,6 +135,78 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  // --- Phase 6: Picture-in-Picture Coordinator ---
+  late final PipService _pipService;
+  StreamSubscription<PipAction>? _pipActionSubscription;
+
+  void _onPipServiceChanged() {
+    if (!mounted) return;
+    if (_pipService.isInPip) {
+      if (ModalRoute.of(context)?.isCurrent == false) {
+        Navigator.of(context).pop();
+      }
+      setState(() {
+        _controlsVisible = false;
+        _showFeedbackOverlay = false;
+        _activeFeedbackEvent = null;
+        _showFeedback = false;
+        _scale = 1.0;
+        _offset = Offset.zero;
+      });
+      _controlsTimer?.cancel();
+      _feedbackTimer?.cancel();
+      _feedbackOverlayTimer?.cancel();
+      _wingRippleTimer?.cancel();
+    } else {
+      setState(() {
+        _controlsVisible = true;
+      });
+      _startControlsTimer();
+    }
+  }
+
+  void _handlePipAction(PipAction action) {
+    if (!mounted) return;
+    switch (action) {
+      case PipAction.play:
+        _player.play();
+        break;
+      case PipAction.pause:
+        _player.pause();
+        break;
+      case PipAction.seekForward10:
+        final target = _position + const Duration(seconds: 10);
+        final clamped = target > _duration ? _duration : target;
+        _player.seek(clamped);
+        break;
+      case PipAction.seekRewind10:
+        final target = _position - const Duration(seconds: 10);
+        final clamped = target < Duration.zero ? Duration.zero : target;
+        _player.seek(clamped);
+        break;
+      case PipAction.unknown:
+        break;
+    }
+  }
+
+  Future<void> _triggerPip() async {
+    final width = _player.state.width ?? 1920;
+    final height = _player.state.height ?? 1080;
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      final size = PipMath.calculateOverlaySize(width, height);
+      await _pipService.toggleDesktopOverlay(
+        enable: !_pipService.isDesktopOverlay,
+        initialSize: size,
+      );
+    } else {
+      await _pipService.enterPip(
+        videoWidth: width,
+        videoHeight: height,
+        isPlaying: _isPlaying,
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +221,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
       debugPrint("AI load err: $e");
     }
 
+    _decoderPipelineService = DecoderPipelineService();
+    _decoderPipelineService.initialize(_player);
+    _decoderTelemetrySubscription =
+        _decoderPipelineService.telemetryStream.listen((telemetry) {
+      if (mounted) {
+        setState(() {
+          _latestDecoderTelemetry = telemetry;
+          _decoderMode = telemetry.requestedMode.label;
+        });
+      }
+    });
+
+    _pipService = PipService();
+    _pipService.isPipSupported();
+    _pipService.addListener(_onPipServiceChanged);
+    _pipActionSubscription = _pipService.actionStream.listen(_handlePipAction);
+
     _player.stream.playing.listen((playing) {
       if (mounted) {
         setState(() => _isPlaying = playing);
@@ -142,6 +248,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
           setState(() => _controlsVisible = true);
         }
       }
+      _pipService.updatePlaybackState(
+        isPlaying: playing,
+        videoWidth: _player.state.width,
+        videoHeight: _player.state.height,
+      );
       if (!playing) _persistProgress();
     });
     _player.stream.position.listen((pos) {
@@ -165,10 +276,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     // Auto-orient listener (VLC parity: detects video aspect ratio upon header load)
     _player.stream.width.listen((w) {
-      if (mounted) _checkAutoOrient();
+      if (mounted) {
+        _checkAutoOrient();
+        _pipService.updatePlaybackState(
+          isPlaying: _isPlaying,
+          videoWidth: w,
+          videoHeight: _player.state.height,
+        );
+      }
     });
     _player.stream.height.listen((h) {
-      if (mounted) _checkAutoOrient();
+      if (mounted) {
+        _checkAutoOrient();
+        _pipService.updatePlaybackState(
+          isPlaying: _isPlaying,
+          videoWidth: _player.state.width,
+          videoHeight: h,
+        );
+      }
     });
 
     _videoEffectsService = VideoEffectsService();
@@ -176,6 +301,78 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted) {
         setState(() => _videoEffectsConfig = cfg);
         _videoEffectsService.apply(_player, cfg);
+      }
+    });
+
+    _gestureEngine = CinematicGestureEngine(
+      initialBrightness: _brightness,
+      initialVolume: _volume,
+      onBrightnessChanged: (b) {
+        if (mounted) setState(() => _brightness = b);
+      },
+      onVolumeChanged: (v) {
+        _player.setVolume(v);
+        if (mounted) setState(() => _volume = v);
+      },
+      onTogglePlayPause: () {
+        if (_isPlaying) {
+          _player.pause();
+          _showFeedbackMessage("Paused", Icons.pause);
+        } else {
+          _player.play();
+          _showFeedbackMessage("Play", Icons.play_arrow);
+        }
+      },
+    );
+
+    _gestureFeedbackSubscription = _gestureEngine.feedbackEvents.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _activeFeedbackEvent = event;
+        _showFeedbackOverlay = true;
+        _scale = _gestureEngine.scale;
+        _offset = _gestureEngine.panOffset;
+
+        if (event.type == GestureFeedbackType.wingJump) {
+          if (event.value < 0) {
+            _leftWingRipple = true;
+            _rightWingRipple = false;
+          } else {
+            _rightWingRipple = true;
+            _leftWingRipple = false;
+          }
+          _wingRippleTimer?.cancel();
+          _wingRippleTimer = Timer(const Duration(milliseconds: 650), () {
+            if (mounted) {
+              setState(() {
+                _leftWingRipple = false;
+                _rightWingRipple = false;
+              });
+            }
+          });
+        }
+      });
+
+      _feedbackOverlayTimer?.cancel();
+      _feedbackOverlayTimer =
+          Timer(CinematicGestureConfig.feedbackLingeringDuration, () {
+        if (mounted) {
+          setState(() => _showFeedbackOverlay = false);
+        }
+      });
+    });
+
+    _seekCommitSubscription = _gestureEngine.seekCommitEvents.listen((event) {
+      _aiEngine.invalidateQueue();
+      _player.seek(event.target);
+    });
+
+    _controlsInhibitedSubscription =
+        _gestureEngine.controlsInhibited.listen((inhibited) {
+      if (inhibited) {
+        _controlsTimer?.cancel();
+      } else {
+        _startControlsTimer();
       }
     });
 
@@ -200,6 +397,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _gestureFeedbackSubscription?.cancel();
+    _seekCommitSubscription?.cancel();
+    _controlsInhibitedSubscription?.cancel();
+    _feedbackOverlayTimer?.cancel();
+    _wingRippleTimer?.cancel();
+    _gestureEngine.dispose();
+    _decoderTelemetrySubscription?.cancel();
+    _decoderPipelineService.dispose();
+    _pipActionSubscription?.cancel();
+    _pipService.removeListener(_onPipServiceChanged);
+    _pipService.dispose();
     _persistProgress();
     _controlsTimer?.cancel();
     _feedbackTimer?.cancel();
@@ -232,110 +440,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _onDoubleTapDown(TapDownDetails details) {
     if (!_gesturesEnabled || _isLocked) return;
     _showControls();
-    final screenWidth = MediaQuery.of(context).size.width;
-    final dx = details.localPosition.dx;
-    if (dx < screenWidth * 0.33) {
-      final newPos = _position - const Duration(seconds: 10);
-      _aiEngine.invalidateQueue();
-      _player.seek(newPos < Duration.zero ? Duration.zero : newPos);
-      _showFeedbackMessage("-10s", Icons.fast_rewind);
-    } else if (dx > screenWidth * 0.66) {
-      final newPos = _position + const Duration(seconds: 10);
-      _aiEngine.invalidateQueue();
-      _player.seek(newPos > _duration ? _duration : newPos);
-      _showFeedbackMessage("+10s", Icons.fast_forward);
-    } else {
-      if (_isPlaying) {
-        _player.pause();
-        _showFeedbackMessage("Paused", Icons.pause);
-      } else {
-        _player.play();
-        _showFeedbackMessage("Play", Icons.play_arrow);
-      }
-    }
+    final viewportSize = MediaQuery.of(context).size;
+    _gestureEngine.handleDoubleTapDown(
+      details,
+      viewportSize,
+      _position,
+      _duration,
+    );
+    setState(() {
+      _scale = _gestureEngine.scale;
+      _offset = _gestureEngine.panOffset;
+    });
   }
 
   void _onScaleStart(ScaleStartDetails details) {
     if (!_gesturesEnabled || _isLocked) return;
-    _controlsTimer?.cancel();
-    _isSwiping = true;
-    _swipeStartX = details.localFocalPoint.dx;
-    _swipeStartY = details.localFocalPoint.dy;
-    _seekStartPos = _position;
-
-    if (details.pointerCount == 1) {
-      final screenWidth = MediaQuery.of(context).size.width;
-      if (_swipeStartX < screenWidth * 0.3) {
-        _swipeAction = 'brightness';
-      } else if (_swipeStartX > screenWidth * 0.7) {
-        _swipeAction = 'volume';
-      } else {
-        _swipeAction = 'seek';
-      }
-    } else {
-      _baseScale = _scale;
-      _baseOffset = _offset;
-      _swipeAction = 'zoom_or_speed';
-    }
+    final viewportSize = MediaQuery.of(context).size;
+    _gestureEngine.handleScaleStart(details, viewportSize);
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
-    if (!_gesturesEnabled || _isLocked || !_isSwiping) return;
-
-    if (details.pointerCount >= 2) {
-      if ((details.scale - 1.0).abs() > 0.05 || _scale != 1.0) {
-        setState(() {
-          _scale = (_baseScale * details.scale).clamp(1.0, 4.0);
-          if (_scale > 1.0) {
-            _offset = _baseOffset + details.focalPointDelta;
-          } else {
-            _offset = Offset.zero;
-          }
-        });
-      } else {
-        final dy = details.localFocalPoint.dy - _swipeStartY;
-        if (dy.abs() > 30) {
-          final delta = dy > 0 ? -0.25 : 0.25;
-          double newRate = (_playbackSpeed + delta).clamp(0.25, 8.0);
-          if (newRate != _playbackSpeed) {
-            _player.setRate(newRate);
-            _swipeStartY = details.localFocalPoint.dy;
-            _showFeedbackMessage("${newRate.toStringAsFixed(2)}x", Icons.speed);
-          }
-        }
-      }
-      return;
-    }
-
-    if (details.pointerCount == 1) {
-      final dx = details.localFocalPoint.dx - _swipeStartX;
-      final dy = details.localFocalPoint.dy - _swipeStartY;
-
-      if (_swipeAction == 'volume') {
-        _volume = (_volume - (dy * 0.5)).clamp(0.0, 100.0);
-        _player.setVolume(_volume);
-        _swipeStartY = details.localFocalPoint.dy;
-        _showFeedbackMessage("Vol: ${_volume.toInt()}%", Icons.volume_up);
-      } else if (_swipeAction == 'brightness') {
-        _brightness = (_brightness - (dy * 0.005)).clamp(0.0, 1.0);
-        _swipeStartY = details.localFocalPoint.dy;
-        _showFeedbackMessage("Br: ${(_brightness * 100).toInt()}%", Icons.brightness_6);
-      } else if (_swipeAction == 'seek') {
-        final seekSeconds = (dx * 0.5).toInt();
-        var newPos = _seekStartPos + Duration(seconds: seekSeconds);
-        if (newPos < Duration.zero) newPos = Duration.zero;
-        if (newPos > _duration) newPos = _duration;
-        _aiEngine.invalidateQueue();
-        _player.seek(newPos);
-        _showFeedbackMessage(_formatDuration(newPos), Icons.schedule);
-      }
-    }
+    if (!_gesturesEnabled || _isLocked) return;
+    final viewportSize = MediaQuery.of(context).size;
+    _gestureEngine.handleScaleUpdate(
+      details,
+      viewportSize,
+      _position,
+      _duration,
+    );
+    setState(() {
+      _scale = _gestureEngine.scale;
+      _offset = _gestureEngine.panOffset;
+    });
   }
 
   void _onScaleEnd(ScaleEndDetails details) {
-    _isSwiping = false;
-    _swipeAction = '';
-    _startControlsTimer();
+    if (!_gesturesEnabled || _isLocked) return;
+    _gestureEngine.handleScaleEnd(details);
+    setState(() {
+      _scale = _gestureEngine.scale;
+      _offset = _gestureEngine.panOffset;
+    });
   }
 
   void _applyEnhancements() {
@@ -386,20 +531,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _setDecoderMode(String mode) async {
-    setState(() => _decoderMode = mode);
-    final dynamic platform = _player.platform;
+    final targetMode = DecoderMode.fromString(mode);
+    setState(() => _decoderMode = targetMode.label);
     try {
-      String hwdecValue = 'auto';
-      if (mode == 'HW') {
-        hwdecValue = 'yes';
-      } else if (mode == 'HW+') {
-        hwdecValue = 'auto-copy';
-      } else if (mode == 'SW') {
-        hwdecValue = 'no';
+      final result = await _decoderPipelineService.setMode(targetMode);
+      if (mounted) {
+        setState(() {
+          _decoderMode = _decoderPipelineService.currentMode.label;
+        });
+        if (!result.success && result.fallbackReason != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Decoder fallback: ${result.fallbackReason}'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
-      await platform.setProperty('hwdec', hwdecValue);
     } catch (e) {
-      debugPrint("hwdec err: $e");
+      debugPrint('[PlayerScreen] Decoder switch error: $e');
     }
   }
 
@@ -416,14 +566,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
               padding: EdgeInsets.all(16.0),
               child: Text('Decoder Mode', style: EDesign.h3),
             ),
-            for (final mode in ['Auto', 'HW', 'HW+', 'SW'])
+            for (final mode in DecoderMode.values)
               ListTile(
-                title: Text(mode, style: EDesign.body),
-                trailing: _decoderMode == mode
+                title: Text(mode.label, style: EDesign.body),
+                subtitle: Text(
+                  mode == DecoderMode.auto
+                      ? 'Automatic hardware probe & negotiation'
+                      : mode == DecoderMode.hw
+                          ? 'Zero-copy direct GPU hardware decoding'
+                          : mode == DecoderMode.hwPlus
+                              ? 'Hybrid hardware decode with CPU copy-back'
+                              : 'Software decoding via FFmpeg CPU pipeline',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: EDesign.textMuted,
+                  ),
+                ),
+                trailing: _decoderPipelineService.currentMode == mode
                     ? const Icon(Icons.check, color: EDesign.primary)
                     : null,
                 onTap: () {
-                  _setDecoderMode(mode);
+                  _setDecoderMode(mode.label);
                   Navigator.pop(context);
                 },
               ),
@@ -894,6 +1057,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  Future<void> _openCastSheet() async {
+    _controlsTimer?.cancel();
+    try {
+      await CastSheet.show(
+        context,
+        player: _player,
+        mediaTitle: p.basename(widget.mediaPath),
+      );
+    } finally {
+      if (mounted) {
+        _startControlsTimer();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final targetRatio = _getAspectRatio();
@@ -906,6 +1084,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
       videoWidget = AspectRatio(
         aspectRatio: targetRatio,
         child: videoWidget,
+      );
+    }
+
+    if (_pipService.isInPip) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: videoWidget,
+        ),
       );
     }
 
@@ -1169,15 +1356,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 tooltip: isCasting
                                     ? 'Casting to ${castService.connectedDevice!.name}'
                                     : 'Cast Media (Wireless Display)',
-                                onPressed: () {
-                                  CastSheet.show(
-                                    context,
-                                    player: _player,
-                                    mediaTitle: p.basename(widget.mediaPath),
-                                  );
-                                },
+                                onPressed: _openCastSheet,
                               );
                             },
+                          ),
+                          IconButton(
+                            icon: const EVectorIcon(
+                              name: 'pip',
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                            tooltip: 'Picture-in-Picture',
+                            onPressed: _triggerPip,
                           ),
                           IconButton(
                             icon: Icon(
@@ -1644,16 +1834,145 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     border: Border.all(color: EDesign.border),
                   ),
                   child: Text(
-                    'Decoder: $_decoderMode\n'
+                    'Decoder: ${_decoderPipelineService.currentMode.label} (${_latestDecoderTelemetry?.activeDecoder ?? _decoderPipelineService.activeDecoder})\n'
+                    'Codec: ${_latestDecoderTelemetry?.codec ?? _decoderPipelineService.videoCodec}\n'
+                    'Dropped Frames: ${_latestDecoderTelemetry?.droppedFrames ?? _decoderPipelineService.droppedFrames}\n'
+                    'FPS: ${(_latestDecoderTelemetry?.fps ?? _decoderPipelineService.fps).toStringAsFixed(1)}\n'
                     'Aspect: $_aspectRatio (Zoom: ${_scale.toStringAsFixed(1)}x)\n'
-                    'Resolution: ${_player.state.width ?? 0}x${_player.state.height ?? 0}\n'
+                    'Resolution: ${_player.state.width ?? _latestDecoderTelemetry?.width ?? 0}x${_player.state.height ?? _latestDecoderTelemetry?.height ?? 0}\n'
                     'Video Track: ${_player.state.track.video.title ?? _player.state.track.video.id}\n'
                     'Audio Track: ${_player.state.track.audio.title ?? _player.state.track.audio.id}\n'
-                    'Audio Bitrate: ${_player.state.audioBitrate ?? "Unknown"}',
+                    'Audio Bitrate: ${_player.state.audioBitrate ?? "Unknown"}'
+                    '${_latestDecoderTelemetry?.fallbackReason != null ? "\nFallback: ${_latestDecoderTelemetry!.fallbackReason}" : ""}',
                     style: const TextStyle(
                       color: EDesign.primary,
                       fontSize: 11,
                       fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ),
+
+            // Left Wing Ripple Indicator (-10s Jump)
+            if (_leftWingRipple)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: MediaQuery.of(context).size.width * 0.33,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: _leftWingRipple ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            EDesign.primary.withValues(alpha: 0.35),
+                            Colors.transparent,
+                          ],
+                        ),
+                        borderRadius: const BorderRadius.horizontal(
+                          right: Radius.circular(100),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fast_rewind, color: Colors.white, size: 48),
+                            SizedBox(height: 8),
+                            Text(
+                              '-10s',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Right Wing Ripple Indicator (+10s Jump)
+            if (_rightWingRipple)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: MediaQuery.of(context).size.width * 0.33,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: _rightWingRipple ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            EDesign.primary.withValues(alpha: 0.35),
+                          ],
+                        ),
+                        borderRadius: const BorderRadius.horizontal(
+                          left: Radius.circular(100),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.fast_forward, color: Colors.white, size: 48),
+                            SizedBox(height: 8),
+                            Text(
+                              '+10s',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Cinematic Gesture Feedback Overlay Card
+            if (_showFeedbackOverlay && _activeFeedbackEvent != null)
+              Positioned(
+                top: 90,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: _showFeedbackOverlay ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: EDesign.surface.withValues(alpha: 0.90),
+                          borderRadius: BorderRadius.circular(EDesign.r18),
+                          border: Border.all(
+                            color: EDesign.primary.withValues(alpha: 0.6),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: _buildGestureFeedbackContent(_activeFeedbackEvent!),
+                      ),
                     ),
                   ),
                 ),
@@ -1663,5 +1982,155 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     ),
   );
+  }
+
+  Widget _buildGestureFeedbackContent(GestureFeedbackEvent event) {
+    switch (event.type) {
+      case GestureFeedbackType.scrub:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.schedule, color: EDesign.primary, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              _formatDuration(event.seekTarget ?? _position),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+            if (event.deltaFormatted.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: EDesign.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: EDesign.primary, width: 0.8),
+                ),
+                child: Text(
+                  event.deltaFormatted,
+                  style: const TextStyle(
+                    color: EDesign.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      case GestureFeedbackType.brightness:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.brightness_6, color: EDesign.primaryCyan, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              'Brightness: ${event.label}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 70,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: event.value.clamp(0.0, 1.0),
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(EDesign.primaryCyan),
+                  minHeight: 6,
+                ),
+              ),
+            ),
+          ],
+        );
+      case GestureFeedbackType.volume:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              event.value == 0
+                  ? Icons.volume_off
+                  : (event.value < 50 ? Icons.volume_down : Icons.volume_up),
+              color: EDesign.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Volume: ${event.label}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 70,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: (event.value / 100.0).clamp(0.0, 1.0),
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(EDesign.primary),
+                  minHeight: 6,
+                ),
+              ),
+            ),
+          ],
+        );
+      case GestureFeedbackType.zoom:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.zoom_in, color: EDesign.aiAccent, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              'Zoom: ${event.label}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            if (event.value > 1.0) ...[
+              const SizedBox(width: 8),
+              const Text(
+                '(Double-tap to reset)',
+                style: TextStyle(
+                  color: EDesign.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ],
+        );
+      case GestureFeedbackType.wingJump:
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              event.value < 0 ? Icons.replay_10 : Icons.forward_10,
+              color: EDesign.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              event.label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        );
+    }
   }
 }
