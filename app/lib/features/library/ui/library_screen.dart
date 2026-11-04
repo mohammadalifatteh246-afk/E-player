@@ -250,6 +250,25 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           onPressed: () => setState(() => _isGridView = !_isGridView),
         ),
 
+        // Refresh Library & Prune Missing Files
+        IconButton(
+          icon: const Icon(
+            Icons.refresh_rounded,
+            color: EDesign.textPrimary,
+          ),
+          tooltip: 'Refresh & Prune Deleted Files',
+          onPressed: () async {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Refreshing library & pruning deleted media...'),
+                duration: Duration(milliseconds: 1000),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            await provider.refreshLibrary();
+          },
+        ),
+
         // Video Grouping Selector Pop-up Menu (VLC Parity)
         PopupMenuButton<GroupMode>(
           icon: Container(
@@ -362,7 +381,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             side: const BorderSide(color: EDesign.border),
           ),
           onSelected: (val) {
-            if (val == 'vault') {
+            if (val == 'refresh') {
+              provider.refreshLibrary();
+            } else if (val == 'vault') {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultScreen()));
             } else if (val == 'trash') {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
@@ -373,6 +394,16 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             }
           },
           itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'refresh',
+              child: Row(
+                children: [
+                  Icon(Icons.refresh_rounded, color: EDesign.primary, size: 20),
+                  SizedBox(width: 12),
+                  Text('Refresh Library', style: TextStyle(color: EDesign.textPrimary)),
+                ],
+              ),
+            ),
             const PopupMenuItem(
               value: 'system_scan',
               child: Row(
@@ -684,116 +715,142 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   // --- 4. MAIN CONTENT VIEWPORT ---
   Widget _buildMainContent(LibraryProvider provider) {
+    Widget content;
+
     // State 1: Scanning / Initial Loading Skeleton
     if (provider.isScanning && provider.allFiles.isEmpty) {
-      return _buildSkeletonGrid();
-    }
-
-    // State 2: Empty Library Hero State
-    if (provider.allFiles.isEmpty) {
-      return _buildEmptyLibraryHero(provider);
-    }
-
-    // State 3: Playlists View
-    if (_selectedTab == 'Playlists') {
-      return _buildPlaylistsView(provider);
-    }
-
-    // State 4: Folders View
-    if (_selectedTab == 'Folders') {
+      content = _buildSkeletonGrid();
+    } else if (provider.allFiles.isEmpty) {
+      // State 2: Empty Library Hero State
+      content = SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        child: SizedBox(
+          height: 500,
+          child: _buildEmptyLibraryHero(provider),
+        ),
+      );
+    } else if (_selectedTab == 'Playlists') {
+      // State 3: Playlists View
+      content = _buildPlaylistsView(provider);
+    } else if (_selectedTab == 'Folders') {
+      // State 4: Folders View
       final map = provider.filteredGroupedFolders;
       final filteredKeys = map.keys.toList();
 
       if (filteredKeys.isEmpty) {
-        return _buildEmptySearchState('No folders matching search.');
-      }
-      return ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        physics: const BouncingScrollPhysics(),
-        itemCount: filteredKeys.length,
-        itemBuilder: (context, index) {
-          final folderName = filteredKeys[index];
-          final items = map[folderName]!;
-          return _buildFolderTile(folderName, items);
-        },
-      );
-    }
-
-    // State 5: Grouped Mode View (By Folder or By Name - VLC Parity)
-    if (provider.groupMode != GroupMode.none) {
-      final groups = provider.groupedSearchResults;
-      if (groups.isEmpty) {
-        return _buildEmptySearchState(
-          'No ${_selectedTab.toLowerCase()} matching "${provider.searchOptions.query}"',
+        content = SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          child: SizedBox(
+            height: 400,
+            child: _buildEmptySearchState('No folders matching search.'),
+          ),
+        );
+      } else {
+        content = ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          itemCount: filteredKeys.length,
+          itemBuilder: (context, index) {
+            final folderName = filteredKeys[index];
+            final items = map[folderName]!;
+            return _buildFolderTile(folderName, items);
+          },
         );
       }
+    } else if (provider.groupMode != GroupMode.none) {
+      // State 5: Grouped Mode View (By Folder or By Name - VLC Parity)
+      final groups = provider.groupedSearchResults;
+      if (groups.isEmpty) {
+        content = SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          child: SizedBox(
+            height: 400,
+            child: _buildEmptySearchState(
+              'No ${_selectedTab.toLowerCase()} matching "${provider.searchOptions.query}"',
+            ),
+          ),
+        );
+      } else {
+        content = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: ListView.builder(
+            key: ValueKey('library_grouped_${provider.groupMode.name}_${_isGridView}_${groups.length}'),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            itemCount: groups.length,
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              return VideoGroupCard(
+                key: ValueKey(group.id),
+                group: group,
+                isGridView: _isGridView,
+              );
+            },
+          ),
+        );
+      }
+    } else {
+      // State 6: Videos / Audio / All Items Flat Grid / List
+      final displayItems = provider.searchResults;
 
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        child: ListView.builder(
-          key: ValueKey('library_grouped_${provider.groupMode.name}_${_isGridView}_${groups.length}'),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          physics: const BouncingScrollPhysics(),
-          itemCount: groups.length,
-          itemBuilder: (context, index) {
-            final group = groups[index];
-            return VideoGroupCard(
-              key: ValueKey(group.id),
-              group: group,
-              isGridView: _isGridView,
-            );
-          },
-        ),
-      );
-    }
-
-    // State 6: Videos / Audio / All Items Flat Grid / List
-    final displayItems = provider.searchResults;
-
-    if (displayItems.isEmpty) {
-      return _buildEmptySearchState(
-        'No ${_selectedTab.toLowerCase()} matching "${provider.searchOptions.query}"',
-      );
-    }
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: _isGridView
-          ? LayoutBuilder(
-              key: const ValueKey('library_flat_grid'),
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 700;
-                return GridView.builder(
+      if (displayItems.isEmpty) {
+        content = SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          child: SizedBox(
+            height: 400,
+            child: _buildEmptySearchState(
+              'No ${_selectedTab.toLowerCase()} matching "${provider.searchOptions.query}"',
+            ),
+          ),
+        );
+      } else {
+        content = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          child: _isGridView
+              ? LayoutBuilder(
+                  key: const ValueKey('library_flat_grid'),
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth > 700;
+                    return GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isWide ? 3 : 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: isWide ? 1.25 : 1.15,
+                      ),
+                      itemCount: displayItems.length,
+                      itemBuilder: (context, index) {
+                        final item = displayItems[index];
+                        return _buildPosterCard(item, provider);
+                      },
+                    );
+                  },
+                )
+              : ListView.builder(
+                  key: const ValueKey('library_flat_list'),
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isWide ? 3 : 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: isWide ? 1.25 : 1.15,
-                  ),
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   itemCount: displayItems.length,
                   itemBuilder: (context, index) {
                     final item = displayItems[index];
-                    return _buildPosterCard(item, provider);
+                    return _buildListRow(item, provider);
                   },
-                );
-              },
-            )
-          : ListView.builder(
-              key: const ValueKey('library_flat_list'),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              physics: const BouncingScrollPhysics(),
-              itemCount: displayItems.length,
-              itemBuilder: (context, index) {
-                final item = displayItems[index];
-                return _buildListRow(item, provider);
-              },
-            ),
+                ),
+        );
+      }
+    }
+
+    return RefreshIndicator(
+      color: EDesign.primary,
+      backgroundColor: EDesign.elevatedSurface,
+      onRefresh: () => provider.refreshLibrary(),
+      child: content,
     );
   }
 

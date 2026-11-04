@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
@@ -155,6 +156,26 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
             tooltip: _isGridView ? 'Switch to List View' : 'Switch to Grid View',
             onPressed: () => setState(() => _isGridView = !_isGridView),
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: EDesign.primary),
+            tooltip: 'Refresh Folder & Prune Deleted',
+            onPressed: () async {
+              await libraryProvider.refreshLibrary();
+              if (mounted) {
+                setState(() {
+                  final updated = libraryProvider.groupedFolders[widget.folderName] ?? [];
+                  _displayItems = updated.where((i) {
+                    try {
+                      return File(i.path).existsSync();
+                    } catch (_) {
+                      return false;
+                    }
+                  }).toList();
+                  _applySort();
+                });
+              }
+            },
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -237,71 +258,97 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
           // Media Content (Grid, List, or Grouped Hierarchy)
           Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Text(
-                      'No media files found in "${p.basename(widget.folderName)}".',
-                      style: EDesign.secondaryStyle,
-                    ),
-                  )
-                : _folderGroupMode != GroupMode.none
-                    ? Builder(
-                        builder: (context) {
-                          final groups = VideoGroupingEngine.group(filtered, _folderGroupMode);
-                          if (groups.isEmpty) {
-                            return Center(
-                              child: Text(
-                                'No grouped media found.',
-                                style: EDesign.secondaryStyle,
+            child: RefreshIndicator(
+              color: EDesign.primary,
+              backgroundColor: EDesign.elevatedSurface,
+              onRefresh: () async {
+                await libraryProvider.refreshLibrary();
+                if (mounted) {
+                  setState(() {
+                    final updated = libraryProvider.groupedFolders[widget.folderName] ?? [];
+                    _displayItems = updated.where((i) {
+                      try {
+                        return File(i.path).existsSync();
+                      } catch (_) {
+                        return false;
+                      }
+                    }).toList();
+                    _applySort();
+                  });
+                }
+              },
+              child: filtered.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      child: SizedBox(
+                        height: 300,
+                        child: Center(
+                          child: Text(
+                            'No media files found in "${p.basename(widget.folderName)}".',
+                            style: EDesign.secondaryStyle,
+                          ),
+                        ),
+                      ),
+                    )
+                  : _folderGroupMode != GroupMode.none
+                      ? Builder(
+                          builder: (context) {
+                            final groups = VideoGroupingEngine.group(filtered, _folderGroupMode);
+                            if (groups.isEmpty) {
+                              return Center(
+                                child: Text(
+                                  'No grouped media found.',
+                                  style: EDesign.secondaryStyle,
+                                ),
+                              );
+                            }
+                            return AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              child: ListView.builder(
+                                key: ValueKey('folder_grouped_${_folderGroupMode.name}_${_isGridView}_${groups.length}'),
+                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                itemCount: groups.length,
+                                itemBuilder: (context, index) {
+                                  return VideoGroupCard(
+                                    key: ValueKey('folder_group_${groups[index].id}'),
+                                    group: groups[index],
+                                    isGridView: _isGridView,
+                                  );
+                                },
                               ),
                             );
-                          }
-                          return AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 250),
-                            child: ListView.builder(
-                              key: ValueKey('folder_grouped_${_folderGroupMode.name}_${_isGridView}_${groups.length}'),
-                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: groups.length,
-                              itemBuilder: (context, index) {
-                                return VideoGroupCard(
-                                  key: ValueKey('folder_group_${groups[index].id}'),
-                                  group: groups[index],
-                                  isGridView: _isGridView,
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      )
-                    : AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _isGridView
-                            ? GridView.builder(
-                                key: const ValueKey('folder_flat_grid'),
-                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                                physics: const BouncingScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                  childAspectRatio: 1.45,
+                          },
+                        )
+                      : AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: _isGridView
+                              ? GridView.builder(
+                                  key: const ValueKey('folder_flat_grid'),
+                                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                    childAspectRatio: 1.45,
+                                  ),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildGridCard(context, filtered[index], libraryProvider);
+                                  },
+                                )
+                              : ListView.builder(
+                                  key: const ValueKey('folder_flat_list'),
+                                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildListCard(context, filtered[index], libraryProvider);
+                                  },
                                 ),
-                                itemCount: filtered.length,
-                                itemBuilder: (context, index) {
-                                  return _buildGridCard(context, filtered[index], libraryProvider);
-                                },
-                              )
-                            : ListView.builder(
-                                key: const ValueKey('folder_flat_list'),
-                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                                physics: const BouncingScrollPhysics(),
-                                itemCount: filtered.length,
-                                itemBuilder: (context, index) {
-                                  return _buildListCard(context, filtered[index], libraryProvider);
-                                },
-                              ),
-                      ),
+                        ),
+            ),
           ),
         ],
       ),

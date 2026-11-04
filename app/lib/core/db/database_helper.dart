@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/media_item.dart';
@@ -88,6 +89,50 @@ CREATE TABLE media_items (
       where: 'path = ?',
       whereArgs: [path],
     );
+  }
+
+  Future<void> deleteBatch(List<String> paths) async {
+    if (paths.isEmpty) return;
+    final db = await instance.database;
+    final batch = db.batch();
+    for (var path in paths) {
+      batch.delete(
+        'media_items',
+        where: 'path = ?',
+        whereArgs: [path],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Prunes phantom records from the database for files that no longer exist on disk.
+  Future<int> pruneMissingItems() async {
+    final db = await instance.database;
+    final result = await db.query('media_items');
+    final allItems = result.map((json) => _fromMap(json)).toList();
+
+    final missingPaths = <String>[];
+    for (final item in allItems) {
+      try {
+        final file = File(item.path);
+        if (!file.existsSync()) {
+          missingPaths.add(item.path);
+        }
+      } catch (_) {
+        missingPaths.add(item.path);
+      }
+    }
+
+    if (missingPaths.isNotEmpty) {
+      await deleteBatch(missingPaths);
+    }
+    return missingPaths.length;
+  }
+
+  /// Deletes all records from media_items (useful for cache clearing and testing)
+  Future<void> clearAll() async {
+    final db = await instance.database;
+    await db.delete('media_items');
   }
 
   Future<void> close() async {

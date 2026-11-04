@@ -35,6 +35,10 @@ class LibraryProvider extends ChangeNotifier {
   Map<String, List<MediaItem>> get groupedFolders {
     final map = <String, List<MediaItem>>{};
     for (var item in _allFiles) {
+      try {
+        if (!Directory(item.parentFolder).existsSync()) continue;
+        if (!File(item.path).existsSync()) continue;
+      } catch (_) {}
       map.putIfAbsent(item.parentFolder, () => []).add(item);
     }
     return map;
@@ -87,7 +91,7 @@ class LibraryProvider extends ChangeNotifier {
     _loadFromDB();
   }
 
-  Future<void> _loadFromDB() async {
+  Future<void> _loadFromDB({bool pruneMissing = true}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedMode = prefs.getString(_kGroupModePrefKey);
@@ -100,16 +104,25 @@ class LibraryProvider extends ChangeNotifier {
     } catch (_) {}
 
     try {
+      if (pruneMissing) {
+        await DatabaseHelper.instance.pruneMissingItems();
+      }
       final allItems = await DatabaseHelper.instance.getAllItems();
-      _allFiles = allItems;
+      _allFiles = allItems.where((i) {
+        try {
+          return File(i.path).existsSync();
+        } catch (_) {
+          return false;
+        }
+      }).toList();
 
       // Sort by lastPlayed desc for recents
-      final recents = List<MediaItem>.from(allItems);
+      final recents = List<MediaItem>.from(_allFiles);
       recents.sort((a, b) => b.lastPlayed.compareTo(a.lastPlayed));
       _recentFiles = recents.take(50).toList();
 
       // Favorites
-      _favorites = allItems.where((i) => i.isFavorite).toList();
+      _favorites = _allFiles.where((i) => i.isFavorite).toList();
     } catch (e) {
       _allFiles = [];
       _recentFiles = [];
@@ -121,7 +134,7 @@ class LibraryProvider extends ChangeNotifier {
   }
 
   Future<void> refreshLibrary() async {
-    await _loadFromDB();
+    await _loadFromDB(pruneMissing: true);
   }
 
   // --- VLC Search & Filter Controls ---
@@ -293,6 +306,7 @@ class LibraryProvider extends ChangeNotifier {
           notifyListeners();
 
           await DatabaseHelper.instance.insertBatch(mediaItems);
+          await DatabaseHelper.instance.pruneMissingItems();
           scanProgress = 'Scan complete! Found ${mediaItems.length} media files.';
           await _loadFromDB();
           return;
@@ -359,6 +373,7 @@ class LibraryProvider extends ChangeNotifier {
 
     scanProgress =
         'Scan complete! Found ${_lastScanProgress?.mediaFilesFound ?? 0} media files.';
+    await DatabaseHelper.instance.pruneMissingItems();
     await _loadFromDB();
   }
 

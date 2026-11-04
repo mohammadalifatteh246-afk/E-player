@@ -1,105 +1,49 @@
 # Original User Request
 
-## 2026-10-22T10:41:35Z
+## Approved Task Prompt — 2026-11-03T09:38:46Z
 
-The 4-Pillar Autonomous E-Player & AADB Engineering Studio (Vanguard, Oracle, Scholar, Artisan)
+Operate as an elite 4-Character Clean-Room Engineering Studio (SPP + CoVe + Reflexion + MCP) to reverse-engineer how the File Browser, Auto-rescan, and Media Library / Media Library Folders work in VLC (path: C:\Program Files (x86)\VideoLAN\VLC), gather live empirical evidence, and build a production-grade clean-room equivalent for the E-Player project adhering to the 6-stage REA operational pipeline.
 
-Autonomous execution of the E-Player cross-platform offline media player roadmap and AI-Assisted Advanced Bug Debugging (AADB) framework using an adversarial 4-character multi-agent studio (Vanguard, Oracle, Scholar, Artisan). The team executes the full looping workflow to advance the remaining core phases (Phase 1 Hardware/HW+ Decoders, Phase 3 Advanced Gestures, Phase 6 Native PiP, Phase 11 Tokenized Casting) while enforcing 5-phase semantic scanning, sandbox reproduction gates, 50+ source technical research, and Meta-ACH mutation-guided compliance hardening.
-
-Working directory: D:\E-player
-Integrity mode: development
-
-## Constraints & Environment Guardrails
-- **No C: Drive Access / Duplication:** Never copy, mirror, or write project files to `C:` drive under any circumstances. All development stays strictly inside `D:\E-player`.
-- **No Local Compilation of Binaries:** Do NOT run `flutter build apk` or `flutter build windows` (Windows cross-drive symlink limitation). Verification is performed strictly via `flutter test`, `flutter analyze`, and targeted unit/integration suites.
-- **Strict Offline Invariant:** 100% offline capability. No cloud processing, remote API dependencies, or external telemetry sinks.
-- **Continuous Version Control:** All verified features, fixes, and tests must be committed and pushed to GitHub `origin/main`.
-- **Zero Mocking / Placeholders:** Production-grade, strongly typed implementations only. No `// TODO`, mock stubs, or placeholder shortcuts.
+Working directory: d:\E-player
+Integrity mode: demo
+The team must NOT: copy code from existing open-source projects for core logic
 
 ## Requirements
 
-### R1. Autonomous Roadmap Advancement (Phase 1, 3, 6, 11)
-Implement and harden the remaining E-Player core subsystems:
-1. **Phase 1 (Hardware / HW+ Decoders):** Dynamic fallback pipeline across Hardware, HW+, and Software decoders via `media_kit`/`libmpv` with zero stutter on 4K/HEVC/AV1 streams.
-2. **Phase 3 (Cinematic Gesture Engine):** Multi-touch gesture handling (horizontal scrub with high-precision timestamp seek, vertical split brightness/volume sliders, double-tap jump, pinch-to-zoom).
-3. **Phase 6 (Native Picture-in-Picture):** Android `AutoEnterPiP` / Desktop overlay window mode with HUD auto-dismiss and aspect-ratio preservation.
-4. **Phase 11 (Tokenized Wireless Casting):** Real-time streaming sink negotiation (Chromecast, DLNA, Miracast, AirPlay) with subtitle muxing and synchronized seek/volume controls.
+### R1. Forensic Evidence Extraction & Deconstruction (Stage 1)
+Inspect and deconstruct how the File Browser, Auto-rescan, and Media Library / Media Library Folders work in VLC by examining both the local installation at `C:\Program Files (x86)\VideoLAN\VLC` and VLC's open-source architecture/code. Produce a structured Evidence Dossier with concrete exhibits for:
+- Exhibit A — Data & State Architecture (schemas, state trees, data flow)
+- Exhibit B — Execution Lifecycle & Algorithms (file discovery, directory watcher, auto-rescan triggers, library indexing)
+- Exhibit C — Performance & UX mechanics
+Explicitly label every exhibit as `[Verified via MCP/Source Inspection]` or `[Inferred via Behavioral/Architectural Pattern]`.
 
-### R2. 5-Phase Semantic Scan & Invariant Mapping (Vanguard)
-Execute automated repository intake, cataloging, weighted scan scheduling, and domain invariant extraction across every active subsystem. Map explicit and inferred domain invariants (`SOURCE_TYPE = INFERRED`) to proactively detect semantic defects, A/V sync drift, and frame-queue memory leaks.
+### R2. Chain-of-Verification (CoVe) Adversarial Cross-Examination (Stage 2)
+Conduct a multi-turn adversarial Q&A across the 4 specialist personas (Cypher, Kronos, Aura, Forge) to interrogate at least 3 critical failure points (concurrency, state desynchronization, memory scaling, edge-case user inputs) until a watertight architecture is established.
 
-### R3. Deterministic Sandbox Reproduction & Multi-Modal Testing (Oracle)
-Validate all candidate issues in an isolated sandbox before code modification. Synthesize and execute tests across the 7 E-Player test layers (Static, Unit, Integration, E2E, Stress, Offline, Regression) and AADB advanced testing (Property-Based Testing, Metamorphic Relations, Differential Testing). Enforce reproduction at least twice with captured telemetry before logging into the Problem Ledger (`EP-[CAT]-[NUM]`).
+### R3. Clean-Room Architectural Blueprint & Pre-Mortem Guardrails (Stages 3 & 4)
+Compile a Clean-Room Engineering Specification translating verified mechanics into the E-Player project architecture (module structure, state machines, stack adaptation matrix). Establish 3 explicit Reflexion pre-mortem guardrails covering algorithmic/concurrency traps, UX/frame-budget traps, and stack integration traps before implementing.
 
-### R4. 50+ Primary Source Technical Research Gate (Scholar)
-For every non-trivial P0/P1/P2 issue, conduct deep research across 50+ distinct, authoritative primary sources (official Flutter/Dart, libmpv, FFmpeg, ONNX Runtime, platform SDKs, CVEs, and vendor hardware specs). Filter out SEO spam, duplicate mirrors, and AI content farms. Log findings with authoritative citations and structured root-cause analysis.
+### R4. Production Clean-Room Implementation in E-Player (Stage 5)
+Implement a production-grade File Browser, Auto-rescan (directory watcher), and Media Library feature directly integrated into the E-Player project codebase (`d:\E-player`). Deliverables must include the presentation layer (File Browser UI), domain services (directory watcher, auto-rescan coordination), and data persistence (media library indexing with SQLite), with full error handling, lifecycle teardown, and zero placeholder or `// TODO` comments.
 
-### R5. Minimal Safe APR Patching & Meta-ACH Mutation Hardening (Artisan)
-Apply minimal safe code modifications (`1. one-file minimal change -> 2. minimal multi-file change -> 3. structural change only if necessary`). Implement Meta-ACH mutation-guided compliance hardening by synthesizing meaningful business-logic mutants, verifying they alter behavior, and proving the regression test kills the mutant. Run clean-room verification against all 18 release gates.
-
-## Acceptance Criteria
-
-### Test & Static Analysis Verification
-- [ ] `flutter test` passes 100% with zero failing or skipped tests (baseline: 67/67 passing).
-- [ ] `flutter analyze` reports 0 errors and 0 warnings across the entire repository.
-- [ ] Every bug fix and newly implemented phase feature includes automated unit/widget/integration tests.
-- [ ] At least one non-equivalent mutant per bug fix is killed by the test suite.
-
-### Architecture & System Invariants
-- [ ] Zero execution of `flutter build apk` or `flutter build windows` on `D:` drive.
-- [ ] Zero files modified or copied outside `D:\E-player`.
-- [ ] Video color adjustments and geometric transforms remain hardware-accelerated inside `libmpv` without redundant Flutter raster filtering.
-- [ ] Background threads, timers, and streaming subscriptions cleanly cancel upon widget/sheet disposal.
-- [ ] All changes committed and pushed to `origin/main` with clean working tree.
-
-
-## 2026-10-22T10:58:01Z
-
-This is a single self-contained fix; keep it small and focused.
-
-Reverse engineer the "Group videos" feature (with Group by Name and Group by Folder) from VLC Media Player (`C:\Program Files (x86)\VideoLAN\VLC`) and implement a production-grade automated media grouping engine in E-Player (`d:\E-player\app`).
-
-Working directory: d:\E-player\app
-Integrity mode: development
-
-## Requirements
-
-### R1. Automated Video Grouping Service
-Implement an in-memory grouping engine supporting three distinct modes:
-- `GroupMode.none`: Standard flat media list.
-- `GroupMode.byFolder`: Groups discovered videos by parent directory name/path, displaying folder cards with item count, total duration, and thumbnail preview.
-- `GroupMode.byName`: Smart title and prefix clustering that automatically detects common series stems, episode patterns (e.g. S01E01, Ep 01, Part 1), and franchise names when 2 or more videos share a common root.
-
-### R2. Global UI Grouping Controls
-Integrate video grouping selectors and collapsible group views across all primary media browsing screens:
-- Library Screen (library_screen.dart): Top-bar grouping selector with smooth animated grid transitions.
-- Home Screen (home_screen.dart): Grouping options for recent and indexed videos.
-- Folder Browser Screen: Directory-aware grouping hierarchy.
-
-### R3. Preferences Persistence & Memory Efficiency
-- Persist the user's active grouping mode via SharedPreferences.
-- Perform grouping transformations in-memory with sub-16ms latency without re-triggering filesystem scans.
-
-### R4. Dual-Workspace Parity
-Ensure all code edits are strictly synchronized between d:\E-player\app and C:\E-player\app.
+### R5. Test Data Lifecycle & Automated Verification (Stage 6)
+Verify the implementation using the project's existing test harness (`EPlayerTestHarness`, `app/test/`) across unit, integration, and edge-case scenarios. All demo or test data created during testing must be strictly temporary and completely removed after testing. Conclude with the Persistent REA Ledger detailing deconstructed mechanics, implemented files/interfaces, and a Reflexion self-correction rule.
 
 ## Acceptance Criteria
 
-### Functional Accuracy
-- [ ] Folder grouping correctly groups videos by parent folder without path truncation or collisions.
-- [ ] Name grouping clusters related multi-part videos and TV show episodes into dedicated collections with individual items accessible upon expansion.
-- [ ] Toggling between None, By Folder, and By Name updates the UI instantly without flickering or re-reading files from disk.
-- [ ] Selected grouping mode persists across app restarts.
+### Forensic Evidence & Clean-Room Architecture
+- [ ] Evidence Dossier details VLC's file browser, directory watcher / auto-rescan mechanisms, and media library storage with concrete exhibits labeled as verified or inferred.
+- [ ] CoVe adversarial Q&A resolves at least 3 critical failure points with evidence-backed architectural adaptations for E-Player.
+- [ ] Clean-room engineering specification provides complete file tree, state machine, and stack adaptation matrix without copying open-source core logic.
 
-### Code Quality & Stability
-- [ ] Zero static analysis errors (`flutter analyze --no-pub` passes with 0 issues).
-- [ ] Zero placeholders or `// TODO` comments; full error handling for empty directories or single-file groups.
-- [ ] Both d:\E-player\app and C:\E-player\app remain 100% synchronized and buildable.
+### Feature Deliverables & Code Quality
+- [ ] File Browser UI allows interactive file system navigation, directory selection, and media file inspection in E-Player.
+- [ ] Auto-rescan service monitors configured media library folders, reacts to file additions, modifications, and deletions, and updates library state.
+- [ ] Media Library state and indexed metadata persist across restarts in local SQLite storage.
+- [ ] Codebase passes static analysis (`dart analyze`) with zero errors and zero warnings.
+- [ ] Implementation contains zero `// TODO` comments or dummy placeholders.
 
-
-## 2026-11-03T04:11:46Z
-
-System server has restarted. Please resume sentinel monitoring and execution:
-1. Verify Gen 2 Orchestrator (29f627ce-3157-4f8d-bf56-5c2402ce649c) and subagents (such as worker_m3_pip). If any subagents were halted by the restart, revive or relaunch them as needed.
-2. Reschedule your monitoring and liveness crons.
-3. Continue driving Milestone 3 (Native Picture-in-Picture), Milestone 4 (Tokenized Wireless Casting), and Milestone 5 (100% E2E Verification & Meta-ACH Hardening) to full completion under the existing strict guardrails (100% offline, strictly within D:\E-player, zero binary builds).
+### Verification & Test Data Invariant
+- [ ] Automated tests in `app/test/` pass and verify file browsing, auto-rescan detection, and SQLite media library indexing using `EPlayerTestHarness`.
+- [ ] No temporary demo files, test folders, or test media artifacts remain on disk or in the repository after testing completes.
+- [ ] Persistent REA Ledger records verified mechanics, implemented files, and the Reflexion self-correction rule.

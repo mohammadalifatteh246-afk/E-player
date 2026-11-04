@@ -75,48 +75,53 @@ class _HomeScreenState extends State<HomeScreen> {
               return Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxContentWidth),
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. Quick Category Chips
-                        _buildCategoryChips(),
-                        const SizedBox(height: 16),
+                  child: RefreshIndicator(
+                    color: EDesign.primary,
+                    backgroundColor: EDesign.elevatedSurface,
+                    onRefresh: () => provider.refreshLibrary(),
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // 1. Quick Category Chips
+                          _buildCategoryChips(),
+                          const SizedBox(height: 16),
 
-                        // Search Results or Normal Content
-                        if (_isSearching && _searchQuery.isNotEmpty)
-                          _buildSearchResults(context, provider)
-                        else ...[
-                          // 2. Section: History (Compact & Responsive)
-                          _buildHistorySection(context, provider, isDesktop),
-                          const SizedBox(height: 20),
+                          // Search Results or Normal Content
+                          if (_isSearching && _searchQuery.isNotEmpty)
+                            _buildSearchResults(context, provider)
+                          else ...[
+                            // 2. Section: History (Compact & Responsive)
+                            _buildHistorySection(context, provider, isDesktop),
+                            const SizedBox(height: 20),
 
-                          // 3. Section: Create Group & Videos (Quick Actions based on sketch)
-                          _buildActionCardsRow(context, provider, groupService, isDesktop),
-                          const SizedBox(height: 24),
-
-                          // 4. Custom Groups Carousel (if user created any)
-                          if (groupService.groups.isNotEmpty) ...[
-                            _buildCustomGroupsSection(context, groupService, provider, isDesktop),
+                            // 3. Section: Create Group & Videos (Quick Actions based on sketch)
+                            _buildActionCardsRow(context, provider, groupService, isDesktop),
                             const SizedBox(height: 24),
-                          ],
 
-                          // 5. Section: Media Categories (Compact Bento Grid)
-                          _buildCompactMediaGrid(context, provider, isDesktop),
-                          const SizedBox(height: 24),
+                            // 4. Custom Groups Carousel (if user created any)
+                            if (groupService.groups.isNotEmpty) ...[
+                              _buildCustomGroupsSection(context, groupService, provider, isDesktop),
+                              const SizedBox(height: 24),
+                            ],
 
-                          // 6. Favorites Rail (if any exist)
-                          if (provider.favorites.isNotEmpty) ...[
-                            _buildFavoritesRail(context, provider, isDesktop),
+                            // 5. Section: Media Categories (Compact Bento Grid)
+                            _buildCompactMediaGrid(context, provider, isDesktop),
                             const SizedBox(height: 24),
+
+                            // 6. Favorites Rail (if any exist)
+                            if (provider.favorites.isNotEmpty) ...[
+                              _buildFavoritesRail(context, provider, isDesktop),
+                              const SizedBox(height: 24),
+                            ],
                           ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -237,6 +242,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20, color: EDesign.textPrimary),
+            tooltip: 'Refresh Media Library',
+            onPressed: () async {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Refreshing media library...'),
+                  duration: Duration(milliseconds: 1000),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+              await provider.refreshLibrary();
+            },
           ),
           IconButton(
             icon: const EVectorIcon(name: 'search', size: 19, color: EDesign.textPrimary),
