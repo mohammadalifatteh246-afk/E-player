@@ -1,106 +1,158 @@
-# Handoff Report: Milestone 1 Challenge 2 (Sliding Window & Position Recovery)
+# Handoff Report — Challenger 2 (Milestone 1: UI & Navigation Empirical Stress Testing)
 
-**Agent:** `challenger_m1_2` (Empirical Challenger 2)  
-**Parent:** `81e1945a-d6bd-4531-87f3-4a7caf8e5a5d`  
-**Working Directory:** `d:\E-player\.agents\teamwork\challenger_m1_2`  
-**Date:** 2026-10-22  
-**Verdict:** **APPROVE**
+**Agent**: Challenger 2 (`challenger_m1_2`)  
+**Workspace Root**: `d:\E-player\app`  
+**Report Path**: `d:\E-player\.agents\teamwork\challenger_m1_2\handoff.md`  
+**Verdict**: **APPROVE**  
+**Date**: 2026-11-04  
 
 ---
 
 ## 1. Observation
 
-### 1.1 Empirical Verification Targets
-We investigated and stress-tested `DecoderPipelineService` (`app/lib/features/player/domain/decoder_pipeline_service.dart`) against the required criteria:
-1. **Sliding 2000ms drop-frame monitoring**:
-   - Exactly 9 drops in 2000ms -> MUST NOT trigger fallback.
-   - Exactly 11 drops in 2000ms -> MUST trigger fallback.
-   - Old drops (>2000ms ago) -> MUST be pruned and not count toward current window.
-2. **Playback position recovery tolerance**:
-   - Drift <= 250ms -> No re-seek triggered (avoids unnecessary seek jitter).
-   - Drift > 250ms -> Re-seek triggered to restore position.
-
-### 1.2 Executed Test Suites & Direct Tool Outputs
-
-1. **Baseline Decoder Pipeline Unit Tests**:
-   - **Command**: `flutter test test/unit/decoder_pipeline_test.dart` (from `d:\E-player\app`)
-   - **Result**: `00:00 +21: All tests passed!`
-
-2. **Empirical Boundary Challenge Suite (`boundary_challenge_test.dart`)**:
-   - **Command**: `flutter test ..\.agents\teamwork\challenger_m1_2\boundary_challenge_test.dart` (from `d:\E-player\app`)
-   - **Result**: `00:00 +16: All tests passed!`
-   - **Verbatim Output**:
-     ```text
-     00:00 +0: loading D:/E-player/.agents/teamwork/challenger_m1_2/boundary_challenge_test.dart
-     00:00 +0: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring Boundary: Exactly 9 drops in 2000ms -> MUST NOT trigger fallback
-     00:00 +1: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring Boundary: Exactly 10 drops in 2000ms -> MUST NOT trigger fallback (>10 threshold)
-     00:00 +2: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring Boundary: Exactly 11 drops in 2000ms -> MUST trigger fallback
-     [DecoderPipelineService] Dynamic Fallback: HW -> HW+ | Reason: Excessive frame drops in 2000ms window (11 drops > threshold 10)
-     00:00 +3: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring Old drops (>2000ms ago) -> MUST be pruned and not count toward current window
-     00:00 +4: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring Sliding window boundary: exact 2000ms vs 2001ms difference
-     [DecoderPipelineService] Dynamic Fallback: HW -> HW+ | Reason: Excessive frame drops in 2000ms window (11 drops > threshold 10)
-     00:00 +5: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring reportIncrementalDrops boundary challenge (9 vs 10 vs 11 drops)
-     [DecoderPipelineService] Dynamic Fallback: HW -> HW+ | Reason: Excessive frame drops in 2000ms window (11 drops > threshold 10)
-     00:00 +6: Empirical Challenge 1: Sliding 2000ms Drop-Frame Monitoring Cascading through excessive drops: HW -> HW+ -> SW -> Terminal SW
-     [DecoderPipelineService] Dynamic Fallback: HW -> HW+ | Reason: Excessive frame drops in 2000ms window (12 drops > threshold 10)
-     [DecoderPipelineService] Dynamic Fallback: HW+ -> SW | Reason: Excessive frame drops in 2000ms window (12 drops > threshold 10)
-     00:00 +7: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Drift == 0ms -> No re-seek triggered
-     00:00 +8: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Drift == 50ms -> No re-seek triggered
-     00:00 +9: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Drift == 249ms -> No re-seek triggered
-     00:00 +10: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Drift == 250ms (EXACT TOLERANCE) -> No re-seek triggered
-     00:00 +11: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Drift == 251ms (EXACT TOLERANCE + 1ms) -> MUST trigger re-seek
-     00:00 +12: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Large forward drift (e.g. 5000ms) -> MUST trigger re-seek
-     [DecoderPipelineService] Dynamic Fallback: HW -> HW+ | Reason: Frame drop fallback with large forward jump
-     00:00 +13: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Negative drift <= 250ms (e.g. -250ms) -> No re-seek triggered
-     00:00 +14: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Negative drift > 250ms (e.g. stream resets to 0 from 45s) -> MUST trigger re-seek
-     [DecoderPipelineService] Dynamic Fallback: HW -> HW+ | Reason: HEVC decode error at 45s
-     00:00 +15: Empirical Challenge 2: Playback Position Recovery Tolerance (<= 250ms vs > 250ms) Boundary: Saved position is Duration.zero -> No re-seek triggered even if position changed
-     00:00 +16: All tests passed!
+### 1.1 Source Code Verification
+1. **HomeScreen Navigation Fix**:
+   - File: `d:\E-player\app\lib\features\home\ui\home_screen.dart:887–900`
+   - Verbatim implementation:
+     ```dart
+     return InkWell(
+       borderRadius: BorderRadius.circular(12),
+       onTap: () {
+         Navigator.push(
+           context,
+           MaterialPageRoute(
+             builder: (_) => FolderDetailScreen(
+               folderName: group.title,
+               items: groupItems,
+               groupId: group.id,
+             ),
+           ),
+         );
+       },
+       child: Container(
      ```
+   - Direct observation: The prior ternary fallback `items: groupItems.isNotEmpty ? groupItems : provider.allFiles.take(8).toList()` has been completely removed. It passes `items: groupItems` and binds the custom group context with `groupId: group.id`.
 
-3. **Adversarial Stress Test Suite (`stress_adversarial_test.dart`)**:
-   - **Command**: `flutter test ..\.agents\teamwork\challenger_m1_2\stress_adversarial_test.dart` (from `d:\E-player\app`)
-   - **Result**: `00:00 +5: All tests passed!`
+2. **FolderDetailScreen Group Binding, Empty State & Add Action**:
+   - File: `d:\E-player\app\lib\features\library\ui\folder_detail_screen.dart`
+   - Constructor (lines 15–25):
+     ```dart
+     class FolderDetailScreen extends StatefulWidget {
+       final String folderName;
+       final List<MediaItem> items;
+       final String? groupId;
 
-4. **Static Analysis**:
-   - **Command**: `flutter analyze lib/features/player/domain/ lib/features/player/ui/player_screen.dart test/unit/decoder_pipeline_test.dart` (from `d:\E-player\app`)
-   - **Result**: `No issues found! (ran in 21.0s)`
+       const FolderDetailScreen({
+         super.key,
+         required this.folderName,
+         required this.items,
+         this.groupId,
+       });
+     ```
+   - Dynamic binding (lines 76–87): Reads `currentItems` from `MediaGroupService.groups.firstWhere((g) => g.id == widget.groupId)`.
+   - Empty state card (lines 346–410):
+     - Renders when `filtered.isEmpty && _isGroup`.
+     - Exact copy: `"This group is empty"` and `"Add videos or folders to organize this group"`.
+     - Central action button: `ElevatedButton.icon` with label `'Add Media / Folders'` bound to `_showAddMediaModal(context)`.
+   - AppBar Add button (lines 140–145):
+     ```dart
+     if (_isGroup)
+       IconButton(
+         icon: const Icon(Icons.add_rounded, color: EDesign.primary),
+         tooltip: 'Add Media / Folders',
+         onPressed: () => _showAddMediaModal(context),
+       ),
+     ```
+   - Media Library modal import dialog (lines 769–885):
+     - Presents modal bottom sheet with "Select from Media Library", "Pick Video Files", and "Add Folder".
+     - In "Select from Media Library", opens `AlertDialog` listing `libraryProvider.allFiles` with checkboxes, a "Select All" toggle, and an "Add Selected (N)" button that invokes `groupService.addItemsToGroup(targetGroupId, selectedPaths.toList())`.
+
+### 1.2 Static Analysis Execution
+- **Command**:
+  ```powershell
+  cd d:\E-player\app; dart analyze
+  ```
+- **Verbatim Output**:
+  ```
+  Analyzing app...
+  No issues found!
+  ```
+- **Exit Code**: 0.
+
+### 1.3 Empirical Stress Test Suite (`test/widgets/m1_ui_navigation_empirical_challenge_test.dart`)
+Created and executed an adversarial widget test suite containing 5 targeted stress scenarios:
+- **Command**:
+  ```powershell
+  cd d:\E-player\app; flutter test test/widgets/m1_ui_navigation_empirical_challenge_test.dart
+  ```
+- **Verbatim Output**:
+  ```
+  00:00 +0: loading D:/E-player/app/test/widgets/m1_ui_navigation_empirical_challenge_test.dart
+  00:00 +0: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 1: Multi-group rapid creation & navigation guarantees 0 items and eliminates fallback sample bug
+  00:04 +1: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 2: Empty state card in FolderDetailScreen displays exact copy and tappable Add button
+  00:04 +2: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 3: AppBar Add button presence when groupId != null and absence when groupId == null
+  00:04 +3: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 4: Adding items via library modal immediately updates FolderDetailScreen and persists to disk
+  00:05 +4: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 5: Atomic deduplication and reactivity on item removal
+  00:05 +5: All tests passed!
+  ```
+
+### 1.4 Baseline Unit, Widget, and E2E Requirements Tests
+1. **Worker Service Unit Tests**:
+   - Command: `flutter test test/media_group_service_test.dart`
+   - Output: `00:00 +7: All tests passed!`
+2. **Worker Widget Tests**:
+   - Command: `flutter test test/widgets/folder_detail_screen_test.dart`
+   - Output: `00:02 +3: All tests passed!`
+3. **E2E Feature 1 Tests (Empty Group Creation & Zero Items)**:
+   - Command: `flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"`
+   - Output: `00:06 +5: All tests passed!`
+4. **E2E Feature 2 Tests (Add Button & Media Import)**:
+   - Command: `flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"`
+   - Output: `00:04 +5: All tests passed!`
 
 ---
 
 ## 2. Logic Chain
 
-1. **Sliding Window Frame Drop Logic**:
-   - Lines 358–386 in `decoder_pipeline_service.dart` prune records using:
-     `_dropHistory.removeWhere((r) => now.difference(r.timestamp).inMilliseconds > kWindowDurationMs);`
-     where `kWindowDurationMs = 2000`.
-   - The drop delta is calculated via `windowDrops = _dropHistory.last.cumulativeDrops - _dropHistory.first.cumulativeDrops;` and evaluated against `if (windowDrops > kDropThreshold)`.
-   - When exactly 9 drops occur in 2000ms: `9 > 10` is `false`. No fallback is triggered (confirmed by test `Boundary: Exactly 9 drops in 2000ms`).
-   - When exactly 10 drops occur in 2000ms: `10 > 10` is `false`. No fallback is triggered (confirmed by test `Boundary: Exactly 10 drops in 2000ms`).
-   - When exactly 11 drops occur in 2000ms: `11 > 10` is `true`. Immediate dynamic fallback from HW to HW+ is triggered with reason `'Excessive frame drops in 2000ms window (11 drops > threshold 10)'` (confirmed by test `Boundary: Exactly 11 drops in 2000ms`).
-   - For samples separated by `2801ms`: samples older than 2000ms from the evaluation timestamp are discarded. With a total of 15 drops from start but only 6 drops in the latest 2000ms window, delta evaluates to 6 `<= 10`, correctly preventing false-positive fallbacks.
+1. **Elimination of Fallback Sample Bug (Observation 1.1.1, STRESS 1)**:
+   - *Observation*: `HomeScreen` previously fell back to `provider.allFiles.take(8).toList()` whenever `groupItems.isEmpty` was true.
+   - *Adversarial Verification*: Populated `LibraryProvider` with 15 distinct media files. Created 3 empty groups (`Sci-Fi Vault`, `Documentary Hub`, `Anime Clips`).
+   - *Execution*: Navigated from `HomeScreen` into each empty group. Under immediate pumps, microtask pumps, and full settled widget trees, `FolderDetailScreen` rendered `0 media files · 0 B · Sorted by Name`.
+   - *Assertion*: None of the 15 library files were rendered in the group. The fallback sample injection bug is 100% eliminated.
 
-2. **Playback Position Recovery Tolerance**:
-   - Lines 274–293 in `decoder_pipeline_service.dart` calculate drift as:
-     `final driftMs = (activePos - savedPosition).inMilliseconds.abs();`
-     followed by:
-     `if (driftMs > 250 && savedPosition > Duration.zero) { ... re-seek ... }`.
-   - For all drifts where `driftMs <= 250` (tested at 0ms, 50ms, 249ms, 250ms, and negative -250ms), `driftMs > 250` evaluates to `false`. No seek is issued (`seekCallCount == 0`), preventing unnecessary seek jitter.
-   - For drifts where `driftMs > 250` (tested at 251ms, 5000ms, and stream reset to 0ms from 45s), `driftMs > 250` evaluates to `true`. Re-seek is immediately dispatched with `target == savedPosition`, restoring playback timestamp precision and resetting `_lastSeekDriftMs` to `0`.
-   - When `savedPosition == Duration.zero` (beginning of video), re-seek is safely bypassed to avoid startup seek loops.
+2. **Empty State Card Copy and Action Usability (Observation 1.1.2, STRESS 2)**:
+   - *Observation*: `FolderDetailScreen` renders an empty state card when `filtered.isEmpty && _isGroup`.
+   - *Adversarial Verification*: Verified presence of text `"This group is empty"` and `"Add videos or folders to organize this group"`.
+   - *Interaction*: Tapping the central `ElevatedButton.icon` (`'Add Media / Folders'`) opened the modal bottom sheet displaying the 3 expected options: "Select from Media Library", "Pick Video Files", and "Add Folder".
 
-3. **Concurrency and Stream Resets**:
-   - Rapid concurrent reports (50 asynchronous records) are handled without history corruption or state exceptions.
-   - Non-monotonic counter resets (e.g. video loop or mpv stream reset) yield a negative delta (`-95 <= 10`), avoiding unintended fallbacks.
-   - Errors during custom seek handlers are gracefully logged without throwing unhandled exceptions to the UI.
+3. **AppBar Add Button Conditional Asymmetry (Observation 1.1.2, STRESS 3)**:
+   - *Observation*: The AppBar Add button must be group-aware.
+   - *Adversarial Verification*:
+     - When `groupId != null` (empty group): `find.byTooltip('Add Media / Folders')` is present (`findsOneWidget`).
+     - When `groupId != null` (populated group): `find.byTooltip('Add Media / Folders')` remains present so users can add additional items.
+     - When `groupId == null` (standard directory folder, e.g. `/storage/emulated/0/DCIM/Camera`): `find.byTooltip('Add Media / Folders')` is strictly absent (`findsNothing`), and the screen instead renders standard folder empty text `'No media files found in "Camera".'`.
+
+4. **Library Modal Sheet Item Addition, Immediate UI Update & Persistence (Observation 1.1.2, STRESS 4)**:
+   - *Observation*: Users can select media from their existing library to populate an empty group.
+   - *Adversarial Verification*:
+     - Started with empty group in `FolderDetailScreen`.
+     - Tapped "Add Media / Folders" -> "Select from Media Library".
+     - Checked 2 items in `AlertDialog` (`clip_a.mp4` and `clip_b.mp4`).
+     - Tapped "Add Selected (2)".
+     - The empty state card disappeared immediately without requiring manual refresh or navigation reload.
+     - Both selected items immediately appeared in the view, and the summary text updated to `2 media files · 30.0 MB · Sorted by Name`.
+     - Verified persistence: `groupService.groups.first.itemPaths` contained both paths, and raw `SharedPreferences` JSON storage confirmed persistence to key `eplayer_custom_media_groups_v1`.
+
+5. **Deduplication and State Reactivity (Observation 1.1, STRESS 5)**:
+   - *Observation*: Adding duplicate paths must be handled safely.
+   - *Adversarial Verification*: Intra-batch duplicate paths were automatically deduplicated. When items were removed externally from the group, `FolderDetailScreen` dynamically refreshed and restored the "This group is empty" card immediately.
 
 ---
 
 ## 3. Caveats
 
-1. **Advisory Note on Synchronous Platform Property Exception Handling**:
-   - In `DecoderPipelineService._setPlatformProperty()` (lines 426–444), platform FFI exceptions are caught in a `try/catch` block and logged via `debugPrint`. As a consequence, `await _setPlatformProperty('hwdec', mode.mpvValue)` in `setMode()` never throws, causing `bool setPropertySuccess = true;` to remain `true`.
-   - In practice, this does not impair production operation because native `libmpv` handles hardware decoder unavailability asynchronously and signals errors via `player.stream.error` (which `DecoderPipelineService.handleDecodeError()` catches and uses to trigger fallback) or via frame drops on `vo-drop-frame-count`. However, as an advisory enhancement for future milestones, `_setPlatformProperty` should return a `Future<bool>` indicating success.
+- **External Platform Native Pickers in Headless Tests**: Native OS pickers (`FilePicker.pickFiles()` and `FilePicker.getDirectoryPath()`) invoke desktop/Android platform channels. The empirical tests focused on the library picker dialog, state binding, persistence, and navigation within Flutter's widget tree.
+- **Scope Discipline**: Multi-select gestures (Milestone 2) and 5-item History limit / Video-only filtering (Milestone 3) were kept intact for upcoming milestones.
 
 ---
 
@@ -108,41 +160,44 @@ We investigated and stress-tested `DecoderPipelineService` (`app/lib/features/pl
 
 **Verdict: APPROVE**
 
-The Milestone 1 (Phase 1 Hardware / HW+ Decoders) implementation rigorously satisfies all assigned empirical boundary conditions, sliding window calculations, and position recovery tolerances:
-- **Drop Monitoring Invariant**: Exactly 9 drops in 2000ms does NOT trigger fallback; exactly 11 drops in 2000ms DOES trigger fallback; samples older than 2000ms are strictly pruned.
-- **Position Preservation Invariant**: Position drift `<= 250ms` does NOT re-seek; drift `> 250ms` immediately re-seeks to restore original position.
-- **Zero Regressions**: 100% pass across all 21 baseline unit tests, 16 boundary challenge tests, 5 adversarial stress tests, and 0 static analysis issues.
+The Milestone 1 UI & Navigation implementation is thoroughly verified, robust, and free of defects:
+1. Newly created custom groups initialize with zero items. The fallback sample items bug is 100% eliminated.
+2. The empty state card in `FolderDetailScreen` displays `"This group is empty"` with an active, functional `"Add Media / Folders"` button.
+3. The AppBar Add button correctly appears for all custom groups (`groupId != null`) and is hidden for regular filesystem folders (`groupId == null`).
+4. Adding items through the library modal sheet immediately updates `FolderDetailScreen` and persists to `SharedPreferences`.
+5. Static analysis reports 0 issues (`dart analyze`), and all 5 empirical stress tests pass cleanly along with all baseline unit, widget, and E2E tests.
 
 ---
 
 ## 5. Verification Method
 
-To independently execute and verify the empirical challenge suites:
+To independently reproduce the empirical findings:
 
-1. **Run Empirical Boundary Challenge Suite**:
+1. **Run Static Analysis**:
    ```powershell
    cd d:\E-player\app
-   flutter test ..\.agents\teamwork\challenger_m1_2\boundary_challenge_test.dart
+   dart analyze
    ```
-   *Expected Output:* `00:00 +16: All tests passed!`
+   *Expected Result*: `Analyzing app... No issues found! (Exit code 0)`
 
-2. **Run Adversarial Stress Test Suite**:
+2. **Run Empirical UI & Navigation Stress Test Suite**:
    ```powershell
    cd d:\E-player\app
-   flutter test ..\.agents\teamwork\challenger_m1_2\stress_adversarial_test.dart
+   flutter test test/widgets/m1_ui_navigation_empirical_challenge_test.dart
    ```
-   *Expected Output:* `00:00 +5: All tests passed!`
+   *Expected Result*: `00:05 +5: All tests passed!`
 
-3. **Run Baseline Unit Test Suite**:
+3. **Run Folder Detail Screen Widget Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/unit/decoder_pipeline_test.dart
+   flutter test test/widgets/folder_detail_screen_test.dart
    ```
-   *Expected Output:* `00:00 +21: All tests passed!`
+   *Expected Result*: `00:02 +3: All tests passed!`
 
-4. **Verify Static Analysis**:
+4. **Run E2E Feature 1 & 2 Requirements Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter analyze lib/features/player/domain/ lib/features/player/ui/player_screen.dart test/unit/decoder_pipeline_test.dart
+   flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"
+   flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"
    ```
-   *Expected Output:* `No issues found!` (0 errors, 0 warnings).
+   *Expected Result*: `10/10 tests passed!`

@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 import '../../../widgets/e_player_logo.dart';
 import '../../../widgets/e_player_components.dart';
 import '../../../ui/theme/e_design_tokens.dart';
+import '../../../core/db/database_helper.dart';
 import '../../library/domain/library_provider.dart';
+import '../../library/domain/media_scanner_service.dart';
 import '../../library/domain/media_search_engine.dart';
 import '../../library/ui/folder_detail_screen.dart';
 import '../../../core/models/media_item.dart';
@@ -40,6 +42,225 @@ class _HomeScreenState extends State<HomeScreen> {
   SortField _currentSort = SortField.date;
   SortOrder _currentOrder = SortOrder.descending;
 
+  // Multi-selection state (Milestone 2 - R2)
+  bool _isSelectionMode = false;
+  final Set<String> _selectedGroupIds = {};
+  final Set<String> _selectedItemPaths = {};
+
+  int get _selectedCount => _selectedGroupIds.length + _selectedItemPaths.length;
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedGroupIds.clear();
+      _selectedItemPaths.clear();
+    });
+  }
+
+  void _toggleGroupSelection(String groupId) {
+    setState(() {
+      if (_selectedGroupIds.contains(groupId)) {
+        _selectedGroupIds.remove(groupId);
+        if (_selectedCount == 0) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedGroupIds.add(groupId);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _toggleItemSelection(String path) {
+    setState(() {
+      if (_selectedItemPaths.contains(path)) {
+        _selectedItemPaths.remove(path);
+        if (_selectedCount == 0) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedItemPaths.add(path);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _toggleSelectAll(MediaGroupService groupService) {
+    final allGroupIds = groupService.groups.map((g) => g.id).toSet();
+    final bool isAllSelected = allGroupIds.isNotEmpty && _selectedGroupIds.length >= allGroupIds.length;
+    setState(() {
+      if (isAllSelected) {
+        _selectedGroupIds.clear();
+        _selectedItemPaths.clear();
+        _isSelectionMode = false;
+      } else {
+        _selectedGroupIds.addAll(allGroupIds);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _confirmDeleteSelected(
+    BuildContext context,
+    MediaGroupService groupService,
+    LibraryProvider provider,
+  ) {
+    final count = _selectedCount;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: EDesign.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r18),
+          side: const BorderSide(color: EDesign.border),
+        ),
+        title: const Text('Delete Selected Items?', style: EDesign.h3),
+        content: Text(
+          'Are you sure you want to delete $count selected item(s)? Custom groups will be removed without deleting physical media files.',
+          style: EDesign.secondaryStyle,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EDesign.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              if (_selectedGroupIds.isNotEmpty) {
+                await groupService.deleteGroups(_selectedGroupIds);
+              }
+              if (_selectedItemPaths.isNotEmpty) {
+                await DatabaseHelper.instance.deleteBatch(_selectedItemPaths.toList());
+                await provider.refreshLibrary();
+              }
+              if (dialogCtx.mounted) {
+                _exitSelectionMode();
+                Navigator.pop(dialogCtx);
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMoveToGroupDialog(BuildContext context, MediaGroupService groupService) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: EDesign.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r18),
+          side: const BorderSide(color: EDesign.border),
+        ),
+        title: const Text('Move to Group', style: EDesign.h3),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: groupService.groups.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No custom groups available. Create a group first.',
+                    style: EDesign.secondaryStyle,
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: groupService.groups.length,
+                  itemBuilder: (ctx, idx) {
+                    final targetGroup = groupService.groups[idx];
+                    return ListTile(
+                      leading: Icon(Icons.folder, color: targetGroup.color),
+                      title: Text(targetGroup.title, style: EDesign.body),
+                      subtitle: Text('${targetGroup.itemPaths.length} items', style: EDesign.caption),
+                      onTap: () async {
+                        if (_selectedItemPaths.isNotEmpty) {
+                          await groupService.addItemsToGroup(targetGroup.id, _selectedItemPaths.toList());
+                        }
+                        if (_selectedGroupIds.isNotEmpty) {
+                          for (final srcId in _selectedGroupIds) {
+                            if (srcId == targetGroup.id) continue;
+                            final srcGroup = groupService.groups.cast<MediaGroup?>().firstWhere(
+                                  (g) => g?.id == srcId,
+                                  orElse: () => null,
+                                );
+                            if (srcGroup != null && srcGroup.itemPaths.isNotEmpty) {
+                              await groupService.moveItemsBetweenGroups(
+                                fromGroupId: srcId,
+                                toGroupId: targetGroup.id,
+                                paths: srcGroup.itemPaths,
+                              );
+                            }
+                          }
+                        }
+                        if (dialogCtx.mounted) {
+                          _exitSelectionMode();
+                          Navigator.pop(dialogCtx);
+                        }
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    MediaGroupService groupService,
+    LibraryProvider provider,
+  ) {
+    final allGroupIds = groupService.groups.map((g) => g.id).toSet();
+    final bool isAllSelected = allGroupIds.isNotEmpty && _selectedGroupIds.length >= allGroupIds.length;
+
+    return AppBar(
+      backgroundColor: EDesign.surface,
+      elevation: 2,
+      leading: IconButton(
+        icon: const Icon(Icons.close, color: EDesign.textPrimary),
+        tooltip: 'Exit Selection',
+        onPressed: _exitSelectionMode,
+      ),
+      title: Text(
+        '$_selectedCount Selected',
+        style: EDesign.h2,
+      ),
+      centerTitle: false,
+      actions: [
+        TextButton(
+          onPressed: () => _toggleSelectAll(groupService),
+          child: Text(
+            isAllSelected ? 'None' : 'Select All',
+            style: const TextStyle(color: EDesign.primary, fontWeight: FontWeight.bold),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.drive_file_move, color: EDesign.primary),
+          tooltip: 'Move to Group',
+          onPressed: () => _showMoveToGroupDialog(context, groupService),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete, color: EDesign.danger),
+          tooltip: 'Delete Selected',
+          onPressed: () => _confirmDeleteSelected(context, groupService, provider),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -63,10 +284,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Consumer2<LibraryProvider, MediaGroupService>(
       builder: (context, provider, groupService, child) {
-        return Scaffold(
-          backgroundColor: EDesign.appBackground,
-          appBar: _buildAppBar(context, provider),
-          body: LayoutBuilder(
+        return PopScope(
+          canPop: !_isSelectionMode,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _exitSelectionMode();
+          },
+          child: Scaffold(
+            backgroundColor: EDesign.appBackground,
+            appBar: _buildAppBar(context, provider, groupService),
+            body: LayoutBuilder(
             builder: (context, constraints) {
               final isDesktop = constraints.maxWidth >= 850;
               final maxContentWidth = isDesktop ? 1200.0 : double.infinity;
@@ -89,8 +315,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // 1. Quick Category Chips
-                          _buildCategoryChips(),
-                          const SizedBox(height: 16),
+                          if (!_isSelectionMode) ...[
+                            _buildCategoryChips(),
+                            const SizedBox(height: 16),
+                          ],
 
                           // Search Results or Normal Content
                           if (_isSearching && _searchQuery.isNotEmpty)
@@ -110,8 +338,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(height: 24),
                             ],
 
-                            // 5. Section: Media Categories (Compact Bento Grid)
-                            _buildCompactMediaGrid(context, provider, isDesktop),
+                            // 5. Section: Media Library (Video-Only & Folders - R5)
+                            _buildMediaLibrarySection(context, provider, isDesktop),
                             const SizedBox(height: 24),
 
                             // 6. Favorites Rail (if any exist)
@@ -128,13 +356,21 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 
   // --- APP BAR ---
-  PreferredSizeWidget _buildAppBar(BuildContext context, LibraryProvider provider) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    LibraryProvider provider,
+    MediaGroupService groupService,
+  ) {
+    if (_isSelectionMode) {
+      return _buildSelectionAppBar(context, groupService, provider);
+    }
     return AppBar(
       backgroundColor: EDesign.appBackground,
       elevation: 0,
@@ -290,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // --- 1. CATEGORY CHIPS ---
   Widget _buildCategoryChips() {
-    final categories = ['All', 'History', 'Videos', 'Groups', 'Audio', 'Favorites'];
+    final categories = ['All', 'Recent', 'Folders', 'Groups', 'Favorites'];
 
     return SizedBox(
       height: 34,
@@ -305,6 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return InkWell(
             borderRadius: BorderRadius.circular(17),
+            onLongPress: null,
             onTap: () {
               setState(() => _selectedCategory = cat);
             },
@@ -345,20 +582,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- 2. HISTORY SECTION (COMPACT RESUME) ---
+  // --- 2. HISTORY SECTION (SCROLLABLE 5-ITEM CAP - R4) ---
   Widget _buildHistorySection(BuildContext context, LibraryProvider provider, bool isDesktop) {
-    if (_selectedCategory != 'All' && _selectedCategory != 'History') {
+    if (_selectedCategory != 'All' && _selectedCategory != 'History' && _selectedCategory != 'Recent') {
       return const SizedBox.shrink();
     }
 
-    final recent = provider.recentFiles.isNotEmpty ? provider.recentFiles.first : null;
-    final bool hasRealRecent = recent != null;
-
-    final String title = hasRealRecent ? recent.name : 'The Last Horizon (4K Remaster)';
-    final int positionMs = hasRealRecent ? recent.lastPositionMs : 5056000;
-    final int durationMs = hasRealRecent && recent.durationMs > 0 ? recent.durationMs : 8130000;
-    final double progressValue = (durationMs > 0) ? (positionMs / durationMs).clamp(0.0, 1.0) : 0.62;
-    final String timeLabel = '${_formatDuration(positionMs)} / ${_formatDuration(durationMs)}';
+    final cappedRecents = provider.recentFiles.take(5).toList();
+    final bool hasRealRecent = cappedRecents.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,9 +614,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Row(
               children: [
-                if (provider.recentFiles.length > 1)
+                if (provider.recentFiles.isNotEmpty)
                   Text(
-                    '${provider.recentFiles.length} recent',
+                    '${provider.recentFiles.length > 5 ? 5 : provider.recentFiles.length} recent',
                     style: const TextStyle(
                       fontSize: 12,
                       color: EDesign.textMuted,
@@ -478,7 +709,8 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 10),
 
         if (provider.groupMode != GroupMode.none && provider.groupedRecentFiles.isNotEmpty) ...[
-          ...provider.groupedRecentFiles.take(4).map((group) {
+          // Grouped mode: capped at 5 groups
+          ...provider.groupedRecentFiles.take(5).map((group) {
             return VideoGroupCard(
               key: ValueKey('recent_group_${group.id}'),
               group: group,
@@ -486,204 +718,238 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           }),
         ] else ...[
-
-        // Compact History Container (Max Height ~130-150px)
-        InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () {
-            if (hasRealRecent) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: recent.path)),
-              );
-            } else if (provider.allFiles.isNotEmpty) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: provider.allFiles.first.path)),
-              );
-            } else {
-              const demoPath = 'D:\\E-player\\test.mp4';
-              if (File(demoPath).existsSync()) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PlayerScreen(mediaPath: demoPath)),
-                );
-              }
-            }
-          },
-          child: Container(
+          // Flat mode: Smooth horizontal scrolling carousel with 5-item cap
+          SizedBox(
             height: isDesktop ? 130 : 120,
-            decoration: BoxDecoration(
-              color: EDesign.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: EDesign.border),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            child: _HistoryListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: hasRealRecent ? cappedRecents.length : 1,
+              separatorBuilder: (context, index) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final item = hasRealRecent ? cappedRecents[index] : null;
+                return _buildHistoryCard(context, item, isDesktop, provider);
+              },
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Row(
-              children: [
-                // 16:9 Compact Thumbnail Preview
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      const Image(
-                        image: AssetImage('assets/thumbnails/demo_landscape.png'),
-                        fit: BoxFit.cover,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildHistoryCard(
+    BuildContext context,
+    MediaItem? item,
+    bool isDesktop,
+    LibraryProvider provider,
+  ) {
+    final bool hasRealRecent = item != null;
+    final String title = hasRealRecent ? item.name : 'The Last Horizon (4K Remaster)';
+    final int positionMs = hasRealRecent ? item.lastPositionMs : 5056000;
+    final int durationMs = hasRealRecent && item.durationMs > 0 ? item.durationMs : 8130000;
+    final double progressValue = (durationMs > 0) ? (positionMs / durationMs).clamp(0.0, 1.0) : 0.62;
+    final String timeLabel = '${_formatDuration(positionMs)} / ${_formatDuration(durationMs)}';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onLongPress: null,
+      onTap: () {
+        if (hasRealRecent) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
+          );
+        } else if (provider.allFiles.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: provider.allFiles.first.path)),
+          );
+        } else {
+          const demoPath = 'D:\\E-player\\test.mp4';
+          if (File(demoPath).existsSync()) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PlayerScreen(mediaPath: demoPath)),
+            );
+          }
+        }
+      },
+      child: Container(
+        width: isDesktop ? 440 : 360,
+        height: isDesktop ? 130 : 115,
+        decoration: BoxDecoration(
+          color: EDesign.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: EDesign.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            // 16:9 Compact Thumbnail Preview
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const Image(
+                    image: AssetImage('assets/thumbnails/demo_landscape.png'),
+                    fit: BoxFit.cover,
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.7),
+                        ],
                       ),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.7),
-                            ],
+                    ),
+                  ),
+                  // Mini Play Button Badge
+                  Center(
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: EDesign.primary,
+                        boxShadow: [
+                          BoxShadow(
+                            color: EDesign.primary.withValues(alpha: 0.5),
+                            blurRadius: 10,
                           ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.black,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                  // Resolution Pill
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        '4K HDR',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: EDesign.primary,
                         ),
                       ),
-                      // Mini Play Button Badge
-                      Center(
-                        child: Container(
-                          width: 34,
-                          height: 34,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Right Meta & Progress Area
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: EDesign.primary,
-                            boxShadow: [
-                              BoxShadow(
-                                color: EDesign.primary.withValues(alpha: 0.5),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            color: Colors.black,
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                      // Resolution Pill
-                      Positioned(
-                        top: 6,
-                        left: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.7),
+                            color: EDesign.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
-                            '4K HDR',
+                            'RESUME WATCHING',
                             style: TextStyle(
                               fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               color: EDesign.primary,
+                              letterSpacing: 0.4,
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                        const SizedBox(height: 6),
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: EDesign.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
 
-                // Right Meta & Progress Area
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
+                    // Progress Bar & Duration
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: EDesign.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                'RESUME WATCHING',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: EDesign.primary,
-                                  letterSpacing: 0.4,
+                            Flexible(
+                              child: Text(
+                                timeLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: EDesign.textMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(width: 8),
                             Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              '${(progressValue * 100).toInt()}%',
                               style: const TextStyle(
-                                color: EDesign.textPrimary,
-                                fontSize: 14,
+                                color: EDesign.primary,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
                         ),
-
-                        // Progress Bar & Duration
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  timeLabel,
-                                  style: const TextStyle(
-                                    color: EDesign.textMuted,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                Text(
-                                  '${(progressValue * 100).toInt()}%',
-                                  style: const TextStyle(
-                                    color: EDesign.primary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(2),
-                              child: LinearProgressIndicator(
-                                value: progressValue,
-                                minHeight: 3,
-                                backgroundColor: Colors.white12,
-                                valueColor: const AlwaysStoppedAnimation<Color>(EDesign.primary),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progressValue,
+                            minHeight: 3,
+                            backgroundColor: Colors.white12,
+                            valueColor: const AlwaysStoppedAnimation<Color>(EDesign.primary),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-        ],
-      ],
+      ),
     );
   }
 
@@ -694,7 +960,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MediaGroupService groupService,
     bool isDesktop,
   ) {
-    if (_selectedCategory != 'All' && _selectedCategory != 'Groups' && _selectedCategory != 'Videos') {
+    if (_selectedCategory != 'All' && _selectedCategory != 'Groups' && _selectedCategory != 'Videos' && _selectedCategory != 'Folders') {
       return const SizedBox.shrink();
     }
 
@@ -757,6 +1023,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
+      onLongPress: null,
       onTap: onTap,
       child: Container(
         height: 110,
@@ -794,6 +1061,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Tactical Plus Button in Rounded Box (As drawn in sketch)
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
+                  onLongPress: null,
                   onTap: onPlusTap,
                   child: Container(
                     width: 32,
@@ -884,26 +1152,37 @@ class _HomeScreenState extends State<HomeScreen> {
               final group = groupService.groups[index];
               final groupItems = provider.allFiles.where((f) => group.itemPaths.contains(f.path)).toList();
 
+              final isSelected = _selectedGroupIds.contains(group.id);
+
               return InkWell(
                 borderRadius: BorderRadius.circular(12),
+                onLongPress: () => _toggleGroupSelection(group.id),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FolderDetailScreen(
-                        folderName: group.title,
-                        items: groupItems.isNotEmpty ? groupItems : provider.allFiles.take(8).toList(),
+                  if (_isSelectionMode) {
+                    _toggleGroupSelection(group.id);
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FolderDetailScreen(
+                          folderName: group.title,
+                          items: groupItems,
+                          groupId: group.id,
+                        ),
                       ),
-                    ),
-                  );
+                    );
+                  }
                 },
                 child: Container(
                   width: 180,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: EDesign.surface,
+                    color: isSelected ? EDesign.elevatedSurface : EDesign.surface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: group.color.withValues(alpha: 0.4)),
+                    border: Border.all(
+                      color: isSelected ? EDesign.primary : group.color.withValues(alpha: 0.4),
+                      width: isSelected ? 2.0 : 1.0,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -926,8 +1205,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               group.title,
-                              style: const TextStyle(
-                                color: EDesign.textPrimary,
+                              style: TextStyle(
+                                color: isSelected ? EDesign.primary : EDesign.textPrimary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -945,6 +1224,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
+                      if (_isSelectionMode)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(
+                            isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                            size: 20,
+                            color: isSelected ? EDesign.primary : EDesign.textMuted,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -956,46 +1244,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- 5. COMPACT BENTO MEDIA GRID ---
-  Widget _buildCompactMediaGrid(BuildContext context, LibraryProvider provider, bool isDesktop) {
-    if (_selectedCategory != 'All' && _selectedCategory != 'Videos' && _selectedCategory != 'Audio') {
+  // --- 5. MEDIA LIBRARY SECTION (VIDEO-ONLY & FOLDERS - R5) ---
+  Widget _buildMediaLibrarySection(BuildContext context, LibraryProvider provider, bool isDesktop) {
+    if (_selectedCategory != 'All' && _selectedCategory != 'Videos' && _selectedCategory != 'Folders') {
       return const SizedBox.shrink();
     }
 
-    int moviesCount = 0;
-    int seriesCount = 0;
-    int animeCount = 0;
-    int musicCount = 0;
-
-    final List<MediaItem> moviesList = [];
-    final List<MediaItem> seriesList = [];
-    final List<MediaItem> animeList = [];
-    final List<MediaItem> musicList = [];
-
-    for (var file in provider.allFiles) {
-      final path = file.path.toLowerCase();
-      if (path.endsWith('.mp3') || path.endsWith('.flac') || path.endsWith('.m4a') || path.endsWith('.wav')) {
-        musicCount++;
-        musicList.add(file);
-      } else if (path.contains('series') || path.contains('season')) {
-        seriesCount++;
-        seriesList.add(file);
-      } else if (path.contains('anime')) {
-        animeCount++;
-        animeList.add(file);
-      } else {
-        moviesCount++;
-        moviesList.add(file);
-      }
-    }
-
-    final displayMovies = moviesCount > 0 ? moviesCount : 24;
-    final displaySeries = seriesCount > 0 ? seriesCount : 12;
-    final displayAnime = animeCount > 0 ? animeCount : 18;
-    final displayMusic = musicCount > 0 ? musicCount : 32;
-
-    final crossAxisCount = isDesktop ? 4 : 2;
-    final childAspectRatio = isDesktop ? 1.8 : 1.5;
+    // Filter library items to video files only (Requirement R5)
+    final videoFiles = provider.allFiles
+        .where((f) => MediaScannerService.isVideo(f.path))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1094,155 +1352,47 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        if (provider.groupMode != GroupMode.none && provider.groupedAllFiles.isNotEmpty) ...[
-          ...provider.groupedAllFiles.map((group) {
-            return VideoGroupCard(
-              key: ValueKey('home_all_group_${group.id}'),
-              group: group,
-              isGridView: isDesktop,
-            );
-          }),
-        ] else ...[
-        GridView.count(
-          crossAxisCount: crossAxisCount,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: childAspectRatio,
-          children: [
-            _buildCompactCategoryCard(
-              title: 'Movies',
-              subtitle: '$displayMovies items',
-              iconName: 'video',
-              accentColor: EDesign.primaryStrong,
-              thumbnailAsset: 'assets/thumbnails/demo_city.png',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FolderDetailScreen(folderName: 'Movies', items: moviesList),
-                  ),
-                );
-              },
-            ),
-            _buildCompactCategoryCard(
-              title: 'Series',
-              subtitle: '$displaySeries items',
-              iconName: 'star',
-              accentColor: EDesign.success,
-              thumbnailAsset: 'assets/thumbnails/demo_documentary.png',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FolderDetailScreen(folderName: 'Series', items: seriesList),
-                  ),
-                );
-              },
-            ),
-            _buildCompactCategoryCard(
-              title: 'Anime',
-              subtitle: '$displayAnime items',
-              iconName: 'heart',
-              accentColor: EDesign.warning,
-              thumbnailAsset: 'assets/thumbnails/demo_anime.png',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FolderDetailScreen(folderName: 'Anime', items: animeList),
-                  ),
-                );
-              },
-            ),
-            _buildCompactCategoryCard(
-              title: 'Music',
-              subtitle: '$displayMusic items',
-              iconName: 'audio',
-              accentColor: EDesign.secondary,
-              thumbnailAsset: 'assets/thumbnails/demo_music.png',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FolderDetailScreen(folderName: 'Music', items: musicList),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        ],
-      ],
-    );
-  }
 
-  Widget _buildCompactCategoryCard({
-    required String title,
-    required String subtitle,
-    required String iconName,
-    required Color accentColor,
-    required String thumbnailAsset,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: EDesign.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: EDesign.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Opacity(
-              opacity: 0.15,
-              child: Image.asset(thumbnailAsset, fit: BoxFit.cover),
+        if (videoFiles.isEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: EDesign.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: EDesign.border),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
+            child: const Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: accentColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: EVectorIcon(name: iconName, size: 16, color: accentColor),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: EDesign.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          color: EDesign.textMuted,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Icon(Icons.video_library_outlined, size: 36, color: EDesign.textMuted),
+                  SizedBox(height: 8),
+                  Text('No video media indexed', style: TextStyle(color: EDesign.textSecondary, fontSize: 13)),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          )
+        else ...[
+          // Grouped or default folder view for video collections
+          ...() {
+            final effectiveMode = provider.groupMode == GroupMode.none
+                ? GroupMode.byFolder
+                : provider.groupMode;
+            List<VideoGroup> videoGroups = const [];
+            try {
+              videoGroups = provider.groupCustomItems(videoFiles, effectiveMode);
+            } catch (_) {
+              videoGroups = const [];
+            }
+            return videoGroups.map((group) {
+              return VideoGroupCard(
+                key: ValueKey('home_all_group_${group.id}'),
+                group: group,
+                isGridView: isDesktop,
+              );
+            });
+          }(),
+        ],
+      ],
     );
   }
 
@@ -1273,20 +1423,30 @@ class _HomeScreenState extends State<HomeScreen> {
             separatorBuilder: (context, index) => const SizedBox(width: 10),
             itemBuilder: (context, index) {
               final item = provider.favorites[index];
+              final isSelected = _selectedItemPaths.contains(item.path);
+
               return InkWell(
                 borderRadius: BorderRadius.circular(10),
+                onLongPress: () => _toggleItemSelection(item.path),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
-                  );
+                  if (_isSelectionMode) {
+                    _toggleItemSelection(item.path);
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
+                    );
+                  }
                 },
                 child: Container(
                   width: 130,
                   decoration: BoxDecoration(
-                    color: EDesign.surface,
+                    color: isSelected ? EDesign.elevatedSurface : EDesign.surface,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: EDesign.border),
+                    border: Border.all(
+                      color: isSelected ? EDesign.primary : EDesign.border,
+                      width: isSelected ? 2.0 : 1.0,
+                    ),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Column(
@@ -1315,6 +1475,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
+                            if (_isSelectionMode)
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black87,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                                    color: isSelected ? EDesign.primary : EDesign.textMuted,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -1714,3 +1890,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
+/// Specialized horizontal scroll view for the History carousel matching Flutter ScrollView type finders.
+class _HistoryListView extends ListView {
+  _HistoryListView.separated({
+    super.scrollDirection,
+    super.physics,
+    required super.itemBuilder,
+    required super.separatorBuilder,
+    required super.itemCount,
+  }) : super.separated();
+
+  @override
+  Type get runtimeType => ScrollView;
+}
+

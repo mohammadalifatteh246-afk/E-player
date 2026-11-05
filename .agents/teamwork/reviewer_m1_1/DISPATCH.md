@@ -28,3 +28,32 @@ Constraints:
 - Write ONLY to your working directory: d:\E-player\.agents\teamwork\reviewer_m1_1/
 - No C: drive access. No local compilation of binaries (no flutter build apk/windows).
 - Maintain progress.md with timestamps for liveness.
+
+
+## 2026-11-04T12:51:04Z
+You are Reviewer 1 for Milestone 1 on the E-Player project.
+Your working directory is: d:\E-player\.agents\teamwork\reviewer_m1_1
+Workspace root: d:\E-player\app
+
+MANDATORY FIRST STEPS:
+1. Read ORIGINAL_REQUEST.md at: d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
+2. Read PROJECT.md at: d:\E-player\PROJECT.md
+3. Read worker handoff report at: d:\E-player\.agents\teamwork\worker_m1\handoff.md
+4. Read TEST_READY.md at: d:\E-player\TEST_READY.md
+
+SCOPE OF REVIEW:
+Review Milestone 1 code changes:
+- `lib/features/home/domain/media_group_service.dart` (batch add/remove/move, persistence, deduplication)
+- `lib/features/home/ui/home_screen.dart` (lines ~885-900 custom groups navigation, elimination of take(8) fallback)
+- `lib/features/library/ui/folder_detail_screen.dart` (groupId binding, empty state card with Add button, AppBar Add action)
+
+VERIFICATION REQUIREMENTS:
+- Run `dart analyze` in `d:\E-player\app`
+- Run `flutter test test/media_group_service_test.dart`
+- Run `flutter test test/widgets/folder_detail_screen_test.dart`
+- Run `flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"`
+- Run `flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"`
+
+Evaluate code quality, null safety, architectural consistency, and interface compliance.
+Document findings and deliver your explicit verdict (APPROVE or REQUEST_CHANGES) in `d:\E-player\.agents\teamwork\reviewer_m1_1\handoff.md`.
+Send a completion message to the caller with your verdict and key findings.

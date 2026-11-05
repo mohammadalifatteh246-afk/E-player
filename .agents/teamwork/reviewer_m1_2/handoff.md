@@ -1,155 +1,247 @@
-# Handoff Report: Reviewer 2 — Milestone 1 (Phase 1 Hardware / HW+ Decoders)
+# Handoff Report: Milestone 1 UI/UX Review & Adversarial Stress Analysis
 
-**Agent:** `reviewer_m1_2` (Reviewer & Adversarial Critic)  
-**Parent:** `81e1945a-d6bd-4531-87f3-4a7caf8e5a5d`  
-**Working Directory:** `d:\E-player\.agents\teamwork\reviewer_m1_2`  
-**Date:** 2026-10-22  
+**Agent**: Reviewer 2 (`reviewer_m1_2`)  
+**Roles**: Reviewer, Adversarial Critic  
+**Working Directory**: `d:\E-player\.agents\teamwork\reviewer_m1_2`  
+**Workspace Root**: `d:\E-player\app`  
+**Parent Conversation ID**: `1f4eb210-26b4-4171-85cb-7db1c898c75c`  
+**Date**: 2026-11-04  
+**Verdict**: **APPROVE**  
 
 ---
 
 ## 1. Observation
 
-### 1.1 Scope & Codebase Verification
-I independently inspected the Milestone 1 implementation files and executed static analysis and test suites from `D:\E-player\app`:
+### 1.1 Direct Code Inspections
+1. **`app/lib/features/library/ui/folder_detail_screen.dart`**:
+   - Lines 18–25: `FolderDetailScreen` declares `final String? groupId;` and accepts it in the constructor.
+   - Lines 64–66: Defines getter `bool get _isGroup => widget.groupId != null || widget.folderName.toLowerCase().contains('group');`.
+   - Lines 76–112: Subscribes to `context.watch<MediaGroupService>()`. When `widget.groupId != null`, resolves group by `widget.groupId` from `groupService.groups`, mapping `group.itemPaths` into `currentItems` (via `libraryProvider.allFiles` or synthesized `MediaItem`s). If `group.itemPaths` is empty, `currentItems` is empty (`[]`).
+   - Lines 140–145: Renders an Add button in the AppBar whenever `_isGroup` is true:
+     ```dart
+     if (_isGroup)
+       IconButton(
+         icon: const Icon(Icons.add_rounded, color: EDesign.primary),
+         tooltip: 'Add Media / Folders',
+         onPressed: () => _showAddMediaModal(context),
+       ),
+     ```
+   - Lines 347–412: Empty State Card presentation:
+     - When `filtered.isEmpty` and `_isGroup` is true, displays a centered card inside a `SingleChildScrollView` (`BouncingScrollPhysics`) with `EDesign.cardDecoration(color: EDesign.elevatedSurface, radius: EDesign.r18)`.
+     - Circular folder icon: `Icons.folder_open_rounded` (color: `EDesign.primary`, size: 40).
+     - Headline text: `'This group is empty'` (font size 18, bold, `EDesign.textPrimary`).
+     - Subtitle text: `'Add videos or folders to organize this group'` (`EDesign.secondaryStyle`).
+     - Call-to-action button: `ElevatedButton.icon(icon: Icon(Icons.add_rounded, size: 20), label: Text('Add Media / Folders', style: TextStyle(fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: EDesign.primary, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(EDesign.r14))), onPressed: () => _showAddMediaModal(context))`.
+   - Lines 528 & 606: In both grid view (`_buildGridCard`) and list view (`_buildListCard`), items provide contextual actions via `_buildItemPopupMenu(context, item, provider)`.
+   - Lines 618–658: `_buildItemPopupMenu`:
+     - When `widget.groupId != null`, includes a dedicated option:
+       ```dart
+       if (widget.groupId != null)
+         const PopupMenuItem(
+           value: 'remove_group',
+           child: Text('Remove from Group', style: TextStyle(color: EDesign.danger)),
+         ),
+       ```
+     - Selecting `'remove_group'` invokes `await groupService.removeItemFromGroup(widget.groupId!, item.path);`, triggering atomic state update and immediate reactive UI re-render.
+   - Lines 660–752: `_showAddMediaModal`:
+     - Opens a modal bottom sheet (`EDesign.elevatedSurface`, rounded top corners `r20`) entitled `'Add to "${widget.folderName}"'`.
+     - Option 1: "Select from Media Library" (`Icons.video_library_rounded`) -> triggers `_showSelectFromLibraryDialog` presenting all library media items with checkboxes, "Select All" toggle, and "Add Selected (N)" button.
+     - Option 2: "Pick Video Files" (`Icons.file_open_rounded`) -> invokes `FilePicker.pickFiles(type: FileType.video)`.
+     - Option 3: "Add Folder" (`Icons.create_new_folder_rounded`) -> invokes `FilePicker.getDirectoryPath()` and scans directory for video files.
 
-1. **Static Analysis**:
-   - Command: `flutter analyze lib/features/player/domain/ lib/features/player/ui/player_screen.dart test/unit/decoder_pipeline_test.dart`
-   - Result: `No issues found! (ran in 26.3s)` (0 errors, 0 warnings).
-2. **Unit Test Execution**:
-   - Command: `flutter test test/unit/decoder_pipeline_test.dart`
-   - Result: `00:00 +21: All tests passed!` (21/21 passed).
-3. **Subsystem Regression Test Execution**:
-   - Command: `flutter test test/cast_service_test.dart test/export_service_test.dart test/media_group_service_test.dart test/media_info_test.dart test/media_scanner_search_test.dart test/model_registry_test.dart test/settings_provider_test.dart test/vault_service_test.dart test/video_rotation_test.dart test/features/enhancement_profile_test.dart test/features/video_effects_test.dart test/unit/decoder_pipeline_test.dart`
-   - Result: `00:13 +87: All tests passed!` (87/87 passed).
-4. **Zero-Mock Verification**:
-   - Inspected `app/pubspec.yaml` lines 30–65: Neither `mockito` nor `mocktail` is included.
-   - Inspected `app/test/unit/decoder_pipeline_test.dart` lines 6–20: Uses an in-memory stateful fake (`FakeMpvPlatform`) with concrete `Map<String, String>` backing rather than mock frameworks.
-5. **Integrity Check**:
-   - Verified that `decoder_pipeline_service.dart` and `decoder_models.dart` do not contain hardcoded test result branches, dummy facades, or test string bypasses.
-   - All state transitions and calculations (`nextFallback`, `sliding window drops`, `seek tolerance <= 250ms`, `telemetry polling`) execute real business logic.
+2. **`app/lib/features/home/ui/home_screen.dart`**:
+   - Lines 885–900: Group navigation in `_buildCustomGroupsSection`:
+     ```dart
+     final group = groupService.groups[index];
+     final groupItems = provider.allFiles.where((f) => group.itemPaths.contains(f.path)).toList();
+
+     return InkWell(
+       borderRadius: BorderRadius.circular(12),
+       onTap: () {
+         Navigator.push(
+           context,
+           MaterialPageRoute(
+             builder: (_) => FolderDetailScreen(
+               folderName: group.title,
+               items: groupItems,
+               groupId: group.id,
+             ),
+           ),
+         );
+       },
+       ...
+     ```
+   - Eradicates the previous sample file fallback (`provider.allFiles.take(8).toList()`), cleanly passing empty items and `groupId`.
+
+3. **`app/lib/features/home/domain/media_group_service.dart`**:
+   - Implements atomic batch operations:
+     - `addItemsToGroup(String groupId, List<String> paths)`: deduplicates paths against existing entries, persists to `SharedPreferences`, and notifies listeners once.
+     - `removeItemsFromGroup(String groupId, List<String> paths)`: batch removes paths, persists to storage, and notifies listeners once.
+     - `moveItemsBetweenGroups({required String fromGroupId, required String toGroupId, required List<String> paths})`: atomically transfers paths between groups.
+
+### 1.2 Verification Commands & Verbatim Outputs
+1. **Static Analysis (`dart analyze`)**:
+   - Command: `cd d:\E-player\app; dart analyze`
+   - Output:
+     ```
+     Analyzing app...
+     No issues found!
+     ```
+   - Exit code: 0.
+
+2. **Widget Tests (`test/widgets/folder_detail_screen_test.dart`)**:
+   - Command: `cd d:\E-player\app; flutter test test/widgets/folder_detail_screen_test.dart`
+   - Output:
+     ```
+     00:00 +0: loading D:/E-player/app/test/widgets/folder_detail_screen_test.dart
+     00:00 +0: (setUpAll)
+     00:00 +0: FolderDetailScreen Group & Empty State Widget Tests Displays empty state card and Add button when groupId is set and group is empty
+     00:02 +1: FolderDetailScreen Group & Empty State Widget Tests Tapping Add Media button opens bottom sheet with library, file, and folder options
+     00:03 +2: FolderDetailScreen Group & Empty State Widget Tests Selecting items from library modal adds them to group atomically
+     00:03 +3: (tearDownAll)
+     00:03 +3: All tests passed!
+     ```
+   - Exit code: 0.
+
+3. **E2E Feature 1 Tests (`test/e2e/e2e_requirements_test.dart`)**:
+   - Command: `cd d:\E-player\app; flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"`
+   - Output:
+     ```
+     00:00 +0: loading D:/E-player/app/test/e2e/e2e_requirements_test.dart
+     00:00 +0: (setUpAll)
+     00:00 +0: Tier 1: Feature Coverage (R1 to R5) Feature 1: Empty Group Creation & Zero Items (R1) 1.1: Newly created group via MediaGroupService has itemPaths.isEmpty and length == 0
+     00:00 +1: Tier 1: Feature Coverage (R1 to R5) Feature 1: Empty Group Creation & Zero Items (R1) 1.2: Group created with empty or whitespace title normalizes to default name and zero items
+     00:00 +2: Tier 1: Feature Coverage (R1 to R5) Feature 1: Empty Group Creation & Zero Items (R1) 1.3: Group JSON serialization preserves empty itemPaths array
+     00:00 +3: Tier 1: Feature Coverage (R1 to R5) Feature 1: Empty Group Creation & Zero Items (R1) 1.4: HomeScreen custom groups rail renders group with "0 items" badge
+     00:04 +4: Tier 1: Feature Coverage (R1 to R5) Feature 1: Empty Group Creation & Zero Items (R1) 1.5: Navigating to newly created group opens FolderDetailScreen showing 0 media items
+     00:06 +5: (tearDownAll)
+     00:06 +5: All tests passed!
+     ```
+   - Exit code: 0.
+
+4. **E2E Feature 2 Tests (`test/e2e/e2e_requirements_test.dart`)**:
+   - Command: `cd d:\E-player\app; flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"`
+   - Output:
+     ```
+     00:00 +0: loading D:/E-player/app/test/e2e/e2e_requirements_test.dart
+     00:00 +0: (setUpAll)
+     00:00 +0: Tier 1: Feature Coverage (R1 to R5) Feature 2: Add Button & Media Import (R1) 2.1: FolderDetailScreen for empty group displays empty state card
+     00:02 +1: Tier 1: Feature Coverage (R1 to R5) Feature 2: Add Button & Media Import (R1) 2.2: FolderDetailScreen displays an Add button or action for the group
+     00:02 +2: Tier 1: Feature Coverage (R1 to R5) Feature 2: Add Button & Media Import (R1) 2.3: Adding media paths updates group.itemPaths count in state and storage
+     00:02 +3: Tier 1: Feature Coverage (R1 to R5) Feature 2: Add Button & Media Import (R1) 2.4: Batch adding items appends multiple paths atomically to group
+     00:02 +4: Tier 1: Feature Coverage (R1 to R5) Feature 2: Add Button & Media Import (R1) 2.5: Group item count updates dynamically from 0 to N after adding items
+     00:02 +5: (tearDownAll)
+     00:02 +5: All tests passed!
+     ```
+   - Exit code: 0.
+
+5. **Unit Tests (`test/media_group_service_test.dart`)**:
+   - Command: `cd d:\E-player\app; flutter test test/media_group_service_test.dart`
+   - Output:
+     ```
+     00:00 +7: All tests passed!
+     ```
+   - Exit code: 0.
+
+6. **Empirical UI & Navigation Stress Suite (`test/widgets/m1_ui_navigation_empirical_challenge_test.dart`)**:
+   - Command: `cd d:\E-player\app; flutter test test/widgets/m1_ui_navigation_empirical_challenge_test.dart`
+   - Output:
+     ```
+     00:00 +0: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 1: HomeScreen empty group creation and navigation renders 0 items and eliminates fallback sample bug
+     00:02 +1: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 2: Empty state card in FolderDetailScreen displays exact copy and tappable Add button
+     00:03 +2: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 3: AppBar Add button presence when groupId != null and absence when groupId == null
+     00:04 +3: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 4: Adding items via library modal immediately updates FolderDetailScreen and persists to disk
+     00:07 +4: Milestone 1 UI & Navigation Empirical Stress Tests STRESS 5: Atomic deduplication and reactivity on item removal
+     00:07 +5: (tearDownAll)
+     00:07 +5: All tests passed!
+     ```
+   - Exit code: 0.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Architecture & Contract Conformance**:
-   - `DecoderMode` correctly maps to `libmpv` values: `auto -> 'auto'`, `hw -> 'yes'`, `hwPlus -> 'auto-copy'`, `sw -> 'no'`.
-   - Dynamic degradation cascade conforms to `auto -> hwPlus`, `hw -> hwPlus`, `hwPlus -> sw`, `sw -> null`.
-   - Hardware offload invariant [INV-HW-002] is upheld: `configureHardwareFilters` sets `contrast`, `brightness`, `saturation`, `gamma`, `hue`, and `vf` directly via mpv platform properties, avoiding redundant Flutter raster filters.
-   - Position preservation logic enforces the `<= 250ms` drift constraint, invoking `player.seek(savedPosition)` or `onCustomSeek` when post-switch drift exceeds 250ms.
+1. **Elimination of Fallback Sample Injection**:
+   - *Observation*: Previously, `HomeScreen` passed `provider.allFiles.take(8).toList()` whenever `groupItems.isEmpty` was true.
+   - *Fix*: `HomeScreen` now passes `items: groupItems` and `groupId: group.id`. When `group.itemPaths` is empty, `groupItems` evaluates to `[]`.
+   - *Result*: Newly created groups initialize with strictly zero items inside.
 
-2. **Telemetry & UI State Reflection**:
-   - `DecoderPipelineService.telemetryStream` emits periodic (500ms) updates of `DecoderTelemetry` capturing `requestedMode`, `activeDecoder` (`hwdec-current`), `codec` (`video-codec`), `droppedFrames` (`vo-drop-frame-count`), `fps`, `bitrate`, and `fallbackReason`.
-   - In `PlayerScreen` (`player_screen.dart`), the Telemetry HUD correctly displays active decoder mode, active backend, codec, dropped frames, and fps.
-   - The top-bar pill displays the active mode label and launches `_showDecoderMenu()`, which shows all modes with descriptive subtitles and checkmark indicators.
+2. **Empty State UI/UX Fidelity**:
+   - *Observation*: When `filtered.isEmpty` and `_isGroup` is true (`widget.groupId != null`), `FolderDetailScreen` renders the empty state card.
+   - *Reasoning*:
+     - The headline text (`'This group is empty'`) and supporting description (`'Add videos or folders to organize this group'`) strictly adhere to the specification.
+     - The call-to-action button is prominently styled with high-contrast primary amber/gold (`EDesign.primary`) and black text, rounded to `r14`.
+     - Placing the empty state inside a `SingleChildScrollView` with `BouncingScrollPhysics` ensures the UI adapts seamlessly across different form factors and orientations without triggering `RenderFlex` overflow errors.
 
----
+3. **Add Button & Modal Import Flows**:
+   - *Observation*: An Add button is provided in both the empty state card (`ElevatedButton.icon`) and in the AppBar (`IconButton(Icons.add_rounded)`).
+   - *Reasoning*:
+     - The AppBar Add button remains permanently accessible even after items are added to the group, satisfying the requirement to continue adding files/folders to existing collections.
+     - The modal bottom sheet provides three distinct, intuitive import avenues: Media Library multi-selection, direct video file picking, and folder scanning.
+     - All import avenues route to `MediaGroupService.addItemsToGroup`, guaranteeing that items are deduplicated and persistently written to storage.
 
-## 3. Adversarial Challenges & Findings
+4. **"Remove from Group" Contextual Action**:
+   - *Observation*: `_buildItemPopupMenu` conditionally renders `PopupMenuItem(value: 'remove_group')` in `EDesign.danger` red when `widget.groupId != null`.
+   - *Reasoning*:
+     - Distinguishes group membership detachment from filesystem deletion or vaulting.
+     - Does not leak into regular directory browsing where group removal is nonsensical.
+     - Calling `removeItemFromGroup` triggers `notifyListeners()`, causing `FolderDetailScreen` to immediately remove the item from view and restore the empty state if the item count reaches zero.
 
-### Finding 1: Swallowed Exceptions in `_setPlatformProperty` Nullify Immediate Fallback Guard
-- **Severity**: Major (Robustness / Error Propagation)
-- **Where**: `app/lib/features/player/domain/decoder_pipeline_service.dart:248-261` and `426-444`
-- **What**: In `setMode()`, the code attempts to detect if `_setPlatformProperty` threw an error to trigger an immediate fallback cascade:
-  ```dart
-  bool setPropertySuccess = true;
-  try {
-    await _setPlatformProperty('hwdec', mode.mpvValue);
-  } catch (e) {
-    setPropertySuccess = false;
-    debugPrint('[DecoderPipelineService] Error applying hwdec property: $e');
-  }
-
-  if (!setPropertySuccess && mode.isHardwareAccelerated) {
-    return await triggerFallback(
-      'Platform rejected hwdec=${mode.mpvValue}. Forcing cascade downgrade.',
-    );
-  }
-  ```
-  However, in `_setPlatformProperty`:
-  ```dart
-  final dynamic platform = _player?.platform;
-  if (platform != null) {
-    try {
-      await platform.setProperty(property, value);
-    } catch (e) {
-      debugPrint('[DecoderPipelineService] mpv setProperty($property, $value) failed: $e');
-    }
-  }
-  ```
-  Because `_setPlatformProperty` catches all exceptions internally without rethrowing or returning a boolean status, `await _setPlatformProperty('hwdec', ...)` will never throw. As a result, `setPropertySuccess` is always `true`, making the immediate step-down cascade unreachable when `platform.setProperty` throws. (Subsequent stream errors from `player.stream.error` would still catch failures, but the immediate synchronous step-down is bypassed).
-- **Mitigation**: Have `_setPlatformProperty` return `Future<bool>` or rethrow so `setMode` can accurately identify platform property rejection.
-
-### Finding 2: Re-Entrancy & Concurrency Race Condition on Rapid Decoder Switching
-- **Severity**: Medium (Concurrency)
-- **Where**: `app/lib/features/player/domain/decoder_pipeline_service.dart:225-310`
-- **What**: `setMode()` and `triggerFallback()` are asynchronous methods lacking an operation generation counter or mutex lock. If a user rapidly taps multiple decoder options in succession or if an automated fallback occurs concurrently with user selection:
-  - Asynchronous platform property dispatches and queries (`_getPlatformProperty('hwdec-current')`) may resolve out-of-order.
-  - A slower earlier request could overwrite `_currentMode` and `_activeDecoder` after a newer request completed.
-  - Multiple concurrent re-seeks (`_player!.seek(savedPosition)`) may be scheduled against the player.
-- **Mitigation**: Add a monotonically increasing switch token (`int _switchId = 0;`) or an `_isSwitching` queue guard, discarding stale asynchronous completions.
-
-### Finding 3: Stream Counter Reset / Negative Delta in Sliding Drop Window
-- **Severity**: Minor (Edge Case)
-- **Where**: `app/lib/features/player/domain/decoder_pipeline_service.dart:369-373`
-- **What**: In `recordFrameDropSample`:
-  ```dart
-  final windowDrops = _dropHistory.last.cumulativeDrops - _dropHistory.first.cumulativeDrops;
-  ```
-  If playback seeks or resets and mpv resets `vo-drop-frame-count` to 0, subtracting the newest sample (e.g. 0) from an older sample (e.g. 50) yields a negative number (-50). If 15 frames are then dropped within 500ms after the reset, `windowDrops` is `15 - 50 = -35 <= 10`, delaying detection until the pre-reset sample is pruned past 2000ms.
-- **Mitigation**: Clear `_dropHistory` when a counter reset is detected (`if (cumulativeDroppedFrames < _dropHistory.last.cumulativeDrops) _dropHistory.clear();`).
-
-### Finding 4: Modal Bottom Sheet State Reactivity
-- **Severity**: Minor (UI Polish)
-- **Where**: `app/lib/features/player/ui/player_screen.dart:430-471`
-- **What**: `_showDecoderMenu()` checks `_decoderPipelineService.currentMode == mode` statically when building the bottom sheet. If a background fallback cascade occurs while the modal sheet is open on screen, the displayed checkmark does not automatically update until the sheet is reopened.
-- **Mitigation**: Wrap the sheet's `ListView` in a `ListenableBuilder(listenable: _decoderPipelineService)` or `StreamBuilder` for live visual checkmark updates.
+5. **Forensic Integrity Assessment**:
+   - Checked source files (`media_group_service.dart`, `folder_detail_screen.dart`, `home_screen.dart`) for hardcoded strings, mocked returns, facade classes, or shortcuts.
+   - All components execute authentic business logic backed by `SharedPreferences` and `sqflite`.
+   - Zero integrity violations detected.
 
 ---
 
-## 4. Caveats
+## 3. Caveats
 
-- **Headless Environment**: MediaKit native video decoding pipelines rely on platform FFI libraries (`mpv-2.dll` on Windows, `libmpv.so` on Linux/Android) that cannot run in headless CI environments. In-memory `FakeMpvPlatform` was used to verify platform property dispatch, sliding window calculations, and re-seek tolerance without GPU raster hardware.
-- **Scope Isolation**: Verification was focused strictly on Milestone 1 files (`decoder_models.dart`, `decoder_pipeline_service.dart`, `player_screen.dart` decoder hooks, and `decoder_pipeline_test.dart`).
-
----
-
-## 5. Conclusion & Review Verdict
-
-**Verdict**: **APPROVE**
-
-Milestone 1 satisfies all core architectural and functional requirements:
-- Dynamic fallback cascade (HW -> HW+ -> SW) is correctly implemented and verified.
-- Playback position preservation with error tolerance `<= 250ms` is tested and verified.
-- Hardware offload invariant [INV-HW-002] for color adjustments and geometry is preserved.
-- Zero-mock policy is 100% compliant.
-- `flutter analyze` reports 0 issues across all touched targets.
-- All 21 decoder unit tests and 87 subsystem regression tests pass with 100% success rate.
-- The 4 findings above are non-blocking hardening recommendations to incorporate during the final hardening pass (Milestone 5).
+- **External Desktop Dialogs in Headless CI**: Automated headless test runners cannot invoke native Win32/macOS file open dialogs. Headless tests validate the library selector dialog and verify batch update methods on `MediaGroupService`; native picker invocations catch and display SnackBar feedback in headless environments.
+- **Milestone Scope Discipline**: Milestone 1 changes are strictly isolated to empty group initialization, Add buttons, modal import flows, and group removal. Multi-selection (M2) and History/Video filtering (M3) are intentionally deferred to their respective milestones.
 
 ---
 
-## 6. Verification Method
+## 4. Conclusion
 
-To independently reproduce this verification:
+The Milestone 1 implementation is completely verified, architecturally sound, and exhibits high UI/UX fidelity:
+1. Newly created custom groups initialize with zero items, and the sample files fallback bug is eliminated.
+2. `FolderDetailScreen` presents a responsive, visually refined empty state card with exact copy and an interactive "Add Media / Folders" button.
+3. The AppBar Add button and modal bottom sheet import flows function seamlessly.
+4. "Remove from Group" is cleanly integrated and reactive.
+5. All static analysis checks and automated test suites pass with zero errors.
 
-1. **Verify Static Analysis**:
+**Verdict: APPROVE**
+
+---
+
+## 5. Verification Method
+
+To independently verify the Milestone 1 deliverables:
+1. **Run Static Analysis**:
    ```powershell
    cd d:\E-player\app
-   flutter analyze lib/features/player/domain/ lib/features/player/ui/player_screen.dart test/unit/decoder_pipeline_test.dart
+   dart analyze
    ```
-   *Expected Result:* `No issues found!` (0 errors, 0 warnings).
+   *Expected Result*: `Analyzing app... No issues found!` (Exit code 0).
 
-2. **Verify Decoder Unit Test Suite**:
+2. **Run Widget Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/unit/decoder_pipeline_test.dart
+   flutter test test/widgets/folder_detail_screen_test.dart
    ```
-   *Expected Result:* `00:00 +21: All tests passed!`
+   *Expected Result*: `3/3 tests passed` (Exit code 0).
 
-3. **Verify Full Subsystem Regression Suite**:
+3. **Run E2E Feature 1 & Feature 2 Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/cast_service_test.dart test/export_service_test.dart test/media_group_service_test.dart test/media_info_test.dart test/media_scanner_search_test.dart test/model_registry_test.dart test/settings_provider_test.dart test/vault_service_test.dart test/video_rotation_test.dart test/features/enhancement_profile_test.dart test/features/video_effects_test.dart test/unit/decoder_pipeline_test.dart
+   flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"
+   flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"
    ```
-   *Expected Result:* `00:13 +87: All tests passed!`
+   *Expected Result*: `10/10 tests passed` (Exit code 0).
+
+4. **Run Empirical UI & Navigation Stress Suite**:
+   ```powershell
+   cd d:\E-player\app
+   flutter test test/widgets/m1_ui_navigation_empirical_challenge_test.dart
+   ```
+   *Expected Result*: `5/5 tests passed` (Exit code 0).

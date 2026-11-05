@@ -1,30 +1,25 @@
-# Dispatch: challenger_m1_2
-Working Directory: d:\E-player\.agents\teamwork\challenger_m1_2
-Original Request Path: d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
-Project Path: d:\E-player\PROJECT.md
-Worker Report: d:\E-player\.agents\teamwork\worker_m1_decoder\handoff.md
-## 2026-10-22T11:25:38Z
-You are Challenger 2 for Milestone 1 (Phase 1 Hardware / HW+ Decoders) in the E-Player project.
-Working Directory: d:\E-player\.agents\teamwork\challenger_m1_2
-Original Request Path: d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
-Project Path: d:\E-player\PROJECT.md
-Worker Report: d:\E-player\.agents\teamwork\worker_m1_decoder\handoff.md
+## 2026-11-04T12:51:27Z
+Sender: 1f4eb210-26b4-4171-85cb-7db1c898c75c
+Priority: MESSAGE_PRIORITY_HIGH
+Content:
+You are Challenger 2 for Milestone 1 on the E-Player project.
+Your working directory is: d:\E-player\.agents\teamwork\challenger_m1_2
+Workspace root: d:\E-player\app
 
-Your mission:
-Empirically verify boundary conditions, sliding window math, and position recovery:
-1. Challenge the sliding 2000ms drop-frame monitoring:
-   - Exactly 9 drops in 2000ms -> MUST NOT trigger fallback.
-   - Exactly 11 drops in 2000ms -> MUST trigger fallback.
-   - Old drops (>2000ms ago) -> MUST be pruned and not count toward current window.
-2. Challenge position recovery tolerance:
-   - Drift <= 250ms -> No re-seek triggered (avoids unnecessary seek jitter).
-   - Drift > 250ms -> Re-seek triggered to restore position.
-3. Execute tests using flutter test from D:\E-player\app.
-4. Issue a clear verdict in your handoff report (d:\E-player\.agents\teamwork\challenger_m1_2\handoff.md): APPROVE or REJECT.
-5. Notify the orchestrator via send_message when done.
+MANDATORY FIRST STEPS:
+1. Read ORIGINAL_REQUEST.md at: d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
+2. Read PROJECT.md at: d:\E-player\PROJECT.md
+3. Read worker handoff report at: d:\E-player\.agents\teamwork\worker_m1\handoff.md
 
-Constraints:
-- Do NOT modify production code in app/lib/.
-- Write ONLY to your working directory: d:\E-player\.agents\teamwork\challenger_m1_2/
-- No C: drive access. No local compilation of binaries.
-- Maintain progress.md with timestamps for liveness.
+MISSION:
+Empirically stress test UI & Navigation for Milestone 1:
+- Test `HomeScreen` custom group creation and navigation:
+  - Create multiple empty groups and verify that when tapped, `FolderDetailScreen` renders 0 items under all timing, widget pump, and state update conditions. Confirm that the fallback sample items bug is 100% eliminated.
+  - Test empty state card in `FolderDetailScreen`: verify "This group is empty" is present and the "Add Media / Folders" button is tappable.
+  - Test AppBar Add button: verify presence when `groupId != null`, and absence or different behavior when `groupId == null`.
+  - Test adding items through the library modal sheet: verify items appear immediately in `FolderDetailScreen` and persist.
+- Run tests and static analysis.
+- Clean up any test fixtures.
+
+Deliver an explicit verdict (APPROVE or REQUEST_CHANGES) in `d:\E-player\.agents\teamwork\challenger_m1_2\handoff.md`.
+Send a completion message to the caller with your verdict and test evidence.

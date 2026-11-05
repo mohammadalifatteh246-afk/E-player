@@ -1,66 +1,54 @@
-# BRIEFING — 2026-10-22T11:34:00Z
+# BRIEFING — 2026-11-04T13:10:00Z
 
 ## Mission
-Empirically stress-test and challenge DecoderPipelineService (rapid mode transitions, high-frequency drop spikes, terminal state safety) and issue an APPROVE/REJECT verdict.
+Empirically stress-test Milestone 1 MediaGroupService batch operations, edge cases, transfer integrity, and persistence integrity.
 
 ## 🔒 My Identity
-- Archetype: Empirical Challenger
+- Archetype: challenger (empirical challenger)
 - Roles: critic, specialist
 - Working directory: d:\E-player\.agents\teamwork\challenger_m1_1
-- Original parent: 81e1945a-d6bd-4531-87f3-4a7caf8e5a5d
-- Milestone: Milestone 1 (Phase 1 Hardware / HW+ Decoders)
-- Instance: 1 of 2
+- Original parent: 1f4eb210-26b4-4171-85cb-7db1c898c75c
+- Milestone: Milestone 1
+- Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only — do NOT modify production code in app/lib/
-- Write ONLY to your working directory: d:\E-player\.agents\teamwork\challenger_m1_1/
-- No C: drive access. No local compilation of binaries.
-- Maintain progress.md with timestamps for liveness.
-- Empirically verify everything via tests executed via flutter test from D:\E-player\app.
+- Review-only — do NOT modify implementation code
+- Run verification code directly; do not trust worker claims
+- Must reproduce any bug empirically
+- Only metadata in .agents/teamwork/challenger_m1_1 (tests belong in test/unit/ and clean up any temp files)
 
 ## Current Parent
-- Conversation ID: 81e1945a-d6bd-4531-87f3-4a7caf8e5a5d
-- Updated: 2026-10-22T11:34:00Z
+- Conversation ID: 1f4eb210-26b4-4171-85cb-7db1c898c75c
+- Updated: 2026-11-04T12:51:19Z
 
 ## Review Scope
-- **Files to review**:
-  - d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
-  - d:\E-player\PROJECT.md
-  - d:\E-player\.agents\teamwork\worker_m1_decoder\handoff.md
-  - d:\E-player\app\lib\features\player\domain\decoder_models.dart
-  - d:\E-player\app\lib\features\player\domain\decoder_pipeline_service.dart
-  - d:\E-player\app\lib\features\player\ui\player_screen.dart
-  - d:\E-player\app\test\unit\decoder_pipeline_test.dart
-- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md
-- **Review criteria**: Empirical correctness, resilience under stress, transition stability, drop-spike fallback safety, SW terminal state safety.
-
-## Key Decisions Made
-- Implemented standalone stress harness `decoder_pipeline_stress_test.dart` in working directory.
-- Executed 13 adversarial stress test suites across 4 test groups.
-- Verified 50 rapid sequential and concurrent mode transitions (0.42ms/switch).
-- Verified 100 drops in 500ms halts at SW without infinite loop (exactly 2 fallbacks).
-- Verified terminal SW safety against 50 decode errors and 1,000 drop flood.
-- Identified minor defensive recommendation regarding `dispose()` idempotency.
-- Issued verdict: APPROVE.
-
-## Artifact Index
-- `d:\E-player\.agents\teamwork\challenger_m1_1\DISPATCH.md` — Ingested parent instructions
-- `d:\E-player\.agents\teamwork\challenger_m1_1\BRIEFING.md` — Situational awareness and state
-- `d:\E-player\.agents\teamwork\challenger_m1_1\progress.md` — Execution checklist and liveness heartbeat
-- `d:\E-player\.agents\teamwork\challenger_m1_1\decoder_pipeline_stress_test.dart` — Empirical stress test harness
-- `d:\E-player\.agents\teamwork\challenger_m1_1\handoff.md` — 5-component handoff report with APPROVE verdict
+- **Files to review**: `lib/features/home/domain/media_group_service.dart`, `lib/features/library/ui/folder_detail_screen.dart`, `lib/features/home/ui/home_screen.dart:885-900`
+- **Interface contracts**: `d:\E-player\PROJECT.md`, `d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`
+- **Review criteria**: Empirical stress testing of batch operations (`addItemsToGroup`, `removeItemsFromGroup`, `moveItemsBetweenGroups`), duplicate resilience, high volume, edge cases, transfer integrity, persistence integrity.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. Rapid mode switching creates state desynchronization or unhandled race condition. -> PASSED (50 sequential switches in 21ms; 50 concurrent switches resolved cleanly).
-  2. 100 drops in 500ms triggers infinite recursion or loop. -> PASSED (Cascade halted strictly at SW with exactly 2 triggers).
-  3. SW mode crashes or reverts to HW on decode errors or drop storms. -> PASSED (Impervious to 50 stream errors and 1,000 drops).
-  4. Multiple rapid fallbacks violate re-seek tolerance <= 250ms. -> PASSED (Re-seek tolerance strictly <= 250ms).
-  5. In-flight disposal during drop storm throws unhandled stream exceptions. -> PASSED (Safely ignored post-disposal calls).
-- **Vulnerabilities found**:
-  - `DecoderPipelineService.dispose()` lacks an early return check `if (_isDisposed) return;`, which can assert in Flutter debug mode if disposed twice. (Low severity; easily guarded).
-- **Untested angles**:
-  - Live native GPU driver crash recovery on physical Android / D3D11 device (constrained by Windows headless test environment without live GPU display).
+  1. High-volume scale (150+ and 1,000 items) might degrade performance or drop notifications -> Verified: batch methods complete within <1s and notify once.
+  2. Intra-batch duplicates and inter-batch duplicates might duplicate entries -> Verified: deduplication is robust.
+  3. No-op mutations (adding/removing existing items) might trigger unnecessary disk writes and notify listeners -> Verified: cleanly guarded, 0 notifications on no-op.
+  4. Non-existent group IDs might cause unhandled exceptions -> Verified: handled gracefully as silent no-ops.
+  5. Whitespace and unicode paths might break JSON serialization or SharedPreferences reload -> Verified: round-trips with full fidelity.
+  6. Transfer integrity: moving items between non-empty and empty groups, draining groups, overlap in destination -> Verified: atomic moves update both source and target in one step.
+  7. Cold reload persistence integrity across complex sequences of mutations -> Verified: exact deep match.
+- **Vulnerabilities found**: None in implementation code.
+- **Untested angles**: Hardware storage quota exhaustion / disk full scenarios on physical devices.
 
 ## Loaded Skills
-- None explicitly assigned.
+- None specified in dispatch
+
+## Key Decisions Made
+- Authored comprehensive empirical stress suite in `test/unit/media_group_service_empirical_stress_test.dart` (17 tests).
+- Verified 17/17 stress tests pass, 7/7 service unit tests pass, 3/3 widget tests pass, 10/10 E2E Feature 1 & 2 tests pass.
+- Verdict: APPROVE.
+
+## Artifact Index
+- `d:\E-player\.agents\teamwork\challenger_m1_1\DISPATCH.md` — Dispatch message
+- `d:\E-player\.agents\teamwork\challenger_m1_1\BRIEFING.md` — Situational awareness
+- `d:\E-player\.agents\teamwork\challenger_m1_1\progress.md` — Liveness heartbeat
+- `d:\E-player\.agents\teamwork\challenger_m1_1\handoff.md` — Final Challenger Handoff Report
+- `d:\E-player\app\test\unit\media_group_service_empirical_stress_test.dart` — Empirical stress test suite (17 tests)

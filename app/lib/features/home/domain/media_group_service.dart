@@ -129,23 +129,40 @@ class MediaGroupService extends ChangeNotifier {
     return newGroup;
   }
 
-  /// Removes an existing group
-  Future<void> deleteGroup(String id) async {
-    _groups.removeWhere((g) => g.id == id);
-    await _saveToPrefs();
-    notifyListeners();
+  /// Removes multiple groups atomically in a single persistence write
+  Future<void> deleteGroups(Iterable<String> ids) async {
+    final toRemove = ids.toSet();
+    if (toRemove.isEmpty) return;
+    final initialCount = _groups.length;
+    _groups.removeWhere((g) => toRemove.contains(g.id));
+    if (_groups.length != initialCount) {
+      await _saveToPrefs();
+      notifyListeners();
+    }
   }
 
+  /// Removes an existing group
+  Future<void> deleteGroup(String id) => deleteGroups([id]);
+
   /// Adds a media path to an existing group
-  Future<void> addItemToGroup(String groupId, String path) async {
+  Future<void> addItemToGroup(String groupId, String path) =>
+      addItemsToGroup(groupId, [path]);
+
+  /// Adds multiple media paths to an existing group atomically (deduplicating entries)
+  Future<void> addItemsToGroup(String groupId, List<String> paths) async {
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx != -1) {
+    if (idx != -1 && paths.isNotEmpty) {
       final current = _groups[idx];
-      if (!current.itemPaths.contains(path)) {
-        final updated = current.copyWith(
-          itemPaths: [...current.itemPaths, path],
-        );
-        _groups[idx] = updated;
+      final updatedPaths = List<String>.from(current.itemPaths);
+      bool changed = false;
+      for (final p in paths) {
+        if (!updatedPaths.contains(p)) {
+          updatedPaths.add(p);
+          changed = true;
+        }
+      }
+      if (changed) {
+        _groups[idx] = current.copyWith(itemPaths: updatedPaths);
         await _saveToPrefs();
         notifyListeners();
       }
@@ -153,14 +170,49 @@ class MediaGroupService extends ChangeNotifier {
   }
 
   /// Removes a media path from a group
-  Future<void> removeItemFromGroup(String groupId, String path) async {
+  Future<void> removeItemFromGroup(String groupId, String path) =>
+      removeItemsFromGroup(groupId, [path]);
+
+  /// Removes multiple media paths from a group atomically
+  Future<void> removeItemsFromGroup(String groupId, List<String> paths) async {
     final idx = _groups.indexWhere((g) => g.id == groupId);
-    if (idx != -1) {
+    if (idx != -1 && paths.isNotEmpty) {
       final current = _groups[idx];
-      final updated = current.copyWith(
-        itemPaths: current.itemPaths.where((p) => p != path).toList(),
-      );
-      _groups[idx] = updated;
+      final toRemove = paths.toSet();
+      final initialCount = current.itemPaths.length;
+      final updatedPaths = current.itemPaths.where((p) => !toRemove.contains(p)).toList();
+      if (updatedPaths.length != initialCount) {
+        _groups[idx] = current.copyWith(itemPaths: updatedPaths);
+        await _saveToPrefs();
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Moves multiple media paths between groups atomically
+  Future<void> moveItemsBetweenGroups({
+    required String fromGroupId,
+    required String toGroupId,
+    required List<String> paths,
+  }) async {
+    if (fromGroupId == toGroupId) return;
+    final fromIdx = _groups.indexWhere((g) => g.id == fromGroupId);
+    final toIdx = _groups.indexWhere((g) => g.id == toGroupId);
+    if (fromIdx != -1 && toIdx != -1 && paths.isNotEmpty) {
+      final fromGroup = _groups[fromIdx];
+      final toGroup = _groups[toIdx];
+      final toRemove = paths.toSet();
+
+      final updatedFromPaths = fromGroup.itemPaths.where((p) => !toRemove.contains(p)).toList();
+      final updatedToPaths = List<String>.from(toGroup.itemPaths);
+      for (final p in paths) {
+        if (!updatedToPaths.contains(p)) {
+          updatedToPaths.add(p);
+        }
+      }
+
+      _groups[fromIdx] = fromGroup.copyWith(itemPaths: updatedFromPaths);
+      _groups[toIdx] = toGroup.copyWith(itemPaths: updatedToPaths);
       await _saveToPrefs();
       notifyListeners();
     }

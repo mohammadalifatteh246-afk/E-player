@@ -2,22 +2,27 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:file_picker/file_picker.dart';
+import '../../../core/db/database_helper.dart';
 import '../../../core/models/media_item.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../domain/library_provider.dart';
 import '../../player/ui/player_screen.dart';
 import '../../trash/domain/trash_service.dart';
 import '../../vault/domain/vault_service.dart';
+import '../../home/domain/media_group_service.dart';
 import 'widgets/video_group_card.dart';
 
 class FolderDetailScreen extends StatefulWidget {
   final String folderName;
   final List<MediaItem> items;
+  final String? groupId;
 
   const FolderDetailScreen({
     super.key,
     required this.folderName,
     required this.items,
+    this.groupId,
   });
 
   @override
@@ -31,6 +36,217 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   String _searchQuery = '';
   GroupMode _folderGroupMode = GroupMode.none;
   final TextEditingController _searchController = TextEditingController();
+
+  // Multi-selection state (Milestone 2 - R2 & R3)
+  bool _isSelectionMode = false;
+  final Set<String> _selectedPaths = {};
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedPaths.clear();
+    });
+  }
+
+  void _togglePathSelection(String path) {
+    setState(() {
+      if (_selectedPaths.contains(path)) {
+        _selectedPaths.remove(path);
+        if (_selectedPaths.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedPaths.add(path);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _toggleSelectAll(List<MediaItem> visibleItems) {
+    final visiblePaths = visibleItems.map((i) => i.path).toList();
+    final bool isAllSelected = visiblePaths.isNotEmpty && _selectedPaths.length >= visiblePaths.length;
+    setState(() {
+      if (isAllSelected) {
+        _selectedPaths.clear();
+        _isSelectionMode = false;
+      } else {
+        _selectedPaths.addAll(visiblePaths);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _confirmDeleteSelected(
+    BuildContext context,
+    MediaGroupService? groupService,
+    LibraryProvider provider,
+  ) {
+    final count = _selectedPaths.length;
+    final isGroup = widget.groupId != null;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: EDesign.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r18),
+          side: const BorderSide(color: EDesign.border),
+        ),
+        title: Text(isGroup ? 'Remove from Group?' : 'Delete Selected Items?', style: EDesign.h3),
+        content: Text(
+          isGroup
+              ? 'Remove $count selected item(s) from this group?'
+              : 'Permanently delete $count selected item(s) from your media library?',
+          style: EDesign.secondaryStyle,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EDesign.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final toDelete = _selectedPaths.toList();
+              if (isGroup && groupService != null) {
+                await groupService.removeItemsFromGroup(widget.groupId!, toDelete);
+              } else {
+                await DatabaseHelper.instance.deleteBatch(toDelete);
+                await provider.refreshLibrary();
+              }
+              if (mounted) {
+                setState(() {
+                  _displayItems.removeWhere((i) => toDelete.contains(i.path));
+                });
+              }
+              if (dialogCtx.mounted) {
+                _exitSelectionMode();
+                Navigator.pop(dialogCtx);
+              }
+            },
+            child: Text(isGroup ? 'Remove' : 'Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMoveToGroupDialog(
+    BuildContext context,
+    MediaGroupService? groupService,
+  ) {
+    final availableGroups = (groupService?.groups ?? [])
+        .where((g) => widget.groupId == null || g.id != widget.groupId)
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: EDesign.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r18),
+          side: const BorderSide(color: EDesign.border),
+        ),
+        title: const Text('Move to Group', style: EDesign.h3),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: availableGroups.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No custom groups available. Create a group from Home first.',
+                    style: EDesign.secondaryStyle,
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: availableGroups.length,
+                  itemBuilder: (ctx, idx) {
+                    final targetGroup = availableGroups[idx];
+                    return ListTile(
+                      leading: Icon(Icons.folder, color: targetGroup.color),
+                      title: Text(targetGroup.title, style: EDesign.body),
+                      subtitle: Text('${targetGroup.itemPaths.length} items', style: EDesign.caption),
+                      onTap: () async {
+                        final pathsToMove = _selectedPaths.toList();
+                        if (widget.groupId != null) {
+                          await groupService?.moveItemsBetweenGroups(
+                            fromGroupId: widget.groupId!,
+                            toGroupId: targetGroup.id,
+                            paths: pathsToMove,
+                          );
+                          if (mounted) {
+                            setState(() {
+                              _displayItems.removeWhere((i) => pathsToMove.contains(i.path));
+                            });
+                          }
+                        } else {
+                          await groupService?.addItemsToGroup(targetGroup.id, pathsToMove);
+                        }
+                        if (dialogCtx.mounted) {
+                          _exitSelectionMode();
+                          Navigator.pop(dialogCtx);
+                        }
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    List<MediaItem> visibleItems,
+    MediaGroupService? groupService,
+    LibraryProvider provider,
+  ) {
+    final bool isAllSelected = visibleItems.isNotEmpty && _selectedPaths.length >= visibleItems.length;
+
+    return AppBar(
+      backgroundColor: EDesign.surface,
+      elevation: 2,
+      leading: IconButton(
+        icon: const Icon(Icons.close, color: EDesign.textPrimary),
+        tooltip: 'Exit Selection',
+        onPressed: _exitSelectionMode,
+      ),
+      title: Text(
+        '${_selectedPaths.length} Selected',
+        style: EDesign.h2,
+      ),
+      centerTitle: false,
+      actions: [
+        TextButton(
+          onPressed: () => _toggleSelectAll(visibleItems),
+          child: Text(
+            isAllSelected ? 'None' : 'Select All',
+            style: const TextStyle(color: EDesign.primary, fontWeight: FontWeight.bold),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.drive_file_move, color: EDesign.primary),
+          tooltip: 'Move to Group',
+          onPressed: () => _showMoveToGroupDialog(context, groupService),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete, color: EDesign.danger),
+          tooltip: 'Delete Selected',
+          onPressed: () => _confirmDeleteSelected(context, groupService, provider),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -57,19 +273,82 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
     });
   }
 
+  bool get _isGroup =>
+      widget.groupId != null ||
+      widget.folderName.toLowerCase().contains('group');
+
   @override
   Widget build(BuildContext context) {
     final libraryProvider = context.watch<LibraryProvider>();
-    final filtered = _displayItems
+    MediaGroupService? groupService;
+    try {
+      groupService = context.watch<MediaGroupService>();
+    } catch (_) {}
+
+    List<MediaItem> currentItems;
+    if (widget.groupId != null && groupService != null) {
+      final group = groupService.groups.cast<MediaGroup?>().firstWhere(
+            (g) => g?.id == widget.groupId,
+            orElse: () => null,
+          );
+      if (group != null) {
+        final knownItemsMap = {for (var item in libraryProvider.allFiles) item.path: item};
+        currentItems = [];
+        for (final path in group.itemPaths) {
+          if (knownItemsMap.containsKey(path)) {
+            currentItems.add(knownItemsMap[path]!);
+          } else {
+            int size = 0;
+            try {
+              final f = File(path);
+              if (f.existsSync()) size = f.lengthSync();
+            } catch (_) {}
+            currentItems.add(
+              MediaItem(
+                path: path,
+                name: p.basename(path),
+                parentFolder: p.dirname(path),
+                sizeBytes: size,
+                durationMs: 0,
+                lastPositionMs: 0,
+                lastPlayed: DateTime.now(),
+              ),
+            );
+          }
+        }
+      } else {
+        currentItems = _displayItems;
+      }
+    } else {
+      currentItems = _displayItems;
+    }
+
+    final sortedItems = List<MediaItem>.from(currentItems);
+    if (_sortBy == 'Name') {
+      sortedItems.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } else if (_sortBy == 'Size') {
+      sortedItems.sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
+    } else if (_sortBy == 'Recent') {
+      sortedItems.sort((a, b) => b.lastPlayed.compareTo(a.lastPlayed));
+    }
+
+    final filtered = sortedItems
         .where((i) =>
             _searchQuery.isEmpty ||
             i.name.toLowerCase().contains(_searchQuery.toLowerCase()))
         .toList();
     final totalSize = filtered.fold<int>(0, (sum, item) => sum + item.sizeBytes);
 
-    return Scaffold(
-      backgroundColor: EDesign.appBackground,
-      appBar: AppBar(
+    return PopScope(
+      canPop: !_isSelectionMode,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitSelectionMode();
+      },
+      child: Scaffold(
+        backgroundColor: EDesign.appBackground,
+        appBar: _isSelectionMode
+            ? _buildSelectionAppBar(context, filtered, groupService, libraryProvider)
+            : AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
@@ -77,6 +356,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
           style: EDesign.h2,
         ),
         actions: [
+          if (_isGroup)
+            IconButton(
+              icon: const Icon(Icons.add_rounded, color: EDesign.primary),
+              tooltip: 'Add Media / Folders',
+              onPressed: () => _showAddMediaModal(context),
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.sort_rounded, color: EDesign.textPrimary),
             tooltip: 'Sort Media',
@@ -278,18 +563,84 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 }
               },
               child: filtered.isEmpty
-                  ? SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                      child: SizedBox(
-                        height: 300,
-                        child: Center(
-                          child: Text(
-                            'No media files found in "${p.basename(widget.folderName)}".',
-                            style: EDesign.secondaryStyle,
+                  ? (_isGroup
+                      ? Center(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                              child: Container(
+                                padding: const EdgeInsets.all(28),
+                                decoration: EDesign.cardDecoration(
+                                  color: EDesign.elevatedSurface,
+                                  radius: EDesign.r18,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: EDesign.primary.withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.folder_open_rounded,
+                                        color: EDesign.primary,
+                                        size: 40,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'This group is empty',
+                                      style: TextStyle(
+                                        color: EDesign.textPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Add videos or folders to organize this group',
+                                      style: EDesign.secondaryStyle,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 20),
+                                    ElevatedButton.icon(
+                                      icon: const Icon(Icons.add_rounded, size: 20),
+                                      label: const Text(
+                                        'Add Media / Folders',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: EDesign.primary,
+                                        foregroundColor: Colors.black,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(EDesign.r14),
+                                        ),
+                                      ),
+                                      onPressed: () => _showAddMediaModal(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    )
+                        )
+                      : SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                          child: SizedBox(
+                            height: 300,
+                            child: Center(
+                              child: Text(
+                                'No media files found in "${p.basename(widget.folderName)}".',
+                                style: EDesign.secondaryStyle,
+                              ),
+                            ),
+                          ),
+                        ))
                   : _folderGroupMode != GroupMode.none
                       ? Builder(
                           builder: (context) {
@@ -352,10 +703,12 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildGridCard(BuildContext context, MediaItem item, LibraryProvider provider) {
+    final isSelected = _selectedPaths.contains(item.path);
     final ext = p.extension(item.path).replaceAll('.', '').toUpperCase();
     final isAudio = ['MP3', 'FLAC', 'M4A', 'WAV'].contains(ext);
     final progress = (item.durationMs > 0)
@@ -364,15 +717,26 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
 
     return InkWell(
       borderRadius: BorderRadius.circular(EDesign.r14),
+      onLongPress: () => _togglePathSelection(item.path),
       onTap: () {
-        provider.addRecent(item.path);
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
-        );
+        if (_isSelectionMode) {
+          _togglePathSelection(item.path);
+        } else {
+          provider.addRecent(item.path);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
+          );
+        }
       },
       child: Container(
-        decoration: EDesign.cardDecoration(radius: EDesign.r14),
+        decoration: isSelected
+            ? BoxDecoration(
+                color: EDesign.elevatedSurface,
+                borderRadius: BorderRadius.circular(EDesign.r14),
+                border: Border.all(color: EDesign.primary, width: 2.0),
+              )
+            : EDesign.cardDecoration(radius: EDesign.r14),
         child: Stack(
           children: [
             Center(
@@ -391,9 +755,22 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               ),
             ),
             Positioned(
-              top: 2,
-              right: 2,
-              child: _buildItemPopupMenu(context, item, provider),
+              top: 6,
+              right: 6,
+              child: _isSelectionMode
+                  ? Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.black87,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                        color: isSelected ? EDesign.primary : Colors.white70,
+                        size: 22,
+                      ),
+                    )
+                  : _buildItemPopupMenu(context, item, provider),
             ),
             Positioned(
               bottom: 10,
@@ -436,12 +813,20 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Widget _buildListCard(BuildContext context, MediaItem item, LibraryProvider provider) {
+    final isSelected = _selectedPaths.contains(item.path);
     final ext = p.extension(item.path).replaceAll('.', '').toUpperCase();
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: EDesign.cardDecoration(radius: EDesign.r14),
+      decoration: isSelected
+          ? BoxDecoration(
+              color: EDesign.elevatedSurface,
+              borderRadius: BorderRadius.circular(EDesign.r14),
+              border: Border.all(color: EDesign.primary, width: 2.0),
+            )
+          : EDesign.cardDecoration(radius: EDesign.r14),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        onLongPress: () => _togglePathSelection(item.path),
         leading: Container(
           width: 44,
           height: 44,
@@ -471,13 +856,23 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
             ],
           ),
         ),
-        trailing: _buildItemPopupMenu(context, item, provider),
+        trailing: _isSelectionMode
+            ? Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isSelected ? EDesign.primary : Colors.white70,
+                size: 20,
+              )
+            : _buildItemPopupMenu(context, item, provider),
         onTap: () {
-          provider.addRecent(item.path);
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
-          );
+          if (_isSelectionMode) {
+            _togglePathSelection(item.path);
+          } else {
+            provider.addRecent(item.path);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
+            );
+          }
         },
       ),
     );
@@ -488,7 +883,10 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
       icon: const Icon(Icons.more_vert, color: EDesign.textSecondary, size: 20),
       color: EDesign.elevatedSurface,
       onSelected: (val) async {
-        if (val == 'vault') {
+        if (val == 'remove_group' && widget.groupId != null) {
+          final groupService = context.read<MediaGroupService>();
+          await groupService.removeItemFromGroup(widget.groupId!, item.path);
+        } else if (val == 'vault') {
           final vaultService = context.read<VaultService>();
           if (!vaultService.isUnlocked) {
             final unlocked = await vaultService.authenticate(context);
@@ -504,16 +902,333 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
           setState(() => _displayItems.removeWhere((i) => i.path == item.path));
         }
       },
-      itemBuilder: (context) => const [
-        PopupMenuItem(
+      itemBuilder: (context) => [
+        if (widget.groupId != null)
+          const PopupMenuItem(
+            value: 'remove_group',
+            child: Text('Remove from Group', style: TextStyle(color: EDesign.danger)),
+          ),
+        const PopupMenuItem(
           value: 'vault',
           child: Text('Move to Vault', style: TextStyle(color: EDesign.textPrimary)),
         ),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: 'trash',
           child: Text('Move to Trash', style: TextStyle(color: EDesign.danger)),
         ),
       ],
     );
+  }
+
+  void _showAddMediaModal(BuildContext context) {
+    final libraryProvider = context.read<LibraryProvider>();
+    MediaGroupService? groupService;
+    try {
+      groupService = context.read<MediaGroupService>();
+    } catch (_) {}
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: EDesign.elevatedSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (bottomSheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_circle_outline_rounded, color: EDesign.primary, size: 22),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Add to "${widget.folderName}"',
+                        style: EDesign.h3,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: EDesign.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.video_library_rounded, color: EDesign.primary),
+                  ),
+                  title: const Text('Select from Media Library', style: TextStyle(color: EDesign.textPrimary, fontWeight: FontWeight.w600)),
+                  subtitle: Text('Choose existing videos from your library (${libraryProvider.allFiles.length} available)', style: EDesign.caption),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: EDesign.textSecondary),
+                  onTap: () {
+                    Navigator.pop(bottomSheetContext);
+                    _showSelectFromLibraryDialog(context, libraryProvider, groupService);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: EDesign.success.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.file_open_rounded, color: EDesign.success),
+                  ),
+                  title: const Text('Pick Video Files', style: TextStyle(color: EDesign.textPrimary, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Browse device storage for video files', style: EDesign.caption),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: EDesign.textSecondary),
+                  onTap: () async {
+                    Navigator.pop(bottomSheetContext);
+                    await _pickAndAddVideoFiles(context, libraryProvider, groupService);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: EDesign.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.create_new_folder_rounded, color: EDesign.warning),
+                  ),
+                  title: const Text('Add Folder', style: TextStyle(color: EDesign.textPrimary, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Import all media from a folder directory', style: EDesign.caption),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: EDesign.textSecondary),
+                  onTap: () async {
+                    Navigator.pop(bottomSheetContext);
+                    await _pickAndAddDirectory(context, libraryProvider, groupService);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<String?> _resolveGroupId(MediaGroupService? groupService) async {
+    if (widget.groupId != null) return widget.groupId;
+    if (groupService == null) return null;
+    final match = groupService.groups.cast<MediaGroup?>().firstWhere(
+          (g) => g?.title == widget.folderName,
+          orElse: () => null,
+        );
+    if (match != null) return match.id;
+    if (_isGroup) {
+      final newGroup = await groupService.createGroup(title: widget.folderName);
+      return newGroup.id;
+    }
+    return null;
+  }
+
+  void _showSelectFromLibraryDialog(
+    BuildContext context,
+    LibraryProvider libraryProvider,
+    MediaGroupService? groupService,
+  ) {
+    if (!_isGroup) return;
+    final allFiles = libraryProvider.allFiles;
+    final selectedPaths = <String>{};
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: EDesign.elevatedSurface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.video_library_rounded, color: EDesign.primary, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Select from Library', style: TextStyle(color: EDesign.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                  if (allFiles.isNotEmpty)
+                    TextButton(
+                      child: Text(
+                        selectedPaths.length == allFiles.length ? 'Deselect' : 'Select All',
+                        style: const TextStyle(color: EDesign.primary, fontSize: 13),
+                      ),
+                      onPressed: () {
+                        setDialogState(() {
+                          if (selectedPaths.length == allFiles.length) {
+                            selectedPaths.clear();
+                          } else {
+                            selectedPaths.addAll(allFiles.map((f) => f.path));
+                          }
+                        });
+                      },
+                    ),
+                ],
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 350,
+                child: allFiles.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No media files found in library.',
+                          style: EDesign.secondaryStyle,
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: allFiles.length,
+                        itemBuilder: (context, index) {
+                          final item = allFiles[index];
+                          final isSelected = selectedPaths.contains(item.path);
+                          return CheckboxListTile(
+                            activeColor: EDesign.primary,
+                            checkColor: Colors.black,
+                            value: isSelected,
+                            title: Text(
+                              item.name,
+                              style: const TextStyle(color: EDesign.textPrimary, fontSize: 14),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Text(
+                              EDesign.formatBytes(item.sizeBytes),
+                              style: EDesign.caption,
+                            ),
+                            onChanged: (val) {
+                              setDialogState(() {
+                                if (val == true) {
+                                  selectedPaths.add(item.path);
+                                } else {
+                                  selectedPaths.remove(item.path);
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+                  onPressed: () => Navigator.pop(dialogContext),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: EDesign.primary,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: selectedPaths.isEmpty
+                      ? null
+                      : () async {
+                          Navigator.pop(dialogContext);
+                          final targetGroupId = await _resolveGroupId(groupService);
+                          if (groupService != null && targetGroupId != null) {
+                            await groupService.addItemsToGroup(targetGroupId, selectedPaths.toList());
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Added ${selectedPaths.length} items to group')),
+                            );
+                          }
+                        },
+                  child: Text('Add Selected (${selectedPaths.length})'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _pickAndAddVideoFiles(
+    BuildContext context,
+    LibraryProvider libraryProvider,
+    MediaGroupService? groupService,
+  ) async {
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.video,
+      );
+      if (files.isNotEmpty && _isGroup) {
+        final paths = files
+            .map((f) => f.path)
+            .where((p) => p != null && p.isNotEmpty)
+            .cast<String>()
+            .toList();
+        final targetGroupId = await _resolveGroupId(groupService);
+        if (paths.isNotEmpty && groupService != null && targetGroupId != null) {
+          await groupService.addItemsToGroup(targetGroupId, paths);
+          for (final p in paths) {
+            await libraryProvider.addRecent(p);
+          }
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Added ${paths.length} video(s) to group')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking files: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickAndAddDirectory(
+    BuildContext context,
+    LibraryProvider libraryProvider,
+    MediaGroupService? groupService,
+  ) async {
+    try {
+      final selectedDir = await FilePicker.getDirectoryPath();
+      if (selectedDir != null && selectedDir.isNotEmpty && _isGroup) {
+        final dir = Directory(selectedDir);
+        final videoPaths = <String>[];
+        if (await dir.exists()) {
+          try {
+            final entities = dir.listSync(recursive: true, followLinks: false);
+            for (final entity in entities) {
+              if (entity is File) {
+                final ext = p.extension(entity.path).toLowerCase();
+                if (['.mp4', '.mkv', '.avi', '.mov', '.webm', '.flv', '.wmv', '.m4v', '.3gp', '.ts'].contains(ext)) {
+                  videoPaths.add(entity.path);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        final targetGroupId = await _resolveGroupId(groupService);
+        if (videoPaths.isNotEmpty && groupService != null && targetGroupId != null) {
+          await groupService.addItemsToGroup(targetGroupId, videoPaths);
+          await libraryProvider.scanDirectory(selectedDir);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Added ${videoPaths.length} video(s) from folder')),
+            );
+          }
+        } else if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No videos found in selected folder')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding folder: $e')),
+        );
+      }
+    }
   }
 }

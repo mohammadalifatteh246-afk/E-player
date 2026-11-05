@@ -1,199 +1,234 @@
-# Forensic Audit Report: Milestone 1 (Phase 1 Hardware / HW+ Decoders)
+# Forensic Audit Report — Milestone 1: Custom Media Groups & Empty Group Initialization
 
-**Agent:** `auditor_m1_1` (Forensic Integrity Auditor)  
-**Parent:** `81e1945a-d6bd-4531-87f3-4a7caf8e5a5d`  
-**Working Directory:** `d:\E-player\.agents\teamwork\auditor_m1_1`  
-**Profile:** General Project (Flutter / Dart)  
-**Audit Target:** Milestone 1 (Phase 1 Hardware / HW+ Decoders)  
-**Verdict:** CLEAN  
+**Work Product**: Milestone 1 changes in `d:\E-player\app` (`media_group_service.dart`, `folder_detail_screen.dart`, `home_screen.dart`, test suites)  
+**Profile**: General Project  
+**Integrity Mode**: Development (from `ORIGINAL_REQUEST.md`)  
+**Verdict**: **CLEAN**  
 
 ---
 
 ## 1. Observation
 
-### 1.1 Scope of Audited Files
-The following files were inspected directly:
-1. `app/lib/features/player/domain/decoder_models.dart` (252 lines)
-2. `app/lib/features/player/domain/decoder_pipeline_service.dart` (537 lines)
-3. `app/lib/features/player/ui/player_screen.dart` (lines 21-22, 50-57, 137-148, 217-219, 405-460, 1681-1701)
-4. `app/test/unit/decoder_pipeline_test.dart` (442 lines)
-5. `app/pubspec.yaml` (125 lines)
+### 1.1 Source Code Verification
+1. **`app/lib/features/home/domain/media_group_service.dart`**:
+   - Lines 140–162:
+     ```dart
+     Future<void> addItemToGroup(String groupId, String path) =>
+         addItemsToGroup(groupId, [path]);
 
-### 1.2 Verbatim Forensic Check Observations
-
-1. **Check 1: Facade / Dummy Implementation Check**:
-   - In `app/lib/features/player/domain/decoder_pipeline_service.dart`:
-     - Lines 48–52: Defined threshold constants `kDropThreshold = 10` and `kWindowDurationMs = 2000`, with internal drop history queue `final List<_FrameDropRecord> _dropHistory = []`.
-     - Lines 358–386: `recordFrameDropSample(int cumulativeDroppedFrames, {DateTime? timestamp})`:
-       Prunes entries older than 2000ms: `_dropHistory.removeWhere((r) => now.difference(r.timestamp).inMilliseconds > kWindowDurationMs)`.
-       Computes dynamic delta: `windowDrops = _dropHistory.last.cumulativeDrops - _dropHistory.first.cumulativeDrops`.
-       Triggers dynamic downgrade when `windowDrops > kDropThreshold`:
-       ```dart
-       if (windowDrops > kDropThreshold) {
-         if (_currentMode.isHardwareAccelerated) {
-           _dropHistory.clear();
-           fallbackResult = await triggerFallback(
-             'Excessive frame drops in 2000ms window ($windowDrops drops > threshold $kDropThreshold)',
-           );
+     Future<void> addItemsToGroup(String groupId, List<String> paths) async {
+       final idx = _groups.indexWhere((g) => g.id == groupId);
+       if (idx != -1 && paths.isNotEmpty) {
+         final current = _groups[idx];
+         final updatedPaths = List<String>.from(current.itemPaths);
+         bool changed = false;
+         for (final p in paths) {
+           if (!updatedPaths.contains(p)) {
+             updatedPaths.add(p);
+             changed = true;
+           }
+         }
+         if (changed) {
+           _groups[idx] = current.copyWith(itemPaths: updatedPaths);
+           await _saveToPrefs();
+           notifyListeners();
          }
        }
-       ```
-     - Lines 273–293: Timestamp recovery calculates active drift `driftMs = (activePos - savedPosition).inMilliseconds.abs()`. If `driftMs > 250`, automatically triggers re-seek `await _player!.seek(savedPosition)` or `await onCustomSeek!(savedPosition)`.
-     - Lines 404–420: `configureHardwareFilters()` offloads color and geometry filters (`contrast`, `brightness`, `saturation`, `gamma`, `hue`, `vf`) directly to native mpv properties via `_setPlatformProperty`, bypassing Flutter GPU raster filters.
+     }
+     ```
+   - Lines 165–182:
+     ```dart
+     Future<void> removeItemFromGroup(String groupId, String path) =>
+         removeItemsFromGroup(groupId, [path]);
 
-2. **Check 2: Hardcoded Test Expectations**:
-   - In `app/test/unit/decoder_pipeline_test.dart`:
-     - Lines 6–20: Uses dynamic platform simulator `FakeMpvPlatform` with real property mutation store `Map<String, String> properties` and `void Function(String, String)? onSetProperty` hooks.
-     - Lines 277–327: Dynamically exercises the 2000ms window with real timestamps (`baseTime.add(...)`) and verifies both sub-threshold non-triggering, threshold breaching, and eviction of old samples (>2000ms).
-     - Lines 344–386: Dynamically exercises seek drift by injecting property resets to `Duration.zero` on `hwdec` switch, verifying re-seek to `Duration(seconds: 5070)`.
+     Future<void> removeItemsFromGroup(String groupId, List<String> paths) async {
+       final idx = _groups.indexWhere((g) => g.id == groupId);
+       if (idx != -1 && paths.isNotEmpty) {
+         final current = _groups[idx];
+         final toRemove = paths.toSet();
+         final initialCount = current.itemPaths.length;
+         final updatedPaths = current.itemPaths.where((p) => !toRemove.contains(p)).toList();
+         if (updatedPaths.length != initialCount) {
+           _groups[idx] = current.copyWith(itemPaths: updatedPaths);
+           await _saveToPrefs();
+           notifyListeners();
+         }
+       }
+     }
+     ```
+   - Lines 185–210:
+     ```dart
+     Future<void> moveItemsBetweenGroups({
+       required String fromGroupId,
+       required String toGroupId,
+       required List<String> paths,
+     }) async {
+       final fromIdx = _groups.indexWhere((g) => g.id == fromGroupId);
+       final toIdx = _groups.indexWhere((g) => g.id == toGroupId);
+       if (fromIdx != -1 && toIdx != -1 && paths.isNotEmpty) {
+         final fromGroup = _groups[fromIdx];
+         final toGroup = _groups[toIdx];
+         final toRemove = paths.toSet();
 
-3. **Check 3: Unauthorized Mock Packages**:
-   - In `app/pubspec.yaml`:
-     - Zero instances of `mockito` or `mocktail`.
-   - Global grep search for `mockito` in `d:\E-player\app`: `No results found`.
-   - Global grep search for `mocktail` in `d:\E-player\app`: `No results found`.
+         final updatedFromPaths = fromGroup.itemPaths.where((p) => !toRemove.contains(p)).toList();
+         final updatedToPaths = List<String>.from(toGroup.itemPaths);
+         for (final p in paths) {
+           if (!updatedToPaths.contains(p)) {
+             updatedToPaths.add(p);
+           }
+         }
 
-4. **Check 4: Forbidden Placeholders**:
-   - Grep search for `TODO` across audited decoder files and `player_screen.dart`: `0 results`.
-   - Grep search for `FIXME` across audited decoder files and `player_screen.dart`: `0 results`.
-   - Grep search for `NotImplementedError` or `UnimplementedError`: `0 results`.
+         _groups[fromIdx] = fromGroup.copyWith(itemPaths: updatedFromPaths);
+         _groups[toIdx] = toGroup.copyWith(itemPaths: updatedToPaths);
+         await _saveToPrefs();
+         notifyListeners();
+       }
+     }
+     ```
+   - Observation: No dummy returns, no facade mocks, genuine deduplication, genuine serialization to `SharedPreferences`.
 
-5. **Check 5: Offline Invariants**:
-   - Audited domain files import only `dart:async`, `package:flutter/foundation.dart`, `package:media_kit/media_kit.dart`, and local models.
-   - Grep search for `http:`, `https:`, and `package:http` in `app/lib/features/player/domain/`: `No results found`.
-   - Telemetry in `DecoderTelemetry` is 100% in-process Dart event streams piped strictly to local on-screen HUD widgets.
+2. **`app/lib/features/home/ui/home_screen.dart`**:
+   - Lines 893–897:
+     ```dart
+     builder: (_) => FolderDetailScreen(
+       folderName: group.title,
+       items: groupItems,
+       groupId: group.id,
+     ),
+     ```
+   - Observation: The previously identified fallback bug (`items: groupItems.isNotEmpty ? groupItems : provider.allFiles.take(8).toList()`) was completely eliminated. Newly created empty groups now pass an empty list `[]` and `groupId: group.id`.
 
-6. **Check 6: Filesystem Invariants**:
-   - Checked `C:\E-player\app\lib\features\player\domain\decoder_pipeline_service.dart`: `NOT_EXISTS`.
-   - Checked `C:\E-player\app\lib\features\player\domain\decoder_models.dart`: `NOT_EXISTS`.
-   - Checked `C:\E-player\app\test\unit\decoder_pipeline_test.dart`: `NOT_EXISTS`.
-   - All newly created files and modifications are 100% confined inside `d:\E-player`.
+3. **`app/lib/features/library/ui/folder_detail_screen.dart`**:
+   - Lines 18–25: Declares `final String? groupId;` and accepts it in constructor.
+   - Lines 64–66: Declares dynamic property:
+     ```dart
+     bool get _isGroup =>
+         widget.groupId != null ||
+         widget.folderName.toLowerCase().contains('group');
+     ```
+   - Lines 140–145: Renders AppBar Add button dynamically when `_isGroup` is true:
+     ```dart
+     if (_isGroup)
+       IconButton(
+         icon: const Icon(Icons.add_rounded, color: EDesign.primary),
+         tooltip: 'Add Media / Folders',
+         onPressed: () => _showAddMediaModal(context),
+       ),
+     ```
+   - Lines 347–411: Renders genuine empty state card when `filtered.isEmpty && _isGroup`:
+     - Card with folder icon, title `'This group is empty'`, subtitle `'Add videos or folders to organize this group'`, and `ElevatedButton.icon(icon: Icon(Icons.add_rounded), label: Text('Add Media / Folders'), onPressed: () => _showAddMediaModal(context))`.
+   - Lines 622–626: In item popup menu, provides `'Remove from Group'` option calling `groupService.removeItemFromGroup(widget.groupId!, item.path)`.
+   - Lines 660–970: Genuine media import modal offering "Select from Media Library", "Pick Video Files", and "Add Folder".
 
-7. **Check 7: Compilation Guardrails**:
-   - Pre-existing APK in `d:\E-player\app\build\app\outputs\flutter-apk\app-release.apk` has timestamp `22-10-2026 14:31` (09:01 UTC, prior to worker invocation).
-   - Zero execution of `flutter build apk` or `flutter build windows` during Milestone 1.
+### 1.2 Anti-Cheating & Hygiene Scans
+1. **Comment / Stub Scans**:
+   - RegEx pattern `(TODO|HACK|FIXME)` in `media_group_service.dart`: 0 matches found.
+   - RegEx pattern `(TODO|HACK|FIXME)` in `folder_detail_screen.dart`: 0 matches found.
+   - RegEx pattern `(TODO|HACK|FIXME)` in `home_screen.dart:880-910`: 0 matches found.
+2. **Hardcoded Test Constant Scans**:
+   - Query for test group titles (`Vacation 2026`, `Watchlist`, `Batch Group`, `Batch Remove`) across `app/lib/`: 0 matches found.
+3. **Repository Cleanliness Scan**:
+   - `git status app/` confirms only expected files modified or added.
+   - Untracked file `app/out.mkv.tmp` was inspected; it was generated by the pre-existing `test/export_service_test.dart` (created before Milestone 1) and does not represent milestone test contamination.
 
-### 1.3 Independent Tool Execution Results
+### 1.3 Independent Execution Evidence
+1. **Static Analysis**:
+   - Command: `cd d:\E-player\app; dart analyze`
+   - Output:
+     ```
+     Analyzing app...
+     No issues found!
+     ```
+   - Exit code: 0 (0 errors, 0 warnings).
 
-1. **Independent Static Analysis**:
-   Command:
-   ```powershell
-   flutter analyze lib/features/player/domain/ lib/features/player/ui/player_screen.dart test/unit/decoder_pipeline_test.dart
-   ```
-   Verbatim Output:
-   ```
-   Analyzing 3 items...                                            
-   No issues found! (ran in 26.5s)
-   ```
+2. **Unit & Widget Test Suite**:
+   - Command: `cd d:\E-player\app; flutter test test/media_group_service_test.dart test/widgets/folder_detail_screen_test.dart`
+   - Output:
+     ```
+     00:00 +0: loading D:/E-player/app/test/media_group_service_test.dart
+     00:00 +0: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests Initializes with empty groups
+     00:00 +1: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests Creates new group and notifies listeners
+     00:00 +2: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests Adds and removes media paths from group
+     00:00 +3: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests Deletes group properly
+     00:00 +4: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests addItemsToGroup adds multiple paths atomically and deduplicates
+     00:00 +5: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests removeItemsFromGroup removes multiple paths atomically
+     00:00 +6: D:/E-player/app/test/media_group_service_test.dart: MediaGroupService Unit Tests moveItemsBetweenGroups atomically transfers items between groups
+     00:00 +7: D:/E-player/app/test/widgets/folder_detail_screen_test.dart: (setUpAll)
+     00:00 +7: D:/E-player/app/test/widgets/folder_detail_screen_test.dart: FolderDetailScreen Group & Empty State Widget Tests Displays empty state card and Add button when groupId is set and group is empty
+     00:02 +8: D:/E-player/app/test/widgets/folder_detail_screen_test.dart: FolderDetailScreen Group & Empty State Widget Tests Tapping Add Media button opens bottom sheet with library, file, and folder options
+     00:03 +9: D:/E-player/app/test/widgets/folder_detail_screen_test.dart: FolderDetailScreen Group & Empty State Widget Tests Selecting items from library modal adds them to group atomically
+     00:03 +10: D:/E-player/app/test/widgets/folder_detail_screen_test.dart: (tearDownAll)
+     00:03 +10: All tests passed!
+     ```
+   - Exit code: 0 (10/10 passed).
 
-2. **Independent Unit Test Execution**:
-   Command:
-   ```powershell
-   flutter test test/unit/decoder_pipeline_test.dart
-   ```
-   Verbatim Output:
-   ```
-   00:00 +0: loading D:/E-player/app/test/unit/decoder_pipeline_test.dart
-   00:00 +0: DecoderMode Model & Enum Tests Labels and libmpv option strings match specifications
-   00:00 +1: DecoderMode Model & Enum Tests nextFallback cascade conforms to HW -> HW+ -> SW -> null
-   00:00 +2: DecoderMode Model & Enum Tests isHardwareAccelerated correctly identifies HW tiers
-   00:00 +3: DecoderMode Model & Enum Tests fromString parses various representations gracefully
-   00:00 +4: DecoderTelemetry & DecoderSwitchResult Models DecoderTelemetry immutability, fields, and activeMode deduction
-   00:00 +5: DecoderTelemetry & DecoderSwitchResult Models DecoderSwitchResult values and equality
-   00:00 +6: DecoderPipelineService Manual Switching & Binding Initializes with default Auto mode and dispatches hwdec=auto
-   00:00 +7: DecoderPipelineService Manual Switching & Binding setMode(hw) sets hwdec=yes and updates active state
-   00:00 +8: DecoderPipelineService Manual Switching & Binding setMode(hwPlus) sets hwdec=auto-copy and updates state
-   00:00 +9: DecoderPipelineService Manual Switching & Binding setMode(sw) sets hwdec=no and deactivates hardware acceleration
-   00:00 +10: DecoderPipelineService Dynamic Fallback Cascade Step-down cascade: HW -> HW+ -> SW -> Terminal SW
-   00:00 +11: DecoderPipelineService Dynamic Fallback Cascade Auto mode falls back to HW+ on failure
-   00:00 +12: DecoderPipelineService Dynamic Fallback Cascade handleDecodeError triggers fallback for hardware modes
-   00:00 +13: DecoderPipelineService Sliding Window Drop Monitoring Does not trigger fallback when frame drops <= 10 in 2000ms
-   00:00 +14: DecoderPipelineService Sliding Window Drop Monitoring Triggers automated fallback when drops > 10 in 2000ms window
-   00:00 +15: DecoderPipelineService Sliding Window Drop Monitoring Old drops outside 2000ms window are pruned and do not false-trigger
-   00:00 +16: DecoderPipelineService Sliding Window Drop Monitoring reportIncrementalDrops accumulates and triggers correctly
-   00:00 +17: Playback Position Preservation & Tolerance Tests Captures position and re-seeks when position drifts beyond 250ms
-   00:00 +18: Playback Position Preservation & Tolerance Tests Tolerates minor position variation <= 250ms without unnecessary seek
-   00:00 +19: Telemetry Stream & Hardware Acceleration Invariant Tests telemetryStream emits real-time updates upon configuration and drops
-   00:00 +20: Telemetry Stream & Hardware Acceleration Invariant Tests Offloads color adjustments and geometric filters directly to libmpv [INV-HW-002]
-   00:00 +21: All tests passed!
-   ```
-
-3. **Subsystem Regression Suite Execution**:
-   Command:
-   ```powershell
-   flutter test test/cast_service_test.dart test/export_service_test.dart test/media_group_service_test.dart test/media_info_test.dart test/media_scanner_search_test.dart test/model_registry_test.dart test/settings_provider_test.dart test/vault_service_test.dart test/video_rotation_test.dart test/features/enhancement_profile_test.dart test/features/video_effects_test.dart test/unit/decoder_pipeline_test.dart
-   ```
-   Verbatim Output:
-   ```
-   00:07 +87: All tests passed!
-   ```
+3. **E2E Feature 1 & 2 Requirements Verification**:
+   - Command: `cd d:\E-player\app; flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"`
+   - Output: `00:05 +5: All tests passed!` (5/5 passed).
+   - Command: `cd d:\E-player\app; flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"`
+   - Output: `00:02 +5: All tests passed!` (5/5 passed).
 
 ---
 
 ## 2. Logic Chain
 
-1. **Genuineness of Implementation (Supported by Observation 1.2.1 & 1.3.2)**:
-   - `DecoderPipelineService` is not a facade. It computes mathematical sliding-window deltas over queue timestamps, prunes stale samples older than 2000ms, bounds timestamp recovery to `<= 250ms`, routes error events from `player.stream.error`, and writes native configuration properties (`contrast`, `brightness`, `saturation`, `gamma`, `hue`, `vf`, `hwdec`) to `libmpv`.
-   - The test suite verified all fallback transitions (`HW -> HW+ -> SW -> terminal`) and proved both drop-triggered cascades and position preservation.
-
-2. **Absence of Hardcoded Cheating (Supported by Observation 1.2.2 & 1.3.2)**:
-   - Tests do not assert against static stub constants. They invoke real state mutations against `FakeMpvPlatform` and evaluate timing math and boundary conditions.
-
-3. **Strict Compliance with Environmental Guardrails (Supported by Observation 1.2.3, 1.2.4, 1.2.5, 1.2.6, 1.2.7)**:
-   - Zero unauthorized mock dependencies (`mockito`/`mocktail`).
-   - Zero forbidden `// TODO`, `// FIXME`, or `NotImplementedError` placeholders.
-   - 100% offline invariant respected (zero network I/O, zero remote telemetry endpoints).
-   - Zero files touched or written outside `D:\E-player` (no `C:` drive leakage).
-   - Zero local binary builds (`flutter build apk` or `flutter build windows`).
+1. **R1 Integrity Check (Empty Group Creation & Add Button)**:
+   - *Premise*: R1 demands newly created groups initialize completely empty and display an Add button for adding files or folders.
+   - *Observation*: `HomeScreen` lines 893–897 passed `items: groupItems` directly without falling back to sample items (`allFiles.take(8)`). `FolderDetailScreen` checks `_isGroup` and renders an empty state card with "Add Media / Folders" button as well as an AppBar Add button.
+   - *Deduction*: Newly created groups are confirmed to be empty and provide accessible Add buttons.
+2. **Batch Persistence Integrity Check**:
+   - *Premise*: Batch additions, deletions, and moves must be atomic, non-destructive, and genuine.
+   - *Observation*: `MediaGroupService` maintains deduplicated sets of paths, commits to disk via `_saveToPrefs()`, and triggers a single `notifyListeners()` invocation. Re-loading a fresh instance of `MediaGroupService` in tests verifies that state persists across instances.
+   - *Deduction*: No mocking facade or memory-only bypass is present.
+3. **Absence of Prohibited Patterns**:
+   - *Premise*: Under Development Mode integrity rules, hardcoded test strings, dummy facades, and fabricated outputs are prohibited.
+   - *Observation*: Code searches confirm zero occurrences of test strings, zero mock bypasses in production files, and zero temporary hacks or stubs. Independent re-compilation and test execution passed 100%.
+   - *Deduction*: The work product is authentic and free of integrity violations.
 
 ---
 
 ## 3. Caveats
 
-- **libmpv Headless FFI in Windows Test Environment**: Headless Windows `flutter test` execution runs without GPU drivers and native `mpv-2.dll` window surfaces. The testing harness uses `FakeMpvPlatform` to simulate platform properties and verifies real service logic. Live platform rendering on Android / Windows desktop hardware will be verified in the full E2E opaque-box suite.
-- No other caveats.
+1. **Self-Move Edge Case in `moveItemsBetweenGroups`**:
+   - If `fromGroupId == toGroupId`, the implementation executes both the removal and addition against the same group index. Because `toGroup.itemPaths` contains the original list and deduplication preserves it, the group contents remain intact, but adding an explicit early return `if (fromGroupId == toGroupId) return;` is recommended for future hardening.
+2. **Native Platform File Pickers**:
+   - Headless test environments cannot display Windows/Android native file picker dialogues (`FilePicker.pickFiles()` or `FilePicker.getDirectoryPath()`). The widget and E2E tests properly test the in-app library selection dialogue and verify underlying service mutations directly.
 
 ---
 
 ## 4. Conclusion
 
-Milestone 1 (Phase 1 Hardware / HW+ Decoders) work products comply with all architectural specifications, environmental guardrails, and forensic integrity invariants.
+**Verdict: CLEAN**
 
-### Phase Results
-- Check 1 (Dummy/Facade Implementation): **PASS**
-- Check 2 (Hardcoded Test Expectations): **PASS**
-- Check 3 (Unauthorized Mock Packages): **PASS**
-- Check 4 (Forbidden Placeholders): **PASS**
-- Check 5 (Strict Offline Invariants): **PASS**
-- Check 6 (Filesystem Invariants): **PASS**
-- Check 7 (Compilation Guardrails): **PASS**
-- Independent Test Execution: **PASS** (21/21 unit tests passed, 87/87 subsystem tests passed, 0 analyze errors/warnings)
+Milestone 1 satisfies all requirements of the project specification and ground-truth user request (`ORIGINAL_REQUEST.md`):
+1. Newly created groups initialize with 0 items (completely empty inside).
+2. The empty state card and AppBar render dynamic "Add Media / Folders" action buttons.
+3. `MediaGroupService` provides genuine, atomic batch manipulation (`addItemsToGroup`, `removeItemsFromGroup`, `moveItemsBetweenGroups`) backed by `SharedPreferences`.
+4. Static analysis passes with 0 issues (`dart analyze`).
+5. All 10 unit/widget tests and all 10 E2E Feature 1 & 2 tests pass independently.
 
-### Final Verdict: **CLEAN**
+The work product is approved without reservations.
 
 ---
 
 ## 5. Verification Method
 
-To independently reproduce the forensic verification:
+To independently re-verify the forensic audit verdict:
 
-1. **Verify Static Analysis**:
-   ```powershell
-   cd d:\E-player\app
-   flutter analyze lib/features/player/domain/ lib/features/player/ui/player_screen.dart test/unit/decoder_pipeline_test.dart
-   ```
-   *Expected:* `No issues found!`.
+```powershell
+# 1. Verify static analysis has 0 warnings and 0 errors:
+cd d:\E-player\app
+dart analyze
 
-2. **Execute Decoder Pipeline Unit Tests**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/unit/decoder_pipeline_test.dart
-   ```
-   *Expected:* `00:00 +21: All tests passed!`.
+# 2. Run Milestone 1 unit and widget tests:
+flutter test test/media_group_service_test.dart test/widgets/folder_detail_screen_test.dart
 
-3. **Execute Full Subsystem Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/cast_service_test.dart test/export_service_test.dart test/media_group_service_test.dart test/media_info_test.dart test/media_scanner_search_test.dart test/model_registry_test.dart test/settings_provider_test.dart test/vault_service_test.dart test/video_rotation_test.dart test/features/enhancement_profile_test.dart test/features/video_effects_test.dart test/unit/decoder_pipeline_test.dart
-   ```
-   *Expected:* `00:07 +87: All tests passed!`.
+# 3. Run E2E requirement test suites for Feature 1 and Feature 2:
+flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 1:"
+flutter test test/e2e/e2e_requirements_test.dart --plain-name "Feature 2:"
+```
+
+Invalidation conditions:
+- Any static analysis warning or error.
+- Any test failure in the unit, widget, or E2E suites.
+- Any hardcoded test constants or mock facades detected in `app/lib/`.

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
+import '../../../core/db/database_helper.dart';
+import '../../home/domain/media_group_service.dart';
 import '../domain/library_provider.dart';
 import '../domain/media_search_engine.dart';
 import '../../player/ui/player_screen.dart';
@@ -41,6 +43,212 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounceTimer;
 
+  // Multi-selection state (Milestone 2 - R3)
+  bool _isSelectionMode = false;
+  final Set<String> _selectedPaths = {};
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedPaths.clear();
+    });
+  }
+
+  void _togglePathSelection(String path) {
+    setState(() {
+      if (_selectedPaths.contains(path)) {
+        _selectedPaths.remove(path);
+        if (_selectedPaths.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedPaths.add(path);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _toggleSelectAll(LibraryProvider provider) {
+    final List<String> visiblePaths;
+    if (_selectedTab == 'Folders') {
+      visiblePaths = provider.groupedFolders.keys.toList();
+    } else if (_selectedTab == 'Playlists') {
+      visiblePaths = [];
+    } else {
+      visiblePaths = provider.searchResults.map((i) => i.path).toList();
+    }
+
+    final bool isAllSelected = visiblePaths.isNotEmpty && _selectedPaths.length >= visiblePaths.length;
+    setState(() {
+      if (isAllSelected) {
+        _selectedPaths.clear();
+        _isSelectionMode = false;
+      } else {
+        _selectedPaths.addAll(visiblePaths);
+        _isSelectionMode = true;
+      }
+    });
+  }
+
+  void _confirmDeleteSelected(BuildContext context, LibraryProvider provider) {
+    final count = _selectedPaths.length;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: EDesign.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r18),
+          side: const BorderSide(color: EDesign.border),
+        ),
+        title: const Text('Delete Selected Items?', style: EDesign.h3),
+        content: Text(
+          'Are you sure you want to permanently delete $count selected item(s) from your media library?',
+          style: EDesign.secondaryStyle,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EDesign.danger,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final Set<String> allFilePathsToDelete = {};
+              for (final p in _selectedPaths) {
+                allFilePathsToDelete.add(p);
+                if (provider.groupedFolders.containsKey(p)) {
+                  for (final item in provider.groupedFolders[p]!) {
+                    allFilePathsToDelete.add(item.path);
+                  }
+                }
+              }
+              await DatabaseHelper.instance.deleteBatch(allFilePathsToDelete.toList());
+              await provider.refreshLibrary();
+              if (dialogCtx.mounted) {
+                _exitSelectionMode();
+                Navigator.pop(dialogCtx);
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMoveToGroupDialog(BuildContext context, MediaGroupService? groupService, LibraryProvider provider) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: EDesign.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r18),
+          side: const BorderSide(color: EDesign.border),
+        ),
+        title: const Text('Move to Group', style: EDesign.h3),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: (groupService == null || groupService.groups.isEmpty)
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No custom groups available. Create a group from Home first.',
+                    style: EDesign.secondaryStyle,
+                  ),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: groupService.groups.length,
+                  itemBuilder: (ctx, idx) {
+                    final targetGroup = groupService.groups[idx];
+                    return ListTile(
+                      leading: Icon(Icons.folder, color: targetGroup.color),
+                      title: Text(targetGroup.title, style: EDesign.body),
+                      subtitle: Text('${targetGroup.itemPaths.length} items', style: EDesign.caption),
+                      onTap: () async {
+                        final Set<String> allPathsToMove = {};
+                        for (final p in _selectedPaths) {
+                          allPathsToMove.add(p);
+                          if (provider.groupedFolders.containsKey(p)) {
+                            for (final item in provider.groupedFolders[p]!) {
+                              allPathsToMove.add(item.path);
+                            }
+                          }
+                        }
+                        await groupService.addItemsToGroup(targetGroup.id, allPathsToMove.toList());
+                        if (dialogCtx.mounted) {
+                          _exitSelectionMode();
+                          Navigator.pop(dialogCtx);
+                        }
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildSelectionAppBar(
+    BuildContext context,
+    LibraryProvider provider,
+    MediaGroupService? groupService,
+  ) {
+    final List<String> visiblePaths;
+    if (_selectedTab == 'Folders') {
+      visiblePaths = provider.groupedFolders.keys.toList();
+    } else if (_selectedTab == 'Playlists') {
+      visiblePaths = [];
+    } else {
+      visiblePaths = provider.searchResults.map((i) => i.path).toList();
+    }
+    final bool isAllSelected = visiblePaths.isNotEmpty && _selectedPaths.length >= visiblePaths.length;
+
+    return AppBar(
+      backgroundColor: EDesign.surface,
+      elevation: 2,
+      leading: IconButton(
+        icon: const Icon(Icons.close, color: EDesign.textPrimary),
+        tooltip: 'Exit Selection',
+        onPressed: _exitSelectionMode,
+      ),
+      title: Text(
+        '${_selectedPaths.length} Selected',
+        style: EDesign.h2,
+      ),
+      centerTitle: false,
+      actions: [
+        TextButton(
+          onPressed: () => _toggleSelectAll(provider),
+          child: Text(
+            isAllSelected ? 'None' : 'Select All',
+            style: const TextStyle(color: EDesign.primary, fontWeight: FontWeight.bold),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.drive_file_move, color: EDesign.primary),
+          tooltip: 'Move to Group',
+          onPressed: () => _showMoveToGroupDialog(context, groupService, provider),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete, color: EDesign.danger),
+          tooltip: 'Delete Selected',
+          onPressed: () => _confirmDeleteSelected(context, provider),
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
   // Shimmer animation controller for skeleton state
   late AnimationController _shimmerController;
   late Animation<double> _shimmerAnimation;
@@ -51,7 +259,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
     _shimmerAnimation = Tween<double>(begin: 0.35, end: 0.85).animate(
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
     );
@@ -132,27 +340,40 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    MediaGroupService? groupService;
+    try {
+      groupService = context.watch<MediaGroupService>();
+    } catch (_) {}
+
     return Consumer<LibraryProvider>(
       builder: (context, provider, child) {
-        return Scaffold(
-          backgroundColor: EDesign.appBackground,
-          appBar: _buildAppBar(context, provider),
-          floatingActionButton: _buildFloatingScanButton(provider),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Live Background Scanning Banner
-              if (provider.isScanning) _buildScanningBanner(provider),
+        return PopScope(
+          canPop: !_isSelectionMode,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _exitSelectionMode();
+          },
+          child: Scaffold(
+            backgroundColor: EDesign.appBackground,
+            appBar: _buildAppBar(context, provider, groupService),
+            floatingActionButton: _isSelectionMode ? null : _buildFloatingScanButton(provider),
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Live Background Scanning Banner
+                if (provider.isScanning) _buildScanningBanner(provider),
 
-              // 2. Filter Tabs Strip (All, Videos, Audio, Playlists, Folders)
-              _buildFilterTabs(provider),
-              const SizedBox(height: 12),
+                // 2. Filter Tabs Strip (All, Videos, Audio, Playlists, Folders)
+                if (!_isSelectionMode) ...[
+                  _buildFilterTabs(provider),
+                  const SizedBox(height: 12),
+                ],
 
-              // 3. Main Content Viewport
-              Expanded(
-                child: _buildMainContent(provider),
-              ),
-            ],
+                // 3. Main Content Viewport
+                Expanded(
+                  child: _buildMainContent(provider),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -160,7 +381,14 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   // --- 1. APP BAR ---
-  PreferredSizeWidget _buildAppBar(BuildContext context, LibraryProvider provider) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    LibraryProvider provider,
+    MediaGroupService? groupService,
+  ) {
+    if (_isSelectionMode) {
+      return _buildSelectionAppBar(context, provider, groupService);
+    }
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -236,6 +464,17 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                 _searchController.clear();
                 provider.clearSearch();
               }
+            });
+          },
+        ),
+
+        // Multi-Select Toggle Button
+        IconButton(
+          icon: const Icon(Icons.checklist_rtl_rounded, color: EDesign.textPrimary),
+          tooltip: 'Multi-Select',
+          onPressed: () {
+            setState(() {
+              _isSelectionMode = true;
             });
           },
         ),
@@ -856,15 +1095,18 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   // --- 5. 16:9 CINEMATIC POSTER CARD (GRID MODE) ---
   Widget _buildPosterCard(MediaItem item, LibraryProvider provider) {
+    final isSelected = _selectedPaths.contains(item.path);
     final thumbAsset = _pickThumbnail(item);
     final badgeLabel = _pickBadge(item);
     final durationStr = _formatDuration(item.durationMs);
 
     return Container(
       decoration: BoxDecoration(
-        color: EDesign.surface,
+        color: isSelected ? EDesign.elevatedSurface : EDesign.surface,
         borderRadius: BorderRadius.circular(EDesign.r16),
-        border: Border.all(color: EDesign.border, width: 1.0),
+        border: isSelected
+            ? Border.all(color: EDesign.primary, width: 2.0)
+            : Border.all(color: EDesign.border, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.35),
@@ -877,12 +1119,17 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          onLongPress: () => _togglePathSelection(item.path),
           onTap: () {
-            provider.addRecent(item.path);
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
-            );
+            if (_isSelectionMode) {
+              _togglePathSelection(item.path);
+            } else {
+              provider.addRecent(item.path);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
+              );
+            }
           },
           child: Stack(
             fit: StackFit.expand,
@@ -898,6 +1145,12 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   ),
                 ),
               ),
+
+              // Selection overlay tint when selected
+              if (isSelected)
+                Container(
+                  color: EDesign.primary.withValues(alpha: 0.15),
+                ),
 
               // Bottom Vignette Gradient Scrim
               Container(
@@ -948,21 +1201,34 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                 ),
               ),
 
-              // Top-Right Context Menu & Favorite Heart
+              // Top-Right Context Menu & Favorite Heart OR Selection Badge
               Positioned(
-                top: 4,
-                right: 4,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (item.isFavorite)
-                      const Padding(
-                        padding: EdgeInsets.only(right: 2),
-                        child: Icon(Icons.favorite, color: EDesign.danger, size: 16),
+                top: 6,
+                right: 6,
+                child: _isSelectionMode
+                    ? Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.black87,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: isSelected ? EDesign.primary : Colors.white70,
+                          size: 22,
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (item.isFavorite)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 2),
+                              child: Icon(Icons.favorite, color: EDesign.danger, size: 16),
+                            ),
+                          _buildItemContextMenu(item, provider),
+                        ],
                       ),
-                    _buildItemContextMenu(item, provider),
-                  ],
-                ),
               ),
 
               // Bottom-Right Frosted Duration Badge
@@ -1039,6 +1305,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   // --- 6. LIST VIEW ROW (LIST MODE) ---
   Widget _buildListRow(MediaItem item, LibraryProvider provider) {
+    final isSelected = _selectedPaths.contains(item.path);
     final thumbAsset = _pickThumbnail(item);
     final badgeLabel = _pickBadge(item);
     final durationStr = _formatDuration(item.durationMs);
@@ -1046,12 +1313,15 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: EDesign.surface,
+        color: isSelected ? EDesign.elevatedSurface : EDesign.surface,
         borderRadius: BorderRadius.circular(EDesign.r14),
-        border: Border.all(color: EDesign.border, width: 0.8),
+        border: isSelected
+            ? Border.all(color: EDesign.primary, width: 2.0)
+            : Border.all(color: EDesign.border, width: 0.8),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        onLongPress: () => _togglePathSelection(item.path),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(EDesign.r8),
           child: SizedBox(
@@ -1117,20 +1387,30 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (item.isFavorite)
-              const Icon(Icons.favorite, color: EDesign.danger, size: 16),
-            _buildItemContextMenu(item, provider),
-          ],
-        ),
+        trailing: _isSelectionMode
+            ? Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isSelected ? EDesign.primary : Colors.white70,
+                size: 20,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item.isFavorite)
+                    const Icon(Icons.favorite, color: EDesign.danger, size: 16),
+                  _buildItemContextMenu(item, provider),
+                ],
+              ),
         onTap: () {
-          provider.addRecent(item.path);
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
-          );
+          if (_isSelectionMode) {
+            _togglePathSelection(item.path);
+          } else {
+            provider.addRecent(item.path);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: item.path)),
+            );
+          }
         },
       ),
     );
@@ -1261,16 +1541,20 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   // --- 8. FOLDERS TILE VIEW ---
   Widget _buildFolderTile(String folderName, List<MediaItem> items) {
+    final isSelected = _selectedPaths.contains(folderName);
     final totalBytes = items.fold<int>(0, (sum, item) => sum + item.sizeBytes);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: EDesign.surface,
+        color: isSelected ? EDesign.elevatedSurface : EDesign.surface,
         borderRadius: BorderRadius.circular(EDesign.r14),
-        border: Border.all(color: EDesign.border, width: 0.8),
+        border: isSelected
+            ? Border.all(color: EDesign.primary, width: 2.0)
+            : Border.all(color: EDesign.border, width: 0.8),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        onLongPress: () => _togglePathSelection(folderName),
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -1287,14 +1571,24 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           '${items.length} items · ${EDesign.formatBytes(totalBytes)}',
           style: const TextStyle(color: EDesign.textMuted, fontSize: 11),
         ),
-        trailing: const Icon(Icons.chevron_right, color: EDesign.textSecondary),
+        trailing: _isSelectionMode
+            ? Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: isSelected ? EDesign.primary : Colors.white70,
+                size: 20,
+              )
+            : const Icon(Icons.chevron_right, color: EDesign.textSecondary),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => FolderDetailScreen(folderName: folderName, items: items),
-            ),
-          );
+          if (_isSelectionMode) {
+            _togglePathSelection(folderName);
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => FolderDetailScreen(folderName: folderName, items: items),
+              ),
+            );
+          }
         },
       ),
     );
@@ -1367,6 +1661,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              onLongPress: null, // Protected built-in smart playlist
               leading: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
