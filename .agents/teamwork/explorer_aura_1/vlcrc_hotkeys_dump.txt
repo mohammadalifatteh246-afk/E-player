@@ -1,0 +1,4109 @@
+1183: # VNC poll interval (integer)
+1184: #rmtosd-update=1000
+1185: 
+1186: # VNC polling (boolean)
+1187: #rmtosd-vnc-polling=0
+1188: 
+1189: # Mouse events (boolean)
+1190: #rmtosd-mouse-events=0
+1191: 
+1192: # Key events (boolean)
+1193: #rmtosd-key-events=0
+1194: 
+1195: # Alpha transparency value (default 255) (integer)
+1196: #rmtosd-alpha=255
+1197: 
+1198: [mosaic] # Mosaic video sub source
+1199: 
+1200: # Transparency (integer)
+1201: #mosaic-alpha=255
+1202: 
+1203: # Height (integer)
+1204: #mosaic-height=100
+1205: 
+1206: # Width (integer)
+1207: #mosaic-width=100
+1208: 
+1209: # Mosaic alignment (integer)
+1210: #mosaic-align=5
+1211: 
+1212: # Top left corner X coordinate (integer)
+1213: #mosaic-xoffset=0
+1214: 
+1215: # Top left corner Y coordinate (integer)
+1216: #mosaic-yoffset=0
+1217: 
+1218: # Border width (integer)
+1219: #mosaic-borderw=0
+1220: 
+1221: # Border height (integer)
+1222: #mosaic-borderh=0
+1223: 
+1224: # Positioning method (integer)
+1225: #mosaic-position=0
+1226: 
+1227: # Number of rows (integer)
+1228: #mosaic-rows=2
+1229: 
+1230: # Number of columns (integer)
+1231: #mosaic-cols=2
+1232: 
+1233: # Keep aspect ratio (boolean)
+1234: #mosaic-keep-aspect-ratio=0
+1235: 
+1236: # Keep original size (boolean)
+1237: #mosaic-keep-picture=0
+1238: 
+1239: # Elements order (string)
+1240: #mosaic-order=
+1241: 
+1242: # Offsets in order (string)
+1243: #mosaic-offsets=
+1244: 
+1245: # Delay (integer)
+1246: #mosaic-delay=0
+1247: 
+1248: [marq] # Marquee display
+1249: 
+1250: # Text (string)
+1251: #marq-marquee=VLC
+1252: 
+1253: # Text file (string)
+1254: #marq-file=
+1255: 
+1256: # X offset (integer)
+1257: #marq-x=0
+1258: 
+1259: # Y offset (integer)
+1260: #marq-y=0
+1261: 
+1262: # Marquee position (integer)
+1263: #marq-position=-1
+1264: 
+1265: # Opacity (integer)
+1266: #marq-opacity=255
+1267: 
+1268: # Color (integer)
+1269: #marq-color=16777215
+1270: 
+1271: # Font size, pixels (integer)
+1272: #marq-size=0
+1273: 
+1274: # Timeout (integer)
+1275: #marq-timeout=0
+1276: 
+1277: # Refresh period in ms (integer)
+1278: #marq-refresh=1000
+1279: 
+1280: [logo] # Logo sub source
+1281: 
+1282: # Logo filenames (string)
+1283: #logo-file=
+1284: 
+1285: # X coordinate (integer)
+1286: #logo-x=-1
+1287: 
+1288: # Y coordinate (integer)
+1289: #logo-y=-1
+1290: 
+1291: # Logo individual image time in ms (integer)
+1292: #logo-delay=1000
+1293: 
+1294: # Logo animation # of loops (integer)
+1295: #logo-repeat=-1
+1296: 
+1297: # Opacity of the logo (integer)
+1298: #logo-opacity=255
+1299: 
+1300: # Logo position (integer)
+1301: #logo-position=-1
+1302: 
+1303: [audiobargraph_v] # Audio Bar Graph Video sub source
+1304: 
+1305: # X coordinate (integer)
+1306: #audiobargraph_v-x=0
+1307: 
+1308: # Y coordinate (integer)
+1309: #audiobargraph_v-y=0
+1310: 
+1311: # Transparency of the bargraph (integer)
+1312: #audiobargraph_v-transparency=255
+1313: 
+1314: # Bargraph position (integer)
+1315: #audiobargraph_v-position=-1
+1316: 
+1317: # Bar width in pixel (integer)
+1318: #audiobargraph_v-barWidth=10
+1319: 
+1320: # Bar Height in pixel (integer)
+1321: #audiobargraph_v-barHeight=400
+1322: 
+1323: [upnp] # Universal Plug'n'Play
+1324: 
+1325: # Custom SAT>IP channel list URL (string)
+1326: #satip-channellist-url=
+1327: 
+1328: [sap] # Network streams (SAP)
+1329: 
+1330: # SAP multicast address (string)
+1331: #sap-addr=
+1332: 
+1333: # SAP timeout (seconds) (integer)
+1334: #sap-timeout=1800
+1335: 
+1336: # Try to parse the announce (boolean)
+1337: #sap-parse=1
+1338: 
+1339: # SAP Strict mode (boolean)
+1340: #sap-strict=0
+1341: 
+1342: [podcast] # Podcasts
+1343: 
+1344: # Podcast URLs list (string)
+1345: #podcast-urls=
+1346: 
+1347: [mpegvideo] # MPEG-I/II video packetizer
+1348: 
+1349: # Sync on Intra Frame (boolean)
+1350: #packetizer-mpegvideo-sync-iframe=0
+1351: 
+1352: [mux_ts] # TS muxer (libdvbpsi)
+1353: 
+1354: # Digital TV Standard (string)
+1355: #sout-ts-standard=dvb
+1356: 
+1357: # Video PID (integer)
+1358: #sout-ts-pid-video=100
+1359: 
+1360: # Audio PID (integer)
+1361: #sout-ts-pid-audio=200
+1362: 
+1363: # SPU PID (integer)
+1364: #sout-ts-pid-spu=300
+1365: 
+1366: # PMT PID (integer)
+1367: #sout-ts-pid-pmt=32
+1368: 
+1369: # TS ID (integer)
+1370: #sout-ts-tsid=0
+1371: 
+1372: # NET ID (integer)
+1373: #sout-ts-netid=0
+1374: 
+1375: # PMT Program numbers (string)
+1376: #sout-ts-program-pmt=
+1377: 
+1378: # Set PID to ID of ES (boolean)
+1379: #sout-ts-es-id-pid=0
+1380: 
+1381: # Mux PMT (requires --sout-ts-es-id-pid) (string)
+1382: #sout-ts-muxpmt=
+1383: 
+1384: # SDT Descriptors (requires --sout-ts-es-id-pid) (string)
+1385: #sout-ts-sdtdesc=
+1386: 
+1387: # Data alignment (boolean)
+1388: #sout-ts-alignment=1
+1389: 
+1390: # Shaping delay (ms) (integer)
+1391: #sout-ts-shaping=200
+1392: 
+1393: # Use keyframes (boolean)
+1394: #sout-ts-use-key-frames=0
+1395: 
+1396: # PCR interval (ms) (integer)
+1397: #sout-ts-pcr=70
+1398: 
+1399: # Minimum B (deprecated) (integer)
+1400: #sout-ts-bmin=0
+1401: 
+1402: # Maximum B (deprecated) (integer)
+1403: #sout-ts-bmax=0
+1404: 
+1405: # DTS delay (ms) (integer)
+1406: #sout-ts-dts-delay=400
+1407: 
+1408: # Crypt audio (boolean)
+1409: #sout-ts-crypt-audio=1
+1410: 
+1411: # Crypt video (boolean)
+1412: #sout-ts-crypt-video=1
+1413: 
+1414: # CSA Key (string)
+1415: #sout-ts-csa-ck=
+1416: 
+1417: # Second CSA Key (string)
+1418: #sout-ts-csa2-ck=
+1419: 
+1420: # CSA Key in use (string)
+1421: #sout-ts-csa-use=1
+1422: 
+1423: # Packet size in bytes to encrypt (integer)
+1424: #sout-ts-csa-pkt=188
+1425: 
+1426: [ps] # PS muxer
+1427: 
+1428: # DTS delay (ms) (integer)
+1429: #sout-ps-dts-delay=200
+1430: 
+1431: # PES maximum size (integer)
+1432: #sout-ps-pes-max-size=65500
+1433: 
+1434: [mux_ogg] # Ogg/OGM muxer
+1435: 
+1436: # Index interval (integer)
+1437: #sout-ogg-indexintvl=1000
+1438: 
+1439: # Index size ratio (float)
+1440: #sout-ogg-indexratio=1.000000
+1441: 
+1442: [mp4] # MP4/MOV muxer
+1443: 
+1444: # Create "Fast Start" files (boolean)
+1445: #sout-mp4-faststart=1
+1446: 
+1447: [avi] # AVI muxer
+1448: 
+1449: # Artist (string)
+1450: #sout-avi-artist=
+1451: 
+1452: # Date (string)
+1453: #sout-avi-date=
+1454: 
+1455: # Genre (string)
+1456: #sout-avi-genre=
+1457: 
+1458: # Copyright (string)
+1459: #sout-avi-copyright=
+1460: 
+1461: # Comment (string)
+1462: #sout-avi-comment=
+1463: 
+1464: # Name (string)
+1465: #sout-avi-name=
+1466: 
+1467: # Subject (string)
+1468: #sout-avi-subject=
+1469: 
+1470: # Encoder (string)
+1471: #sout-avi-encoder=VLC Media Player - 3.0.23 Vetinari
+1472: 
+1473: # Keywords (string)
+1474: #sout-avi-keywords=
+1475: 
+1476: [asf] # ASF muxer
+1477: 
+1478: # Title (string)
+1479: #sout-asf-title=
+1480: 
+1481: # Author (string)
+1482: #sout-asf-author=
+1483: 
+1484: # Copyright (string)
+1485: #sout-asf-copyright=
+1486: 
+1487: # Comment (string)
+1488: #sout-asf-comment=
+1489: 
+1490: # Rating (string)
+1491: #sout-asf-rating=
+1492: 
+1493: # Packet Size (integer)
+1494: #sout-asf-packet-size=4096
+1495: 
+1496: # Bitrate override (integer)
+1497: #sout-asf-bitrate-override=0
+1498: 
+1499: [rtsp] # Legacy RTSP VoD server
+1500: 
+1501: # MUX for RAW RTSP transport (string)
+1502: #rtsp-raw-mux=ts
+1503: 
+1504: # Maximum number of connections (integer)
+1505: #rtsp-throttle-users=0
+1506: 
+1507: # Sets the timeout option in the RTSP session string (integer)
+1508: #rtsp-session-timeout=5
+1509: 
+1510: [logger] # File logging
+1511: 
+1512: [gnutls] # GNU TLS transport layer security
+1513: 
+1514: # Use system trust database (boolean)
+1515: #gnutls-system-trust=1
+1516: 
+1517: # Trust directory (string)
+1518: #gnutls-dir-trust=
+1519: 
+1520: # TLS cipher priorities (string)
+1521: #gnutls-priorities=NORMAL
+1522: 
+1523: [audioscrobbler] # Submission of played songs to last.fm
+1524: 
+1525: # Username (string)
+1526: #lastfm-username=
+1527: 
+1528: # Password (string)
+1529: #lastfm-password=
+1530: 
+1531: # Scrobbler URL (string)
+1532: #scrobbler-url=post.audioscrobbler.com
+1533: 
+1534: [folder] # Folder meta data
+1535: 
+1536: # Album art filename (string)
+1537: #album-art-filename=
+1538: 
+1539: [lua] # Lua interpreter
+1540: 
+1541: # Lua interface (string)
+1542: #lua-intf=dummy
+1543: 
+1544: # Lua interface configuration (string)
+1545: #lua-config=
+1546: 
+1547: # Password (string)
+1548: #http-password=
+1549: 
+1550: # Source directory (string)
+1551: #http-src=
+1552: 
+1553: # Directory index (boolean)
+1554: #http-index=0
+1555: 
+1556: # TCP command input (string)
+1557: #rc-host=
+1558: 
+1559: # CLI input (string)
+1560: #cli-host=
+1561: 
+1562: # Host (string)
+1563: #telnet-host=localhost
+1564: 
+1565: # Port (integer)
+1566: #telnet-port=4212
+1567: 
+1568: # Password (string)
+1569: #telnet-password=
+1570: 
+1571: [file] # File logger
+1572: 
+1573: # Log to file (boolean)
+1574: #file-logging=0
+1575: 
+1576: # Log filename (string)
+1577: #logfile=
+1578: 
+1579: # Log format (string)
+1580: #logmode=text
+1581: 
+1582: # Verbosity (integer)
+1583: #log-verbose=-1
+1584: 
+1585: [console] # Console logger
+1586: 
+1587: [file] # Secrets are stored on a file without any encryption
+1588: 
+1589: # ? (string)
+1590: #keystore-file=
+1591: 
+1592: [skins2] # Skinnable Interface
+1593: 
+1594: # Skin to use (string)
+1595: #skins2-last=
+1596: 
+1597: # Config of last used skin (string)
+1598: #skins2-config=
+1599: 
+1600: # Systray icon (boolean)
+1601: #skins2-systray=1
+1602: 
+1603: # Show VLC on the taskbar (boolean)
+1604: #skins2-taskbar=1
+1605: 
+1606: # Enable transparency effects (boolean)
+1607: #skins2-transparency=0
+1608: 
+1609: # Use a skinned playlist (boolean)
+1610: #skinned-playlist=1
+1611: 
+1612: # Display video in a skinned window if any (boolean)
+1613: #skinned-video=1
+1614: 
+1615: [qt] # Qt interface
+1616: 
+1617: # Start in minimal view (without menus) (boolean)
+1618: #qt-minimal-view=0
+1619: 
+1620: # Systray icon (boolean)
+1621: #qt-system-tray=1
+1622: 
+1623: # Show notification popup on track change (integer)
+1624: #qt-notification=1
+1625: 
+1626: # Start VLC with only a systray icon (boolean)
+1627: #qt-start-minimized=0
+1628: 
+1629: # Pause the video playback when minimized (boolean)
+1630: #qt-pause-minimized=0
+1631: 
+1632: # Windows opacity between 0.1 and 1 (float)
+1633: #qt-opacity=1.000000
+1634: 
+1635: # Fullscreen controller opacity between 0.1 and 1 (float)
+1636: #qt-fs-opacity=0.800000
+1637: 
+1638: # Resize interface to the native video size (boolean)
+1639: #qt-video-autoresize=1
+1640: 
+1641: # Show playing item name in window title (boolean)
+1642: #qt-name-in-title=1
+1643: 
+1644: # Show a controller in fullscreen mode (boolean)
+1645: #qt-fs-controller=1
+1646: 
+1647: # Save the recently played items in the menu (boolean)
+1648: #qt-recentplay=1
+1649: 
+1650: # List of words separated by | to filter (string)
+1651: #qt-recentplay-filter=
+1652: 
+1653: # Continue playback? (integer)
+1654: #qt-continue=1
+1655: 
+1656: # Enable Dark Mode (boolean)
+1657: #qt-dark-palette=0
+1658: 
+1659: # Activate the updates availability notification (boolean)
+1660: #qt-updates-notif=1
+1661: 
+1662: # Number of days between two update checks (integer)
+1663: #qt-updates-days=3
+1664: 
+1665: # Ignore keyboard volume buttons. (boolean)
+1666: #qt-disable-volume-keys=1
+1667: 
+1668: # Embed the file browser in open dialog (boolean)
+1669: #qt-embedded-open=0
+1670: 
+1671: # Show advanced preferences over simple ones (boolean)
+1672: #qt-advanced-pref=0
+1673: 
+1674: # Show unimportant error and warnings dialogs (boolean)
+1675: #qt-error-dialogs=1
+1676: 
+1677: # Define the colors of the volume slider (string)
+1678: #qt-slider-colours=153;210;153;20;210;20;255;199;15;245;39;29
+1679: 
+1680: # Ask for network policy at start (boolean)
+1681: qt-privacy-ask=0
+1682: 
+1683: # Define which screen fullscreen goes (integer)
+1684: #qt-fullscreen-screennumber=-1
+1685: 
+1686: # Load extensions on startup (boolean)
+1687: #qt-autoload-extensions=1
+1688: 
+1689: # Display background cone or art (boolean)
+1690: #qt-bgcone=1
+1691: 
+1692: # Expanding background cone or art (boolean)
+1693: #qt-bgcone-expands=0
+1694: 
+1695: # Allow automatic icon changes (boolean)
+1696: #qt-icon-change=1
+1697: 
+1698: # Maximum Volume displayed (integer)
+1699: #qt-max-volume=125
+1700: 
+1701: # Fullscreen controller mouse sensitivity (integer)
+1702: #qt-fs-sensitivity=3
+1703: 
+1704: # When to raise the interface (integer)
+1705: #qt-auto-raise=1
+1706: 
+1707: [vc1] # VC1 video demuxer
+1708: 
+1709: # Frames per Second (float)
+1710: #vc1-fps=25.000000
+1711: 
+1712: [ts] # MPEG Transport Stream demuxer
+1713: 
+1714: # Digital TV Standard (string)
+1715: #ts-standard=auto
+1716: 
+1717: # Extra PMT (string)
+1718: #ts-extra-pmt=
+1719: 
+1720: # Trust in-stream PCR (boolean)
+1721: #ts-trust-pcr=1
+1722: 
+1723: # Set id of ES to PID (boolean)
+1724: #ts-es-id-pid=1
+1725: 
+1726: # CSA Key (string)
+1727: #ts-csa-ck=
+1728: 
+1729: # Second CSA Key (string)
+1730: #ts-csa2-ck=
+1731: 
+1732: # Packet size in bytes to decrypt (integer)
+1733: #ts-csa-pkt=188
+1734: 
+1735: # Separate sub-streams (boolean)
+1736: #ts-split-es=1
+1737: 
+1738: # Seek based on percent not time (boolean)
+1739: #ts-seek-percent=0
+1740: 
+1741: # Check packets continuity counter (boolean)
+1742: #ts-cc-check=1
+1743: 
+1744: # Only create ES on program sending data (boolean)
+1745: #ts-pmtfix-waitdata=1
+1746: 
+1747: # Try to generate PAT/PMT if missing (boolean)
+1748: #ts-patfix=1
+1749: 
+1750: # Try to fix too early PCR (or late DTS) (boolean)
+1751: #ts-pcr-offsetfix=1
+1752: 
+1753: [subtitle] # Text subtitle parser
+1754: 
+1755: # Frames per Second (float)
+1756: #sub-fps=0.000000
+1757: 
+1758: # Subtitle delay (integer)
+1759: #sub-delay=0
+1760: 
+1761: # Subtitle format (string)
+1762: #sub-type=auto
+1763: 
+1764: # Subtitle description (string)
+1765: #sub-description=
+1766: 
+1767: [rawvid] # Raw video demuxer
+1768: 
+1769: # Frames per Second (string)
+1770: #rawvid-fps=
+1771: 
+1772: # Width (integer)
+1773: #rawvid-width=0
+1774: 
+1775: # Height (integer)
+1776: #rawvid-height=0
+1777: 
+1778: # Force chroma (Use carefully) (string)
+1779: #rawvid-chroma=
+1780: 
+1781: # Aspect ratio (string)
+1782: #rawvid-aspect-ratio=
+1783: 
+1784: [rawdv] # DV (Digital Video) demuxer
+1785: 
+1786: # Hurry up (boolean)
+1787: #rawdv-hurry-up=0
+1788: 
+1789: [rawaud] # Raw audio demuxer
+1790: 
+1791: # Audio channels (integer)
+1792: #rawaud-channels=2
+1793: 
+1794: # Audio samplerate (Hz) (integer)
+1795: #rawaud-samplerate=48000
+1796: 
+1797: # FOURCC code of raw input format (string)
+1798: #rawaud-fourcc=s16l
+1799: 
+1800: # Forces the audio language (string)
+1801: #rawaud-lang=eng
+1802: 
+1803: [ps] # MPEG-PS demuxer
+1804: 
+1805: # Trust MPEG timestamps (boolean)
+1806: #ps-trust-timestamps=1
+1807: 
+1808: [playlist] # Playlist
+1809: 
+1810: # Skip ads (boolean)
+1811: #playlist-skip-ads=1
+1812: 
+1813: # Show shoutcast adult content (boolean)
+1814: #shoutcast-show-adult=0
+1815: 
+1816: [mp4] # MP4 stream demuxer
+1817: 
+1818: # M4A audio only (boolean)
+1819: #mp4-m4a-audioonly=0
+1820: 
+1821: [mod] # MOD demuxer (libmodplug)
+1822: 
+1823: # Noise reduction (boolean)
+1824: #mod-noisereduction=1
+1825: 
+1826: # Reverb (boolean)
+1827: #mod-reverb=0
+1828: 
+1829: # Reverberation level (integer)
+1830: #mod-reverb-level=0
+1831: 
+1832: # Reverberation delay (integer)
+1833: #mod-reverb-delay=40
+1834: 
+1835: # Mega bass (boolean)
+1836: #mod-megabass=0
+1837: 
+1838: # Mega bass level (integer)
+1839: #mod-megabass-level=0
+1840: 
+1841: # Mega bass cutoff (integer)
+1842: #mod-megabass-range=10
+1843: 
+1844: # Surround (boolean)
+1845: #mod-surround=0
+1846: 
+1847: # Surround level (integer)
+1848: #mod-surround-level=0
+1849: 
+1850: # Surround delay (ms) (integer)
+1851: #mod-surround-delay=5
+1852: 
+1853: [mkv] # Matroska stream demuxer
+1854: 
+1855: # Respect ordered chapters (boolean)
+1856: #mkv-use-ordered-chapters=1
+1857: 
+1858: # Chapter codecs (boolean)
+1859: #mkv-use-chapter-codec=1
+1860: 
+1861: # Preload MKV files in the same directory (boolean)
+1862: #mkv-preload-local-dir=1
+1863: 
+1864: # Seek based on percent not time (boolean)
+1865: #mkv-seek-percent=0
+1866: 
+1867: # Dummy Elements (boolean)
+1868: #mkv-use-dummy=0
+1869: 
+1870: # Preload clusters (boolean)
+1871: #mkv-preload-clusters=0
+1872: 
+1873: [mjpeg] # M-JPEG camera demuxer
+1874: 
+1875: # Frames per Second (float)
+1876: #mjpeg-fps=0.000000
+1877: 
+1878: [image] # Image demuxer
+1879: 
+1880: # ES ID (integer)
+1881: #image-id=-1
+1882: 
+1883: # Group (integer)
+1884: #image-group=0
+1885: 
+1886: # Decode (boolean)
+1887: #image-decode=1
+1888: 
+1889: # Forced chroma (string)
+1890: #image-chroma=
+1891: 
+1892: # Duration in seconds (float)
+1893: #image-duration=10.000000
+1894: 
+1895: # Frame rate (string)
+1896: #image-fps=10/1
+1897: 
+1898: # Real-time (boolean)
+1899: #image-realtime=0
+1900: 
+1901: [h26x] # H264 video demuxer
+1902: 
+1903: # Frames per Second (float)
+1904: #h264-fps=0.000000
+1905: 
+1906: # Frames per Second (float)
+1907: #hevc-fps=0.000000
+1908: 
+1909: [es] # MPEG-I/II/4 / A52 / DTS / MLP audio
+1910: 
+1911: # Frames per Second (float)
+1912: #es-fps=25.000000
+1913: 
+1914: [diracsys] # Dirac video demuxer
+1915: 
+1916: # Value to adjust dts by (integer)
+1917: #dirac-dts-offset=0
+1918: 
+1919: [demuxdump] # File dumper
+1920: 
+1921: # Dump module (string)
+1922: #demuxdump-access=file
+1923: 
+1924: # Dump filename (string)
+1925: #demuxdump-file=stream-demux.dump
+1926: 
+1927: # Append to existing file (boolean)
+1928: #demuxdump-append=0
+1929: 
+1930: [avi] # AVI demuxer
+1931: 
+1932: # Force interleaved method (boolean)
+1933: #avi-interleaved=0
+1934: 
+1935: # Force index creation (integer)
+1936: #avi-index=0
+1937: 
+1938: [adaptive] # Unified adaptive streaming for DASH/HLS
+1939: 
+1940: # Adaptive Logic (string)
+1941: #adaptive-logic=
+1942: 
+1943: # Maximum device width (integer)
+1944: #adaptive-maxwidth=0
+1945: 
+1946: # Maximum device height (integer)
+1947: #adaptive-maxheight=0
+1948: 
+1949: # Fixed Bandwidth in KiB/s (integer)
+1950: #adaptive-bw=250
+1951: 
+1952: # Use regular HTTP modules (boolean)
+1953: #adaptive-use-access=0
+1954: 
+1955: # Live Playback delay (ms) (integer)
+1956: #adaptive-livedelay=15000
+1957: 
+1958: # Max buffering (ms) (integer)
+1959: #adaptive-maxbuffer=30000
+1960: 
+1961: # Low latency (integer)
+1962: #adaptive-lowlatency=-1
+1963: 
+1964: [d3d9_filters] # Direct3D9 adjust filter
+1965: 
+1966: # Image contrast (0-2) (float)
+1967: #contrast=1.000000
+1968: 
+1969: # Image brightness (0-2) (float)
+1970: #brightness=1.000000
+1971: 
+1972: # Image hue (0-360) (float)
+1973: #hue=0.000000
+1974: 
+1975: # Image saturation (0-3) (float)
+1976: #saturation=1.000000
+1977: 
+1978: # Image gamma (0-10) (float)
+1979: #gamma=1.000000
+1980: 
+1981: # Brightness threshold (boolean)
+1982: #brightness-threshold=0
+1983: 
+1984: [d3d11_filters] # Direct3D11 adjust filter
+1985: 
+1986: # Image contrast (0-2) (float)
+1987: #contrast=1.000000
+1988: 
+1989: # Image brightness (0-2) (float)
+1990: #brightness=1.000000
+1991: 
+1992: # Image hue (0-360) (float)
+1993: #hue=0.000000
+1994: 
+1995: # Image saturation (0-3) (float)
+1996: saturation=2.010000
+1997: 
+1998: # Image gamma (0-10) (float)
+1999: gamma=1.200000
+2000: 
+2001: # Brightness threshold (boolean)
+2002: #brightness-threshold=0
+2003: 
+2004: [oldrc] # Remote control interface
+2005: 
+2006: # Show stream position (boolean)
+2007: #rc-show-pos=0
+2008: 
+2009: # Do not open a DOS command box interface (boolean)
+2010: #rc-quiet=0
+2011: 
+2012: # TCP command input (string)
+2013: #rc-host=
+2014: 
+2015: [ntservice] # Windows Service interface
+2016: 
+2017: # Install Windows Service (boolean)
+2018: #ntservice-install=0
+2019: 
+2020: # Uninstall Windows Service (boolean)
+2021: #ntservice-uninstall=0
+2022: 
+2023: # Display name of the Service (string)
+2024: #ntservice-name=VLC media player
+2025: 
+2026: # Configuration options (string)
+2027: #ntservice-options=
+2028: 
+2029: # Extra interface modules (string)
+2030: #ntservice-extraintf=
+2031: 
+2032: [netsync] # Network synchronization
+2033: 
+2034: # Network master clock (boolean)
+2035: #netsync-master=0
+2036: 
+2037: # Master server IP address (string)
+2038: #netsync-master-ip=
+2039: 
+2040: # UDP timeout (in ms) (integer)
+2041: #netsync-timeout=500
+2042: 
+2043: [gestures] # Mouse gestures control interface
+2044: 
+2045: # Motion threshold (10-100) (integer)
+2046: #gestures-threshold=30
+2047: 
+2048: # Trigger button (string)
+2049: #gestures-button=left
+2050: 
+2051: [dummy] # Dummy interface
+2052: 
+2053: # Do not open a DOS command box interface (boolean)
+2054: #dummy-quiet=0
+2055: 
+2056: [zvbi] # VBI and Teletext decoder
+2057: 
+2058: # Teletext page (integer)
+2059: #vbi-page=100
+2060: 
+2061: # Opacity (boolean)
+2062: #vbi-opaque=0
+2063: 
+2064: # Teletext alignment (integer)
+2065: #vbi-position=8
+2066: 
+2067: # Teletext text subtitles (boolean)
+2068: #vbi-text=0
+2069: 
+2070: # Presentation Level (integer)
+2071: #vbi-level=3
+2072: 
+2073: [x264] # H.264/MPEG-4 Part 10/AVC encoder (x264)
+2074: 
+2075: # Maximum GOP size (integer)
+2076: #sout-x264-keyint=250
+2077: 
+2078: # Minimum GOP size (integer)
+2079: #sout-x264-min-keyint=25
+2080: 
+2081: # Use recovery points to close GOPs (boolean)
+2082: #sout-x264-opengop=0
+2083: 
+2084: # Enable compatibility hacks for Blu-ray support (boolean)
+2085: #sout-x264-bluray-compat=0
+2086: 
+2087: # Extra I-frames aggressivity (integer)
+2088: #sout-x264-scenecut=40
+2089: 
+2090: # B-frames between I and P (integer)
+2091: #sout-x264-bframes=3
+2092: 
+2093: # Adaptive B-frame decision (integer)
+2094: #sout-x264-b-adapt=1
+2095: 
+2096: # Influence (bias) B-frames usage (integer)
+2097: #sout-x264-b-bias=0
+2098: 
+2099: # Keep some B-frames as references (string)
+2100: #sout-x264-bpyramid=normal
+2101: 
+2102: # CABAC (boolean)
+2103: #sout-x264-cabac=1
+2104: 
+2105: # Use fullrange instead of TV colorrange (boolean)
+2106: #sout-x264-fullrange=0
+2107: 
+2108: # Number of reference frames (integer)
+2109: #sout-x264-ref=3
+2110: 
+2111: # Skip loop filter (boolean)
+2112: #sout-x264-nf=0
+2113: 
+2114: # Loop filter AlphaC0 and Beta parameters alpha:beta (string)
+2115: #sout-x264-deblock=0:0
+2116: 
+2117: # Strength of psychovisual optimization, default is "1.0:0.0" (string)
+2118: #sout-x264-psy-rd=1.0:0.0
+2119: 
+2120: # Use Psy-optimizations (boolean)
+2121: #sout-x264-psy=1
+2122: 
+2123: # H.264 level (string)
+2124: #sout-x264-level=0
+2125: 
+2126: # H.264 profile (string)
+2127: #sout-x264-profile=high
+2128: 
+2129: # Interlaced mode (boolean)
+2130: #sout-x264-interlaced=0
+2131: 
+2132: # Frame packing (integer)
+2133: #sout-x264-frame-packing=-1
+2134: 
+2135: # Force number of slices per frame (integer)
+2136: #sout-x264-slices=0
+2137: 
+2138: # Limit the size of each slice in bytes (integer)
+2139: #sout-x264-slice-max-size=0
+2140: 
+2141: # Limit the size of each slice in macroblocks (integer)
+2142: #sout-x264-slice-max-mbs=0
+2143: 
+2144: # HRD-timing information (string)
+2145: #sout-x264-hrd=none
+2146: 
+2147: # Set QP (integer)
+2148: #sout-x264-qp=-1
+2149: 
+2150: # Quality-based VBR (integer)
+2151: #sout-x264-crf=23
+2152: 
+2153: # Min QP (integer)
+2154: #sout-x264-qpmin=10
+2155: 
+2156: # Max QP (integer)
+2157: #sout-x264-qpmax=51
+2158: 
+2159: # Max QP step (integer)
+2160: #sout-x264-qpstep=4
+2161: 
+2162: # Average bitrate tolerance (float)
+2163: #sout-x264-ratetol=1.000000
+2164: 
+2165: # Max local bitrate (integer)
+2166: #sout-x264-vbv-maxrate=0
+2167: 
+2168: # VBV buffer (integer)
+2169: #sout-x264-vbv-bufsize=0
+2170: 
+2171: # Initial VBV buffer occupancy (float)
+2172: #sout-x264-vbv-init=0.900000
+2173: 
+2174: # QP factor between I and P (float)
+2175: #sout-x264-ipratio=1.400000
+2176: 
+2177: # QP factor between P and B (float)
+2178: #sout-x264-pbratio=1.300000
+2179: 
+2180: # QP difference between chroma and luma (integer)
+2181: #sout-x264-chroma-qp-offset=0
+2182: 
+2183: # Multipass ratecontrol (integer)
+2184: #sout-x264-pass=0
+2185: 
+2186: # QP curve compression (float)
+2187: #sout-x264-qcomp=0.600000
+2188: 
+2189: # Reduce fluctuations in QP (float)
+2190: #sout-x264-cplxblur=20.000000
+2191: 
+2192: # Reduce fluctuations in QP (float)
+2193: #sout-x264-qblur=0.500000
+2194: 
+2195: # How AQ distributes bits (integer)
+2196: #sout-x264-aq-mode=1
+2197: 
+2198: # Strength of AQ (float)
+2199: #sout-x264-aq-strength=1.000000
+2200: 
+2201: # Partitions to consider (string)
+2202: #sout-x264-partitions=normal
+2203: 
+2204: # Direct MV prediction mode (string)
+2205: #sout-x264-direct=spatial
+2206: 
+2207: # Direct prediction size (integer)
+2208: #sout-x264-direct-8x8=1
+2209: 
+2210: # Weighted prediction for B-frames (boolean)
+2211: #sout-x264-weightb=1
+2212: 
+2213: # Weighted prediction for P-frames (integer)
+2214: #sout-x264-weightp=2
+2215: 
+2216: # Integer pixel motion estimation method (string)
+2217: #sout-x264-me=hex
+2218: 
+2219: # Maximum motion vector search range (integer)
+2220: #sout-x264-merange=16
+2221: 
+2222: # Maximum motion vector length (integer)
+2223: #sout-x264-mvrange=-1
+2224: 
+2225: # Minimum buffer space between threads (integer)
+2226: #sout-x264-mvrange-thread=-1
+2227: 
+2228: # Subpixel motion estimation and partition decision quality (integer)
+2229: #sout-x264-subme=7
+2230: 
+2231: # Decide references on a per partition basis (boolean)
+2232: #sout-x264-mixed-refs=1
+2233: 
+2234: # Chroma in motion estimation (boolean)
+2235: #sout-x264-chroma-me=1
+2236: 
+2237: # Adaptive spatial transform size (boolean)
+2238: #sout-x264-8x8dct=1
+2239: 
+2240: # Trellis RD quantization (integer)
+2241: #sout-x264-trellis=1
+2242: 
+2243: # Framecount to use on frametype lookahead (integer)
+2244: #sout-x264-lookahead=40
+2245: 
+2246: # Use Periodic Intra Refresh (boolean)
+2247: #sout-x264-intra-refresh=0
+2248: 
+2249: # Use mb-tree ratecontrol (boolean)
+2250: #sout-x264-mbtree=1
+2251: 
+2252: # Early SKIP detection on P-frames (boolean)
+2253: #sout-x264-fast-pskip=1
+2254: 
+2255: # Coefficient thresholding on P-frames (boolean)
+2256: #sout-x264-dct-decimate=1
+2257: 
+2258: # Noise reduction (integer)
+2259: #sout-x264-nr=0
+2260: 
+2261: # Inter luma quantization deadzone (integer)
+2262: #sout-x264-deadzone-inter=21
+2263: 
+2264: # Intra luma quantization deadzone (integer)
+2265: #sout-x264-deadzone-intra=11
+2266: 
+2267: # Non-deterministic optimizations when threaded (boolean)
+2268: #sout-x264-non-deterministic=0
+2269: 
+2270: # CPU optimizations (boolean)
+2271: #sout-x264-asm=1
+2272: 
+2273: # PSNR computation (boolean)
+2274: #sout-x264-psnr=0
+2275: 
+2276: # SSIM computation (boolean)
+2277: #sout-x264-ssim=0
+2278: 
+2279: # Quiet mode (boolean)
+2280: #sout-x264-quiet=0
+2281: 
+2282: # SPS and PPS id numbers (integer)
+2283: #sout-x264-sps-id=0
+2284: 
+2285: # Access unit delimiters (boolean)
+2286: #sout-x264-aud=0
+2287: 
+2288: # Statistics (boolean)
+2289: #sout-x264-verbose=0
+2290: 
+2291: # Filename for 2 pass stats file (string)
+2292: #sout-x264-stats=x264_2pass.log
+2293: 
+2294: # Default preset setting used (string)
+2295: #sout-x264-preset=
+2296: 
+2297: # Default tune setting used (string)
+2298: #sout-x264-tune=
+2299: 
+2300: # x264 advanced options (string)
+2301: #sout-x264-options=
+2302: 
+2303: [x26410b] # H.264/MPEG-4 Part 10/AVC encoder (x264 10-bit)
+2304: 
+2305: # Maximum GOP size (integer)
+2306: #sout-x26410b-keyint=250
+2307: 
+2308: # Minimum GOP size (integer)
+2309: #sout-x26410b-min-keyint=25
+2310: 
+2311: # Use recovery points to close GOPs (boolean)
+2312: #sout-x26410b-opengop=0
+2313: 
+2314: # Enable compatibility hacks for Blu-ray support (boolean)
+2315: #sout-x26410b-bluray-compat=0
+2316: 
+2317: # Extra I-frames aggressivity (integer)
+2318: #sout-x26410b-scenecut=40
+2319: 
+2320: # B-frames between I and P (integer)
+2321: #sout-x26410b-bframes=3
+2322: 
+2323: # Adaptive B-frame decision (integer)
+2324: #sout-x26410b-b-adapt=1
+2325: 
+2326: # Influence (bias) B-frames usage (integer)
+2327: #sout-x26410b-b-bias=0
+2328: 
+2329: # Keep some B-frames as references (string)
+2330: #sout-x26410b-bpyramid=normal
+2331: 
+2332: # CABAC (boolean)
+2333: #sout-x26410b-cabac=1
+2334: 
+2335: # Use fullrange instead of TV colorrange (boolean)
+2336: #sout-x26410b-fullrange=0
+2337: 
+2338: # Number of reference frames (integer)
+2339: #sout-x26410b-ref=3
+2340: 
+2341: # Skip loop filter (boolean)
+2342: #sout-x26410b-nf=0
+2343: 
+2344: # Loop filter AlphaC0 and Beta parameters alpha:beta (string)
+2345: #sout-x26410b-deblock=0:0
+2346: 
+2347: # Strength of psychovisual optimization, default is "1.0:0.0" (string)
+2348: #sout-x26410b-psy-rd=1.0:0.0
+2349: 
+2350: # Use Psy-optimizations (boolean)
+2351: #sout-x26410b-psy=1
+2352: 
+2353: # H.264 level (string)
+2354: #sout-x26410b-level=0
+2355: 
+2356: # H.264 profile (string)
+2357: #sout-x26410b-profile=high
+2358: 
+2359: # Interlaced mode (boolean)
+2360: #sout-x26410b-interlaced=0
+2361: 
+2362: # Frame packing (integer)
+2363: #sout-x26410b-frame-packing=-1
+2364: 
+2365: # Force number of slices per frame (integer)
+2366: #sout-x26410b-slices=0
+2367: 
+2368: # Limit the size of each slice in bytes (integer)
+2369: #sout-x26410b-slice-max-size=0
+2370: 
+2371: # Limit the size of each slice in macroblocks (integer)
+2372: #sout-x26410b-slice-max-mbs=0
+2373: 
+2374: # HRD-timing information (string)
+2375: #sout-x26410b-hrd=none
+2376: 
+2377: # Set QP (integer)
+2378: #sout-x26410b-qp=-1
+2379: 
+2380: # Quality-based VBR (integer)
+2381: #sout-x26410b-crf=23
+2382: 
+2383: # Min QP (integer)
+2384: #sout-x26410b-qpmin=10
+2385: 
+2386: # Max QP (integer)
+2387: #sout-x26410b-qpmax=51
+2388: 
+2389: # Max QP step (integer)
+2390: #sout-x26410b-qpstep=4
+2391: 
+2392: # Average bitrate tolerance (float)
+2393: #sout-x26410b-ratetol=1.000000
+2394: 
+2395: # Max local bitrate (integer)
+2396: #sout-x26410b-vbv-maxrate=0
+2397: 
+2398: # VBV buffer (integer)
+2399: #sout-x26410b-vbv-bufsize=0
+2400: 
+2401: # Initial VBV buffer occupancy (float)
+2402: #sout-x26410b-vbv-init=0.900000
+2403: 
+2404: # QP factor between I and P (float)
+2405: #sout-x26410b-ipratio=1.400000
+2406: 
+2407: # QP factor between P and B (float)
+2408: #sout-x26410b-pbratio=1.300000
+2409: 
+2410: # QP difference between chroma and luma (integer)
+2411: #sout-x26410b-chroma-qp-offset=0
+2412: 
+2413: # Multipass ratecontrol (integer)
+2414: #sout-x26410b-pass=0
+2415: 
+2416: # QP curve compression (float)
+2417: #sout-x26410b-qcomp=0.600000
+2418: 
+2419: # Reduce fluctuations in QP (float)
+2420: #sout-x26410b-cplxblur=20.000000
+2421: 
+2422: # Reduce fluctuations in QP (float)
+2423: #sout-x26410b-qblur=0.500000
+2424: 
+2425: # How AQ distributes bits (integer)
+2426: #sout-x26410b-aq-mode=1
+2427: 
+2428: # Strength of AQ (float)
+2429: #sout-x26410b-aq-strength=1.000000
+2430: 
+2431: # Partitions to consider (string)
+2432: #sout-x26410b-partitions=normal
+2433: 
+2434: # Direct MV prediction mode (string)
+2435: #sout-x26410b-direct=spatial
+2436: 
+2437: # Direct prediction size (integer)
+2438: #sout-x26410b-direct-8x8=1
+2439: 
+2440: # Weighted prediction for B-frames (boolean)
+2441: #sout-x26410b-weightb=1
+2442: 
+2443: # Weighted prediction for P-frames (integer)
+2444: #sout-x26410b-weightp=2
+2445: 
+2446: # Integer pixel motion estimation method (string)
+2447: #sout-x26410b-me=hex
+2448: 
+2449: # Maximum motion vector search range (integer)
+2450: #sout-x26410b-merange=16
+2451: 
+2452: # Maximum motion vector length (integer)
+2453: #sout-x26410b-mvrange=-1
+2454: 
+2455: # Minimum buffer space between threads (integer)
+2456: #sout-x26410b-mvrange-thread=-1
+2457: 
+2458: # Subpixel motion estimation and partition decision quality (integer)
+2459: #sout-x26410b-subme=7
+2460: 
+2461: # Decide references on a per partition basis (boolean)
+2462: #sout-x26410b-mixed-refs=1
+2463: 
+2464: # Chroma in motion estimation (boolean)
+2465: #sout-x26410b-chroma-me=1
+2466: 
+2467: # Adaptive spatial transform size (boolean)
+2468: #sout-x26410b-8x8dct=1
+2469: 
+2470: # Trellis RD quantization (integer)
+2471: #sout-x26410b-trellis=1
+2472: 
+2473: # Framecount to use on frametype lookahead (integer)
+2474: #sout-x26410b-lookahead=40
+2475: 
+2476: # Use Periodic Intra Refresh (boolean)
+2477: #sout-x26410b-intra-refresh=0
+2478: 
+2479: # Use mb-tree ratecontrol (boolean)
+2480: #sout-x26410b-mbtree=1
+2481: 
+2482: # Early SKIP detection on P-frames (boolean)
+2483: #sout-x26410b-fast-pskip=1
+2484: 
+2485: # Coefficient thresholding on P-frames (boolean)
+2486: #sout-x26410b-dct-decimate=1
+2487: 
+2488: # Noise reduction (integer)
+2489: #sout-x26410b-nr=0
+2490: 
+2491: # Inter luma quantization deadzone (integer)
+2492: #sout-x26410b-deadzone-inter=21
+2493: 
+2494: # Intra luma quantization deadzone (integer)
+2495: #sout-x26410b-deadzone-intra=11
+2496: 
+2497: # Non-deterministic optimizations when threaded (boolean)
+2498: #sout-x26410b-non-deterministic=0
+2499: 
+2500: # CPU optimizations (boolean)
+2501: #sout-x26410b-asm=1
+2502: 
+2503: # PSNR computation (boolean)
+2504: #sout-x26410b-psnr=0
+2505: 
+2506: # SSIM computation (boolean)
+2507: #sout-x26410b-ssim=0
+2508: 
+2509: # Quiet mode (boolean)
+2510: #sout-x26410b-quiet=0
+2511: 
+2512: # SPS and PPS id numbers (integer)
+2513: #sout-x26410b-sps-id=0
+2514: 
+2515: # Access unit delimiters (boolean)
+2516: #sout-x26410b-aud=0
+2517: 
+2518: # Statistics (boolean)
+2519: #sout-x26410b-verbose=0
+2520: 
+2521: # Filename for 2 pass stats file (string)
+2522: #sout-x26410b-stats=x264_2pass.log
+2523: 
+2524: # Default preset setting used (string)
+2525: #sout-x26410b-preset=
+2526: 
+2527: # Default tune setting used (string)
+2528: #sout-x26410b-tune=
+2529: 
+2530: # x264 advanced options (string)
+2531: #sout-x26410b-options=
+2532: 
+2533: [vpx] # WebM video decoder
+2534: 
+2535: # Quality mode (integer)
+2536: #sout-vpx-quality-mode=1000000
+2537: 
+2538: [vorbis] # Vorbis audio decoder
+2539: 
+2540: # Encoding quality (integer)
+2541: #sout-vorbis-quality=0
+2542: 
+2543: # Maximum encoding bitrate (integer)
+2544: #sout-vorbis-max-bitrate=0
+2545: 
+2546: # Minimum encoding bitrate (integer)
+2547: #sout-vorbis-min-bitrate=0
+2548: 
+2549: # CBR encoding (boolean)
+2550: #sout-vorbis-cbr=0
+2551: 
+2552: [twolame] # Libtwolame audio encoder
+2553: 
+2554: # Encoding quality (float)
+2555: #sout-twolame-quality=0.000000
+2556: 
+2557: # Stereo mode (integer)
+2558: #sout-twolame-mode=0
+2559: 
+2560: # VBR mode (boolean)
+2561: #sout-twolame-vbr=0
+2562: 
+2563: # Psycho-acoustic model (integer)
+2564: #sout-twolame-psy=3
+2565: 
+2566: [ttml] # TTML subtitles decoder
+2567: 
+2568: # Subtitle justification (integer)
+2569: #ttml-align=0
+2570: 
+2571: [theora] # Theora video decoder
+2572: 
+2573: # Post processing quality (integer)
+2574: #theora-postproc=-1
+2575: 
+2576: # Encoding quality (integer)
+2577: #sout-theora-quality=2
+2578: 
+2579: [svcdsub] # Philips OGT (SVCD subtitle) decoder
+2580: 
+2581: [subsusf] # USF subtitles decoder
+2582: 
+2583: # Formatted Subtitles (boolean)
+2584: #subsdec-formatted=1
+2585: 
+2586: [subsdec] # Text subtitle decoder
+2587: 
+2588: # Subtitle justification (integer)
+2589: #subsdec-align=-1
+2590: 
+2591: # Subtitle text encoding (string)
+2592: #subsdec-encoding=
+2593: 
+2594: # UTF-8 subtitle autodetection (boolean)
+2595: #subsdec-autodetect-utf8=1
+2596: 
+2597: [spudec] # DVD subtitles decoder
+2598: 
+2599: # Disable DVD subtitle transparency (boolean)
+2600: #dvdsub-transparency=0
+2601: 
+2602: [speex] # Speex audio decoder
+2603: 
+2604: # Mode (integer)
+2605: #sout-speex-mode=0
+2606: 
+2607: # Encoding complexity (integer)
+2608: #sout-speex-complexity=3
+2609: 
+2610: # CBR encoding (boolean)
+2611: #sout-speex-cbr=0
+2612: 
+2613: # Encoding quality (float)
+2614: #sout-speex-quality=8.000000
+2615: 
+2616: # Maximal bitrate (integer)
+2617: #sout-speex-max-bitrate=0
+2618: 
+2619: # Voice activity detection (boolean)
+2620: #sout-speex-vad=1
+2621: 
+2622: # Discontinuous Transmission (boolean)
+2623: #sout-speex-dtx=0
+2624: 
+2625: [schroedinger] # Dirac video decoder using libschroedinger
+2626: 
+2627: # Rate control method (string)
+2628: #sout-schro-rate-control=
+2629: 
+2630: # Constant quality factor (float)
+2631: #sout-schro-quality=-1.000000
+2632: 
+2633: # Noise Threshold (float)
+2634: #sout-schro-noise-threshold=-1.000000
+2635: 
+2636: # CBR bitrate (kbps) (integer)
+2637: #sout-schro-bitrate=-1
+2638: 
+2639: # Maximum bitrate (kbps) (integer)
+2640: #sout-schro-max-bitrate=-1
+2641: 
+2642: # Minimum bitrate (kbps) (integer)
+2643: #sout-schro-min-bitrate=-1
+2644: 
+2645: # GOP structure (string)
+2646: #sout-schro-gop-structure=
+2647: 
+2648: # GOP length (integer)
+2649: #sout-schro-gop-length=-1
+2650: 
+2651: # Chroma format (string)
+2652: #sout-schro-chroma-fmt=420
+2653: 
+2654: # Picture coding mode (string)
+2655: #sout-schro-coding-mode=auto
+2656: 
+2657: # Motion Vector precision (string)
+2658: #sout-schro-mv-precision=
+2659: 
+2660: # Size of motion compensation blocks (string)
+2661: #sout-schro-motion-block-size=
+2662: 
+2663: # Overlap of motion compensation blocks (string)
+2664: #sout-schro-motion-block-overlap=
+2665: 
+2666: # Three component motion estimation (integer)
+2667: #sout-schro-me-combined=-1
+2668: 
+2669: # Enable hierarchical Motion Estimation (integer)
+2670: #sout-schro-enable-hierarchical-me=-1
+2671: 
+2672: # Number of levels of downsampling (integer)
+2673: #sout-schro-downsample-levels=-1
+2674: 
+2675: # Enable Global Motion Estimation (integer)
+2676: #sout-schro-enable-global-me=-1
+2677: 
+2678: # Enable Phase Correlation Estimation (integer)
+2679: #sout-schro-enable-phasecorr-me=-1
+2680: 
+2681: # Intra picture DWT filter (string)
+2682: #sout-schro-intra-wavelet=
+2683: 
+2684: # Inter picture DWT filter (string)
+2685: #sout-schro-inter-wavelet=
+2686: 
+2687: # Number of DWT iterations (integer)
+2688: #sout-schro-transform-depth=-1
+2689: 
+2690: # Enable multiple quantizers (integer)
+2691: #sout-schro-enable-multiquant=-1
+2692: 
+2693: # Size of code blocks in each subband (string)
+2694: #sout-schro-codeblock-size=
+2695: 
+2696: # Prefilter (string)
+2697: #sout-schro-filtering=
+2698: 
+2699: # Amount of prefiltering (float)
+2700: #sout-schro-filter-value=-1.000000
+2701: 
+2702: # Enable Scene Change Detection (integer)
+2703: #sout-schro-enable-scd=-1
+2704: 
+2705: # perceptual weighting method (string)
+2706: #sout-schro-perceptual-weighting=
+2707: 
+2708: # perceptual distance (float)
+2709: #sout-schro-perceptual-distance=-1.000000
+2710: 
+2711: # Disable arithmetic coding (integer)
+2712: #sout-schro-enable-noarith=-1
+2713: 
+2714: # Horizontal slices per frame (integer)
+2715: #sout-schro-horiz-slices=-1
+2716: 
+2717: # Vertical slices per frame (integer)
+2718: #sout-schro-vert-slices=-1
+2719: 
+2720: # Force Profile (string)
+2721: #sout-schro-force-profile=
+2722: 
+2723: [qsv] # Intel QuickSync Video encoder for MPEG4-Part10/MPEG2 (aka H.264/H.262)
+2724: 
+2725: # Enable software mode (boolean)
+2726: #sout-qsv-software=0
+2727: 
+2728: # Codec Profile (string)
+2729: #sout-qsv-h264-profile=unspecified
+2730: 
+2731: # Codec Level (string)
+2732: #sout-qsv-h264-level=unspecified
+2733: 
+2734: # Codec Profile (string)
+2735: #sout-qsv-mpeg2-profile=unspecified
+2736: 
+2737: # Codec Level (string)
+2738: #sout-qsv-mpeg2-level=unspecified
+2739: 
+2740: # Group of Picture size (integer)
+2741: #sout-qsv-gop-size=32
+2742: 
+2743: # Group of Picture Reference Distance (integer)
+2744: #sout-qsv-gop-refdist=4
+2745: 
+2746: # IDR interval (integer)
+2747: #sout-qsv-idr-interval=0
+2748: 
+2749: # Target Usage (string)
+2750: #sout-qsv-target-usage=quality
+2751: 
+2752: # Rate Control Method (string)
+2753: #sout-qsv-rc-method=vbr
+2754: 
+2755: # Quantization parameter (integer)
+2756: #sout-qsv-qp=0
+2757: 
+2758: # Quantization parameter for I-frames (integer)
+2759: #sout-qsv-qpi=0
+2760: 
+2761: # Quantization parameter for P-frames (integer)
+2762: #sout-qsv-qpp=0
+2763: 
+2764: # Quantization parameter for B-frames (integer)
+2765: #sout-qsv-qpb=0
+2766: 
+2767: # Maximum Bitrate (integer)
+2768: #sout-qsv-bitrate-max=0
+2769: 
+2770: # Accuracy of RateControl (integer)
+2771: #sout-qsv-accuracy=0
+2772: 
+2773: # Convergence time of 'avbr' RateControl (integer)
+2774: #sout-qsv-convergence=0
+2775: 
+2776: # Number of slices per frame (integer)
+2777: #sout-qsv-num-slice=0
+2778: 
+2779: # Number of reference frames (integer)
+2780: #sout-qsv-num-ref-frame=0
+2781: 
+2782: # Number of parallel operations (integer)
+2783: #sout-qsv-async-depth=4
+2784: 
+2785: [libass] # Subtitle renderers using libass
+2786: 
+2787: # Additional fonts directory (string)
+2788: #ssa-fontsdir=
+2789: 
+2790: [kate] # Kate overlay decoder
+2791: 
+2792: # Formatted Subtitles (boolean)
+2793: #kate-formatted=1
+2794: 
+2795: [jpeg] # JPEG image decoder
+2796: 
+2797: # Quality level (integer)
+2798: #sout-jpeg-quality=95
+2799: 
+2800: [fluidsynth] # FluidSynth MIDI synthesizer
+2801: 
+2802: # SoundFont file (string)
+2803: #soundfont=
+2804: 
+2805: # Chorus (boolean)
+2806: #synth-chorus=1
+2807: 
+2808: # Synthesis gain (float)
+2809: #synth-gain=0.500000
+2810: 
+2811: # Polyphony (integer)
+2812: #synth-polyphony=256
+2813: 
+2814: # Reverb (boolean)
+2815: #synth-reverb=1
+2816: 
+2817: # Sample rate (integer)
+2818: #synth-sample-rate=44100
+2819: 
+2820: [dvbsub] # DVB subtitles decoder
+2821: 
+2822: # Subpicture position (integer)
+2823: #dvbsub-position=8
+2824: 
+2825: # Decoding X coordinate (integer)
+2826: #dvbsub-x=-1
+2827: 
+2828: # Decoding Y coordinate (integer)
+2829: #dvbsub-y=-1
+2830: 
+2831: # Encoding X coordinate (integer)
+2832: #sout-dvbsub-x=-1
+2833: 
+2834: # Encoding Y coordinate (integer)
+2835: #sout-dvbsub-y=-1
+2836: 
+2837: [ddummy] # Dummy decoder
+2838: 
+2839: # Save raw codec data (boolean)
+2840: #dummy-save-es=0
+2841: 
+2842: [dav1d] # Dav1d video decoder
+2843: 
+2844: # Frames Threads (integer)
+2845: #dav1d-thread-frames=0
+2846: 
+2847: # All Layers (boolean)
+2848: #dav1d-all-layers=0
+2849: 
+2850: [cc] # Closed Captions decoder
+2851: 
+2852: # Opacity (boolean)
+2853: #cc-opaque=1
+2854: 
+2855: [avcodec] # FFmpeg audio/video decoder
+2856: 
+2857: # Direct rendering (boolean)
+2858: #avcodec-dr=1
+2859: 
+2860: # Show corrupted frames (boolean)
+2861: #avcodec-corrupted=1
+2862: 
+2863: # Error resilience (integer)
+2864: #avcodec-error-resilience=1
+2865: 
+2866: # Workaround bugs (integer)
+2867: #avcodec-workaround-bugs=1
+2868: 
+2869: # Hurry up (boolean)
+2870: #avcodec-hurry-up=1
+2871: 
+2872: # Skip frame (default=0) (integer)
+2873: #avcodec-skip-frame=0
+2874: 
+2875: # Skip idct (default=0) (integer)
+2876: #avcodec-skip-idct=0
+2877: 
+2878: # Allow speed tricks (boolean)
+2879: #avcodec-fast=0
+2880: 
+2881: # Skip the loop filter for H.264 decoding (integer)
+2882: #avcodec-skiploopfilter=0
+2883: 
+2884: # Debug mask (integer)
+2885: #avcodec-debug=0
+2886: 
+2887: # Codec name (string)
+2888: #avcodec-codec=
+2889: 
+2890: # Hardware decoding (string)
+2891: #avcodec-hw=any
+2892: 
+2893: # Threads (integer)
+2894: #avcodec-threads=0
+2895: 
+2896: # Advanced options (string)
+2897: #avcodec-options=
+2898: 
+2899: # Codec name (string)
+2900: #sout-avcodec-codec=
+2901: 
+2902: # Quality level (string)
+2903: #sout-avcodec-hq=rd
+2904: 
+2905: # Ratio of key frames (integer)
+2906: #sout-avcodec-keyint=0
+2907: 
+2908: # Ratio of B frames (integer)
+2909: #sout-avcodec-bframes=0
+2910: 
+2911: # Hurry up (boolean)
+2912: #sout-avcodec-hurry-up=0
+2913: 
+2914: # Interlaced encoding (boolean)
+2915: #sout-avcodec-interlace=0
+2916: 
+2917: # Interlaced motion estimation (boolean)
+2918: #sout-avcodec-interlace-me=1
+2919: 
+2920: # Video bitrate tolerance (integer)
+2921: #sout-avcodec-vt=0
+2922: 
+2923: # Pre-motion estimation (boolean)
+2924: #sout-avcodec-pre-me=0
+2925: 
+2926: # Rate control buffer size (integer)
+2927: #sout-avcodec-rc-buffer-size=0
+2928: 
+2929: # Rate control buffer aggressiveness (float)
+2930: #sout-avcodec-rc-buffer-aggressivity=1.000000
+2931: 
+2932: # I quantization factor (float)
+2933: #sout-avcodec-i-quant-factor=0.000000
+2934: 
+2935: # Noise reduction (integer)
+2936: #sout-avcodec-noise-reduction=0
+2937: 
+2938: # MPEG4 quantization matrix (boolean)
+2939: #sout-avcodec-mpeg4-matrix=0
+2940: 
+2941: # Minimum video quantizer scale (integer)
+2942: #sout-avcodec-qmin=0
+2943: 
+2944: # Maximum video quantizer scale (integer)
+2945: #sout-avcodec-qmax=0
+2946: 
+2947: # Trellis quantization (boolean)
+2948: #sout-avcodec-trellis=0
+2949: 
+2950: # Fixed quantizer scale (float)
+2951: #sout-avcodec-qscale=3.000000
+2952: 
+2953: # Strict standard compliance (integer)
+2954: #sout-avcodec-strict=0
+2955: 
+2956: # Luminance masking (float)
+2957: #sout-avcodec-lumi-masking=0.000000
+2958: 
+2959: # Darkness masking (float)
+2960: #sout-avcodec-dark-masking=0.000000
+2961: 
+2962: # Motion masking (float)
+2963: #sout-avcodec-p-masking=0.000000
+2964: 
+2965: # Border masking (float)
+2966: #sout-avcodec-border-masking=0.000000
+2967: 
+2968: # Luminance elimination (integer)
+2969: #sout-avcodec-luma-elim-threshold=0
+2970: 
+2971: # Chrominance elimination (integer)
+2972: #sout-avcodec-chroma-elim-threshold=0
+2973: 
+2974: # Specify AAC audio profile to use (string)
+2975: #sout-avcodec-aac-profile=low
+2976: 
+2977: # Advanced options (string)
+2978: #sout-avcodec-options=
+2979: 
+2980: # Format name (string)
+2981: #avformat-format=
+2982: 
+2983: # Advanced options (string)
+2984: #avformat-options=
+2985: 
+2986: # Avformat mux (string)
+2987: #sout-avformat-mux=
+2988: 
+2989: # Advanced options (string)
+2990: #sout-avformat-options=
+2991: 
+2992: # Reset timestamps (boolean)
+2993: #sout-avformat-reset-ts=1
+2994: 
+2995: # Advanced options (string)
+2996: #avio-options=
+2997: 
+2998: # Advanced options (string)
+2999: #sout-avio-options=
+3000: 
+3001: [aribsub] # ARIB subtitles decoder
+3002: 
+3003: # Ignore ruby (furigana) (boolean)
+3004: #aribsub-ignore-ruby=0
+3005: 
+3006: # Use Core Text renderer (boolean)
+3007: #aribsub-use-coretext=0
+3008: 
+3009: [waveout] # WaveOut audio output
+3010: 
+3011: # Select Audio Device (string)
+3012: #waveout-audio-device=wavemapper
+3013: 
+3014: # Audio volume (float)
+3015: #waveout-volume=1.000000
+3016: 
+3017: # Use float32 output (boolean)
+3018: #waveout-float32=1
+3019: 
+3020: # Audio output channels (integer)
+3021: #waveout-audio-channels=9
+3022: 
+3023: [mmdevice] # Windows Multimedia Device output
+3024: 
+3025: # Output back-end (string)
+3026: #mmdevice-backend=any
+3027: 
+3028: # HDMI/SPDIF audio passthrough (integer)
+3029: #mmdevice-passthrough=0
+3030: 
+3031: # Output device (string)
+3032: #mmdevice-audio-device=
+3033: 
+3034: # Audio volume (float)
+3035: #mmdevice-volume=1.000000
+3036: 
+3037: [directsound] # DirectX audio output
+3038: 
+3039: # Output device (string)
+3040: #directx-audio-device=
+3041: 
+3042: # Use float32 output (boolean)
+3043: #directx-audio-float32=1
+3044: 
+3045: # Speaker configuration (string)
+3046: #directx-audio-speaker=Windows default
+3047: 
+3048: # Audio volume (float)
+3049: #directx-volume=1.000000
+3050: 
+3051: [amem] # Audio memory output
+3052: 
+3053: # Sample format (string)
+3054: #amem-format=S16N
+3055: 
+3056: # Sample rate (integer)
+3057: #amem-rate=44100
+3058: 
+3059: # Channels count (integer)
+3060: #amem-channels=2
+3061: 
+3062: [afile] # File audio output
+3063: 
+3064: # Output file (string)
+3065: #audiofile-file=audiofile.wav
+3066: 
+3067: # Output format (string)
+3068: #audiofile-format=s16
+3069: 
+3070: # Number of output channels (integer)
+3071: #audiofile-channels=0
+3072: 
+3073: # Add WAVE header (boolean)
+3074: #audiofile-wav=1
+3075: 
+3076: [stereo_widen] # Simple stereo widening effect
+3077: 
+3078: # Delay time (float)
+3079: #stereowiden-delay=20.000000
+3080: 
+3081: # Feedback gain (float)
+3082: #stereowiden-feedback=0.300000
+3083: 
+3084: # Crossfeed (float)
+3085: #stereowiden-crossfeed=0.300000
+3086: 
+3087: # Dry mix (float)
+3088: #stereowiden-dry-mix=0.800000
+3089: 
+3090: [speex_resampler] # Speex resampler
+3091: 
+3092: # Resampling quality (integer)
+3093: #speex-resampler-quality=4
+3094: 
+3095: [spatializer] # Audio Spatializer
+3096: 
+3097: # Room size (float)
+3098: #spatializer-roomsize=0.850000
+3099: 
+3100: # Room width (float)
+3101: #spatializer-width=1.000000
+3102: 
+3103: # Wet (float)
+3104: #spatializer-wet=0.400000
+3105: 
+3106: # Dry (float)
+3107: #spatializer-dry=0.500000
+3108: 
+3109: # Damp (float)
+3110: #spatializer-damp=0.500000
+3111: 
+3112: [spatialaudio] # Ambisonics renderer and binauralizer
+3113: 
+3114: # Headphones mode (binaural) (boolean)
+3115: #spatialaudio-headphones=0
+3116: 
+3117: # HRTF file for the binauralization (string)
+3118: #hrtf-file=
+3119: 
+3120: [scaletempo] # Audio tempo scaler synched with rate
+3121: 
+3122: # Stride Length (integer)
+3123: #scaletempo-stride=30
+3124: 
+3125: # Overlap Length (float)
+3126: #scaletempo-overlap=0.200000
+3127: 
+3128: # Search Length (integer)
+3129: #scaletempo-search=14
+3130: 
+3131: [scaletempo_pitch] # Pitch Shifter
+3132: 
+3133: # Stride Length (integer)
+3134: #scaletempo-stride=30
+3135: 
+3136: # Overlap Length (float)
+3137: #scaletempo-overlap=0.200000
+3138: 
+3139: # Search Length (integer)
+3140: #scaletempo-search=14
+3141: 
+3142: # Pitch Shift (float)
+3143: #pitch-shift=0.000000
+3144: 
+3145: [samplerate] # Secret Rabbit Code (libsamplerate) resampler
+3146: 
+3147: # Sample rate converter type (integer)
+3148: #src-converter-type=2
+3149: 
+3150: [remap] # Audio channel remapper
+3151: 
+3152: # Left (integer)
+3153: #aout-remap-channel-left=0
+3154: 
+3155: # Center (integer)
+3156: #aout-remap-channel-center=1
+3157: 
+3158: # Right (integer)
+3159: #aout-remap-channel-right=2
+3160: 
+3161: # Rear left (integer)
+3162: #aout-remap-channel-rearleft=3
+3163: 
+3164: # Rear center (integer)
+3165: #aout-remap-channel-rearcenter=4
+3166: 
+3167: # Rear right (integer)
+3168: #aout-remap-channel-rearright=5
+3169: 
+3170: # Side left (integer)
+3171: #aout-remap-channel-middleleft=6
+3172: 
+3173: # Side right (integer)
+3174: #aout-remap-channel-middleright=7
+3175: 
+3176: # Low-frequency effects (integer)
+3177: #aout-remap-channel-lfe=8
+3178: 
+3179: # Normalize channels (boolean)
+3180: #aout-remap-normalize=1
+3181: 
+3182: [param_eq] # Parametric Equalizer
+3183: 
+3184: # Low freq (Hz) (float)
+3185: #param-eq-lowf=100.000000
+3186: 
+3187: # Low freq gain (dB) (float)
+3188: #param-eq-lowgain=0.000000
+3189: 
+3190: # High freq (Hz) (float)
+3191: #param-eq-highf=10000.000000
+3192: 
+3193: # High freq gain (dB) (float)
+3194: #param-eq-highgain=0.000000
+3195: 
+3196: # Freq 1 (Hz) (float)
+3197: #param-eq-f1=300.000000
+3198: 
+3199: # Freq 1 gain (dB) (float)
+3200: #param-eq-gain1=0.000000
+3201: 
+3202: # Freq 1 Q (float)
+3203: #param-eq-q1=3.000000
+3204: 
+3205: # Freq 2 (Hz) (float)
+3206: #param-eq-f2=1000.000000
+3207: 
+3208: # Freq 2 gain (dB) (float)
+3209: #param-eq-gain2=0.000000
+3210: 
+3211: # Freq 2 Q (float)
+3212: #param-eq-q2=3.000000
+3213: 
+3214: # Freq 3 (Hz) (float)
+3215: #param-eq-f3=3000.000000
+3216: 
+3217: # Freq 3 gain (dB) (float)
+3218: #param-eq-gain3=0.000000
+3219: 
+3220: # Freq 3 Q (float)
+3221: #param-eq-q3=3.000000
+3222: 
+3223: [normvol] # Volume normalizer
+3224: 
+3225: # Number of audio buffers (integer)
+3226: #norm-buff-size=20
+3227: 
+3228: # Maximal volume level (float)
+3229: #norm-max-level=2.000000
+3230: 
+3231: [mono] # Stereo to mono downmixer
+3232: 
+3233: # Use downmix algorithm (boolean)
+3234: #sout-mono-downmix=1
+3235: 
+3236: # Select channel to keep (integer)
+3237: #sout-mono-channel=-1
+3238: 
+3239: [headphone] # Headphone virtual spatialization effect
+3240: 
+3241: # Characteristic dimension (integer)
+3242: #headphone-dim=10
+3243: 
+3244: # Compensate delay (boolean)
+3245: #headphone-compensate=0
+3246: 
+3247: # No decoding of Dolby Surround (boolean)
+3248: #headphone-dolby=0
+3249: 
+3250: [gain] # Gain control filter
+3251: 
+3252: # Gain multiplier (float)
+3253: #gain-value=1.000000
+3254: 
+3255: [equalizer] # Equalizer with 10 bands
+3256: 
+3257: # Equalizer preset (string)
+3258: equalizer-preset=live
+3259: 
+3260: # Bands gain (string)
+3261: equalizer-bands=-4.8 0.0000000 3.9 5.5 5.5 5.5 3.9 2.4 2.4 2.4
+3262: 
+3263: # Two pass (boolean)
+3264: #equalizer-2pass=0
+3265: 
+3266: # Use VLC frequency bands (boolean)
+3267: #equalizer-vlcfreqs=1
+3268: 
+3269: # Global gain (float)
+3270: equalizer-preamp=6.900000
+3271: 
+3272: [compressor] # Dynamic range compressor
+3273: 
+3274: # RMS/peak (float)
+3275: #compressor-rms-peak=0.200000
+3276: 
+3277: # Attack time (float)
+3278: #compressor-attack=25.000000
+3279: 
+3280: # Release time (float)
+3281: #compressor-release=100.000000
+3282: 
+3283: # Threshold level (float)
+3284: #compressor-threshold=-11.000000
+3285: 
+3286: # Ratio (float)
+3287: #compressor-ratio=4.000000
+3288: 
+3289: # Knee radius (float)
+3290: #compressor-knee=5.000000
+3291: 
+3292: # Makeup gain (float)
+3293: #compressor-makeup-gain=7.000000
+3294: 
+3295: [chorus_flanger] # Sound Delay
+3296: 
+3297: # Delay time (float)
+3298: #delay-time=20.000000
+3299: 
+3300: # Sweep Depth (float)
+3301: #sweep-depth=6.000000
+3302: 
+3303: # Sweep Rate (float)
+3304: #sweep-rate=6.000000
+3305: 
+3306: # Feedback gain (float)
+3307: #feedback-gain=0.500000
+3308: 
+3309: # Wet mix (float)
+3310: #wet-mix=0.400000
+3311: 
+3312: # Dry Mix (float)
+3313: #dry-mix=0.400000
+3314: 
+3315: [audiobargraph_a] # Audio part of the BarGraph function
+3316: 
+3317: # Defines if BarGraph information should be sent (integer)
+3318: #audiobargraph_a-bargraph=1
+3319: 
+3320: # Sends the barGraph information every n audio packets (integer)
+3321: #audiobargraph_a-bargraph_repetition=4
+3322: 
+3323: # Defines if silence alarm information should be sent (integer)
+3324: #audiobargraph_a-silence=1
+3325: 
+3326: # Time window to use in ms (integer)
+3327: #audiobargraph_a-time_window=5000
+3328: 
+3329: # Minimum Audio level to raise the alarm (float)
+3330: #audiobargraph_a-alarm_threshold=0.020000
+3331: 
+3332: # Time between two alarm messages in ms (integer)
+3333: #audiobargraph_a-repetition_time=2000
+3334: 
+3335: [udp] # UDP stream output
+3336: 
+3337: # Caching value (ms) (integer)
+3338: #sout-udp-caching=300
+3339: 
+3340: # Group packets (integer)
+3341: #sout-udp-group=1
+3342: 
+3343: [access_output_srt] # SRT stream output
+3344: 
+3345: # Return poll wait after timeout milliseconds (-1 = infinite) (integer)
+3346: #poll-timeout=-1
+3347: 
+3348: # SRT latency (ms) (integer)
+3349: #latency=120
+3350: 
+3351: # Password for stream encryption (string)
+3352: #passphrase=
+3353: 
+3354: # SRT maximum payload size (bytes) (integer)
+3355: #payload-size=1316
+3356: 
+3357: # SRT maximum bandwidth ceiling (bytes) (integer)
+3358: #bandwidth-overhead-limit=25
+3359: 
+3360: # Crypto key length in bytes (integer)
+3361: #key-length=16
+3362: 
+3363: #  SRT Stream ID (string)
+3364: #streamid=
+3365: 
+3366: [access_output_shout] # IceCAST output
+3367: 
+3368: # Stream name (string)
+3369: #sout-shout-name=VLC media player - Live stream
+3370: 
+3371: # Stream description (string)
+3372: #sout-shout-description=Live stream from VLC media player
+3373: 
+3374: # Stream MP3 (boolean)
+3375: #sout-shout-mp3=0
+3376: 
+3377: # Genre description (string)
+3378: #sout-shout-genre=Alternative
+3379: 
+3380: # URL description (string)
+3381: #sout-shout-url=http://www.videolan.org/vlc
+3382: 
+3383: # Bitrate (string)
+3384: #sout-shout-bitrate=
+3385: 
+3386: # Samplerate (string)
+3387: #sout-shout-samplerate=
+3388: 
+3389: # Number of channels (string)
+3390: #sout-shout-channels=
+3391: 
+3392: # Ogg Vorbis Quality (string)
+3393: #sout-shout-quality=
+3394: 
+3395: # Stream public (boolean)
+3396: #sout-shout-public=0
+3397: 
+3398: [access_output_rist] # RIST stream output
+3399: 
+3400: # RIST target packet size (bytes) (integer)
+3401: #sout-rist-packet-size=1328
+3402: 
+3403: # RIST data output caching size (ms) (integer)
+3404: #sout-rist-caching=50
+3405: 
+3406: # RIST retry-buffer queue size (ms) (integer)
+3407: #sout-rist-buffer-size=0
+3408: 
+3409: # SSRC used in RTP output (default is random, i.e. 0) (integer)
+3410: #sout-rist-ssrc=0
+3411: 
+3412: # Stream name (string)
+3413: #sout-rist-stream-name=
+3414: 
+3415: [access_output_livehttp] # HTTP Live streaming output
+3416: 
+3417: # Segment length (integer)
+3418: #sout-livehttp-seglen=10
+3419: 
+3420: # Number of segments (integer)
+3421: #sout-livehttp-numsegs=0
+3422: 
+3423: # Number of first segment (integer)
+3424: #sout-livehttp-initial-segment-number=1
+3425: 
+3426: # Split segments anywhere (boolean)
+3427: #sout-livehttp-splitanywhere=0
+3428: 
+3429: # Delete segments (boolean)
+3430: #sout-livehttp-delsegs=1
+3431: 
+3432: # Use muxers rate control mechanism (boolean)
+3433: #sout-livehttp-ratecontrol=0
+3434: 
+3435: # Allow cache (boolean)
+3436: #sout-livehttp-caching=0
+3437: 
+3438: # Use randomized IV for encryption (boolean)
+3439: #sout-livehttp-generate-iv=0
+3440: 
+3441: # Index file (string)
+3442: #sout-livehttp-index=
+3443: 
+3444: # Full URL to put in index file (string)
+3445: #sout-livehttp-index-url=
+3446: 
+3447: # AES key URI to place in playlist (string)
+3448: #sout-livehttp-key-uri=
+3449: 
+3450: # AES key file (string)
+3451: #sout-livehttp-key-file=
+3452: 
+3453: # File where vlc reads key-uri and keyfile-location (string)
+3454: #sout-livehttp-key-loadfile=
+3455: 
+3456: [http] # HTTP stream output
+3457: 
+3458: # Username (string)
+3459: #sout-http-user=
+3460: 
+3461: # Password (string)
+3462: #sout-http-pwd=
+3463: 
+3464: # Mime (string)
+3465: #sout-http-mime=
+3466: 
+3467: # Metacube (boolean)
+3468: #sout-http-metacube=0
+3469: 
+3470: [file] # File stream output
+3471: 
+3472: # Overwrite existing file (boolean)
+3473: #sout-file-overwrite=1
+3474: 
+3475: # Append to file (boolean)
+3476: #sout-file-append=0
+3477: 
+3478: # Format time and date (boolean)
+3479: #sout-file-format=0
+3480: 
+3481: [vnc] # VNC client access
+3482: 
+3483: # Username (string)
+3484: #rfb-user=
+3485: 
+3486: # Password (string)
+3487: #rfb-password=
+3488: 
+3489: # X.509 Certificate Authority (string)
+3490: #rfb-x509-ca=
+3491: 
+3492: # X.509 Certificate Revocation List (string)
+3493: #rfb-x509-crl=
+3494: 
+3495: # X.509 Client certificate (string)
+3496: #rfb-x509-client-cert=
+3497: 
+3498: # X.509 Client private key (string)
+3499: #rfb-x509-client-key=
+3500: 
+3501: # Frame rate (float)
+3502: #rfb-fps=5.000000
+3503: 
+3504: # Frame buffer depth (string)
+3505: #rfb-chroma=RV32
+3506: 
+3507: # Compression level (integer)
+3508: #rfb-compress-level=0
+3509: 
+3510: # Image quality (integer)
+3511: #rfb-quality-level=9
+3512: 
+3513: [vdr] # VDR recordings
+3514: 
+3515: # Chapter offset in ms (integer)
+3516: #vdr-chapter-offset=0
+3517: 
+3518: # Frame rate (float)
+3519: #vdr-fps=25.000000
+3520: 
+3521: [udp] # UDP input
+3522: 
+3523: # UDP Source timeout (sec) (integer)
+3524: #udp-timeout=-1
+3525: 
+3526: [timecode] # Time code subpicture elementary stream generator
+3527: 
+3528: # Frame rate (string)
+3529: #timecode-fps=25/1
+3530: 
+3531: [smb] # SMB input
+3532: 
+3533: # Username (string)
+3534: #smb-user=
+3535: 
+3536: # Password (string)
+3537: #smb-pwd=
+3538: 
+3539: # SMB domain (string)
+3540: #smb-domain=
+3541: 
+3542: [shm] # Shared memory framebuffer
+3543: 
+3544: # Frame rate (float)
+3545: #shm-fps=10.000000
+3546: 
+3547: # Frame buffer depth (integer)
+3548: #shm-depth=0
+3549: 
+3550: # Frame buffer width (integer)
+3551: #shm-width=800
+3552: 
+3553: # Frame buffer height (integer)
+3554: #shm-height=480
+3555: 
+3556: [sftp] # SFTP input
+3557: 
+3558: # SFTP port (integer)
+3559: #sftp-port=22
+3560: 
+3561: # Username (string)
+3562: #sftp-user=
+3563: 
+3564: # Password (string)
+3565: #sftp-pwd=
+3566: 
+3567: [screen] # Screen Input
+3568: 
+3569: # Frame rate (float)
+3570: #screen-fps=1.000000
+3571: 
+3572: # Region top row (integer)
+3573: #screen-top=0
+3574: 
+3575: # Region left column (integer)
+3576: #screen-left=0
+3577: 
+3578: # Capture region width (integer)
+3579: #screen-width=0
+3580: 
+3581: # Capture region height (integer)
+3582: #screen-height=0
+3583: 
+3584: # Follow the mouse (boolean)
+3585: #screen-follow-mouse=0
+3586: 
+3587: # Mouse pointer image (string)
+3588: #screen-mouse-image=
+3589: 
+3590: # Capture fragment size (integer)
+3591: #screen-fragment-size=0
+3592: 
+3593: [satip] # SAT>IP Receiver Plugin
+3594: 
+3595: # Receive buffer (integer)
+3596: #satip-buffer=4194304
+3597: 
+3598: # Request multicast stream (boolean)
+3599: #satip-multicast=0
+3600: 
+3601: # Host (string)
+3602: #satip-host=
+3603: 
+3604: [rtp] # Real-Time Protocol (RTP) input
+3605: 
+3606: # RTCP (local) port (integer)
+3607: #rtcp-port=0
+3608: 
+3609: # SRTP key (hexadecimal) (string)
+3610: #srtp-key=
+3611: 
+3612: # SRTP salt (hexadecimal) (string)
+3613: #srtp-salt=
+3614: 
+3615: # Maximum RTP sources (integer)
+3616: #rtp-max-src=1
+3617: 
+3618: # RTP source timeout (sec) (integer)
+3619: #rtp-timeout=5
+3620: 
+3621: # Maximum RTP sequence number dropout (integer)
+3622: #rtp-max-dropout=3000
+3623: 
+3624: # Maximum RTP sequence number misordering (integer)
+3625: #rtp-max-misorder=100
+3626: 
+3627: # RTP payload format assumed for dynamic payloads (string)
+3628: #rtp-dynamic-pt=
+3629: 
+3630: [rist] # RIST input
+3631: 
+3632: # RIST maximum packet size (bytes) (integer)
+3633: #packet-size=1472
+3634: 
+3635: # RIST demux/decode maximum jitter (default is 5ms) (integer)
+3636: #maximum-jitter=5
+3637: 
+3638: # RIST latency (ms) (integer)
+3639: #latency=1000
+3640: 
+3641: # RIST nack retry interval (ms) (integer)
+3642: #retry-interval=132
+3643: 
+3644: # RIST reorder buffer (ms) (integer)
+3645: #reorder-buffer=70
+3646: 
+3647: # RIST maximum retry count (integer)
+3648: #max-retries=10
+3649: 
+3650: # RIST nack type, 0 = range, 1 = bitmask. Default is range (integer)
+3651: #nack-type=0
+3652: 
+3653: # Disable NACK output packets (boolean)
+3654: #disable-nacks=0
+3655: 
+3656: # Do not check for a valid rtcp message from the encoder (boolean)
+3657: #mcast-blind-nacks=0
+3658: 
+3659: [nfs] # NFS input
+3660: 
+3661: # Set NFS uid/guid automatically (boolean)
+3662: #nfs-auto-guid=1
+3663: 
+3664: [live555] # RTP/RTSP/SDP demuxer (using Live555)
+3665: 
+3666: # Use RTP over RTSP (TCP) (boolean)
+3667: #rtsp-tcp=0
+3668: 
+3669: # Client port (integer)
+3670: #rtp-client-port=-1
+3671: 
+3672: # Force multicast RTP via RTSP (boolean)
+3673: #rtsp-mcast=0
+3674: 
+3675: # Tunnel RTSP and RTP over HTTP (boolean)
+3676: #rtsp-http=0
+3677: 
+3678: # HTTP tunnel port (integer)
+3679: #rtsp-http-port=80
+3680: 
+3681: # Kasenna RTSP dialect (boolean)
+3682: #rtsp-kasenna=0
+3683: 
+3684: # WMServer RTSP dialect (boolean)
+3685: #rtsp-wmserver=0
+3686: 
+3687: # Username (string)
+3688: #rtsp-user=
+3689: 
+3690: # Password (string)
+3691: #rtsp-pwd=
+3692: 
+3693: # RTSP frame buffer size (integer)
+3694: #rtsp-frame-buffer-size=250000
+3695: 
+3696: [libbluray] # Blu-ray Disc support (libbluray)
+3697: 
+3698: # Blu-ray menus (boolean)
+3699: #bluray-menu=1
+3700: 
+3701: # Region code (string)
+3702: #bluray-region=B
+3703: 
+3704: [http] # HTTP input
+3705: 
+3706: # Auto re-connect (boolean)
+3707: #http-reconnect=0
+3708: 
+3709: [access] # HTTPS input
+3710: 
+3711: # Cookies forwarding (boolean)
+3712: #http-forward-cookies=1
+3713: 
+3714: # User agent (string)
+3715: #http-user-agent=
+3716: 
+3717: [ftp] # FTP input
+3718: 
+3719: # Username (string)
+3720: #ftp-user=
+3721: 
+3722: # Password (string)
+3723: #ftp-pwd=
+3724: 
+3725: # FTP account (string)
+3726: #ftp-account=anonymous
+3727: 
+3728: [filesystem] # File input
+3729: 
+3730: # List special files (boolean)
+3731: #list-special-files=0
+3732: 
+3733: [dvdread] # DVDRead Input (no menu support)
+3734: 
+3735: # DVD angle (integer)
+3736: #dvdread-angle=1
+3737: 
+3738: [dvdnav] # DVDnav Input
+3739: 
+3740: # DVD angle (integer)
+3741: #dvdnav-angle=1
+3742: 
+3743: # Start directly in menu (boolean)
+3744: #dvdnav-menu=1
+3745: 
+3746: [dtv] # Digital Television and Radio
+3747: 
+3748: # DVB adapter (integer)
+3749: #dvb-adapter=-1
+3750: 
+3751: # Network name (string)
+3752: #dvb-network-name=
+3753: 
+3754: # Network name to create (string)
+3755: #dvb-create-name=
+3756: 
+3757: # Frequency (Hz) (integer)
+3758: #dvb-frequency=0
+3759: 
+3760: # Spectrum inversion (integer)
+3761: #dvb-inversion=-1
+3762: 
+3763: # Bandwidth (MHz) (integer)
+3764: #dvb-bandwidth=0
+3765: 
+3766: # Transmission mode (integer)
+3767: #dvb-transmission=0
+3768: 
+3769: # Guard interval (string)
+3770: #dvb-guard=
+3771: 
+3772: # High-priority code rate (string)
+3773: #dvb-code-rate-hp=
+3774: 
+3775: # Low-priority code rate (string)
+3776: #dvb-code-rate-lp=
+3777: 
+3778: # Hierarchy mode (integer)
+3779: #dvb-hierarchy=-1
+3780: 
+3781: # DVB-T2 Physical Layer Pipe (integer)
+3782: #dvb-plp-id=0
+3783: 
+3784: # Layer A modulation (string)
+3785: #dvb-a-modulation=
+3786: 
+3787: # Layer A code rate (string)
+3788: #dvb-a-fec=
+3789: 
+3790: # Layer A segments count (integer)
+3791: #dvb-a-count=0
+3792: 
+3793: # Layer A time interleaving (integer)
+3794: #dvb-a-interleaving=0
+3795: 
+3796: # Layer B modulation (string)
+3797: #dvb-b-modulation=
+3798: 
+3799: # Layer B code rate (string)
+3800: #dvb-b-fec=
+3801: 
+3802: # Layer B segments count (integer)
+3803: #dvb-b-count=0
+3804: 
+3805: # Layer B time interleaving (integer)
+3806: #dvb-b-interleaving=0
+3807: 
+3808: # Layer C modulation (string)
+3809: #dvb-c-modulation=
+3810: 
+3811: # Layer C code rate (string)
+3812: #dvb-c-fec=
+3813: 
+3814: # Layer C segments count (integer)
+3815: #dvb-c-count=0
+3816: 
+3817: # Layer C time interleaving (integer)
+3818: #dvb-c-interleaving=0
+3819: 
+3820: # Modulation / Constellation (string)
+3821: #dvb-modulation=
+3822: 
+3823: # Symbol rate (bauds) (integer)
+3824: #dvb-srate=0
+3825: 
+3826: # FEC code rate (string)
+3827: #dvb-fec=
+3828: 
+3829: # Stream identifier (integer)
+3830: #dvb-stream=0
+3831: 
+3832: # Pilot (integer)
+3833: #dvb-pilot=-1
+3834: 
+3835: # Roll-off factor (integer)
+3836: #dvb-rolloff=-1
+3837: 
+3838: # Transport stream ID (integer)
+3839: #dvb-ts-id=0
+3840: 
+3841: # Polarization (Voltage) (string)
+3842: #dvb-polarization=
+3843: 
+3844: #  (integer)
+3845: #dvb-voltage=13
+3846: 
+3847: # Local oscillator low frequency (kHz) (integer)
+3848: #dvb-lnb-low=0
+3849: 
+3850: # Local oscillator high frequency (kHz) (integer)
+3851: #dvb-lnb-high=0
+3852: 
+3853: # Universal LNB switch frequency (kHz) (integer)
+3854: #dvb-lnb-switch=11700000
+3855: 
+3856: # Network identifier (integer)
+3857: #dvb-network-id=0
+3858: 
+3859: # Satellite azimuth (integer)
+3860: #dvb-azimuth=0
+3861: 
+3862: # Satellite elevation (integer)
+3863: #dvb-elevation=0
+3864: 
+3865: # Satellite longitude (integer)
+3866: #dvb-longitude=0
+3867: 
+3868: # Satellite range code (string)
+3869: #dvb-range=
+3870: 
+3871: # Major channel (integer)
+3872: #dvb-major-channel=0
+3873: 
+3874: # ATSC minor channel (integer)
+3875: #dvb-minor-channel=0
+3876: 
+3877: # Physical channel (integer)
+3878: #dvb-physical-channel=0
+3879: 
+3880: [dshow] # DirectShow input
+3881: 
+3882: # Video device name (string)
+3883: #dshow-vdev=
+3884: 
+3885: # Audio device name (string)
+3886: #dshow-adev=
+3887: 
+3888: # Video size (string)
+3889: #dshow-size=
+3890: 
+3891: # Picture aspect-ratio n:m (string)
+3892: #dshow-aspect-ratio=4:3
+3893: 
+3894: # Video input chroma format (string)
+3895: #dshow-chroma=
+3896: 
+3897: # Video input frame rate (float)
+3898: #dshow-fps=0.000000
+3899: 
+3900: # Device properties (boolean)
+3901: #dshow-config=0
+3902: 
+3903: # Tuner properties (boolean)
+3904: #dshow-tuner=0
+3905: 
+3906: # Tuner TV Channel (integer)
+3907: #dshow-tuner-channel=0
+3908: 
+3909: # Tuner Frequency (integer)
+3910: #dshow-tuner-frequency=0
+3911: 
+3912: # Tuner country code (integer)
+3913: #dshow-tuner-country=0
+3914: 
+3915: # Video standard (integer)
+3916: #dshow-tuner-standard=0
+3917: 
+3918: # Tuner input type (integer)
+3919: #dshow-tuner-input=0
+3920: 
+3921: # Video input pin (integer)
+3922: #dshow-video-input=-1
+3923: 
+3924: # Video output pin (integer)
+3925: #dshow-video-output=-1
+3926: 
+3927: # Audio input pin (integer)
+3928: #dshow-audio-input=-1
+3929: 
+3930: # Audio output pin (integer)
+3931: #dshow-audio-output=-1
+3932: 
+3933: # AM Tuner mode (integer)
+3934: #dshow-amtuner-mode=1
+3935: 
+3936: # Number of audio channels (integer)
+3937: #dshow-audio-channels=0
+3938: 
+3939: # Audio sample rate (integer)
+3940: #dshow-audio-samplerate=0
+3941: 
+3942: # Audio bits per sample (integer)
+3943: #dshow-audio-bitspersample=0
+3944: 
+3945: [dcp] # Digital Cinema Package module
+3946: 
+3947: # KDM file (string)
+3948: #kdm=
+3949: 
+3950: [cdda] # Audio CD input
+3951: 
+3952: # Audio CD device (string)
+3953: #cd-audio=D:
+3954: 
+3955: # Musicbrainz Server (string)
+3956: #musicbrainz-server=musicbrainz.org
+3957: 
+3958: # CDDB Server (string)
+3959: #cddb-server=freedb.videolan.org
+3960: 
+3961: # CDDB port (integer)
+3962: #cddb-port=80
+3963: 
+3964: [wasapi] # Windows Audio Session API input
+3965: 
+3966: # Loopback mode (boolean)
+3967: #wasapi-loopback=0
+3968: 
+3969: [access_srt] # SRT input
+3970: 
+3971: # Return poll wait after timeout milliseconds (-1 = infinite) (integer)
+3972: #poll-timeout=-1
+3973: 
+3974: # SRT latency (ms) (integer)
+3975: #latency=120
+3976: 
+3977: # Password for stream encryption (string)
+3978: #passphrase=
+3979: 
+3980: # Crypto key length in bytes (integer)
+3981: #key-length=16
+3982: 
+3983: #  SRT Stream ID (string)
+3984: #streamid=
+3985: 
+3986: [access_mms] # Microsoft Media Server (MMS) input
+3987: 
+3988: # TCP/UDP timeout (ms) (integer)
+3989: #mms-timeout=5000
+3990: 
+3991: # Force selection of all streams (boolean)
+3992: #mms-all=0
+3993: 
+3994: # Maximum bitrate (integer)
+3995: #mms-maxbitrate=0
+3996: 
+3997: [imem] # Memory input
+3998: 
+3999: # ID (integer)
+4000: #imem-id=-1
+4001: 
+4002: # Group (integer)
+4003: #imem-group=0
+4004: 
+4005: # Category (integer)
+4006: #imem-cat=0
+4007: 
+4008: # Codec (string)
+4009: #imem-codec=
+4010: 
+4011: # Language (string)
+4012: #imem-language=
+4013: 
+4014: # Sample rate (integer)
+4015: #imem-samplerate=0
+4016: 
+4017: # Channels count (integer)
+4018: #imem-channels=0
+4019: 
+4020: # Width (integer)
+4021: #imem-width=0
+4022: 
+4023: # Height (integer)
+4024: #imem-height=0
+4025: 
+4026: # Display aspect ratio (string)
+4027: #imem-dar=
+4028: 
+4029: # Frame rate (string)
+4030: #imem-fps=
+4031: 
+4032: # Size (integer)
+4033: #imem-size=0
+4034: 
+4035: [concat] # Concatenated inputs
+4036: 
+4037: # Inputs list (string)
+4038: #concat-list=
+4039: 
+4040: [core] # core program
+4041: 
+4042: # Enable audio (boolean)
+4043: #audio=1
+4044: 
+4045: # Audio gain (float)
+4046: #gain=1.000000
+4047: 
+4048: # Audio output volume step (float)
+4049: #volume-step=12.800000
+4050: 
+4051: # Remember the audio volume (boolean)
+4052: #volume-save=1
+4053: 
+4054: # Force S/PDIF support (boolean)
+4055: #spdif=0
+4056: 
+4057: # Force detection of Dolby Surround (integer)
+4058: #force-dolby-surround=0
+4059: 
+4060: # Stereo audio output mode (integer)
+4061: #stereo-mode=0
+4062: 
+4063: # Audio desynchronization compensation (integer)
+4064: #audio-desync=0
+4065: 
+4066: # Replay gain mode (string)
+4067: #audio-replay-gain-mode=none
+4068: 
+4069: # Replay preamp (float)
+4070: #audio-replay-gain-preamp=0.000000
+4071: 
+4072: # Default replay gain (float)
+4073: #audio-replay-gain-default=-7.000000
+4074: 
+4075: # Peak protection (boolean)
+4076: #audio-replay-gain-peak-protection=1
+4077: 
+4078: # Enable time stretching audio (boolean)
+4079: #audio-time-stretch=1
+4080: 
+4081: # Audio output module (string)
+4082: #aout=
+4083: 
+4084: # Media role (string)
+4085: #role=video
+4086: 
+4087: # Audio filters (string)
+4088: audio-filter=equalizer
+4089: 
+4090: # Audio visualizations (string)
+4091: #audio-visual=none
+4092: 
+4093: # Audio resampler (string)
+4094: #audio-resampler=
+4095: 
+4096: # Enable video (boolean)
+4097: #video=1
+4098: 
+4099: # Grayscale video output (boolean)
+4100: #grayscale=0
+4101: 
+4102: # Fullscreen video output (boolean)
+4103: #fullscreen=0
+4104: 
+4105: # Embedded video (boolean)
+4106: #embedded-video=1
+4107: 
+4108: #  (boolean)
+4109: #xlib=1
+4110: 
+4111: # Drop late frames (boolean)
+4112: #drop-late-frames=1
+4113: 
+4114: # Skip frames (boolean)
+4115: #skip-frames=1
+4116: 
+4117: # Quiet synchro (boolean)
+4118: #quiet-synchro=0
+4119: 
+4120: # Key press events (boolean)
+4121: #keyboard-events=1
+4122: 
+4123: # Mouse events (boolean)
+4124: #mouse-events=1
+4125: 
+4126: # Always on top (boolean)
+4127: #video-on-top=0
+4128: 
+4129: # Enable wallpaper mode (boolean)
+4130: #video-wallpaper=0
+4131: 
+4132: # Disable screensaver (boolean)
+4133: #disable-screensaver=1
+4134: 
+4135: # Show media title on video (boolean)
+4136: #video-title-show=1
+4137: 
+4138: # Show video title for x milliseconds (integer)
+4139: #video-title-timeout=5000
+4140: 
+4141: # Position of video title (integer)
+4142: #video-title-position=8
+4143: 
+4144: # Hide cursor and fullscreen controller after x milliseconds (integer)
+4145: #mouse-hide-timeout=1000
+4146: 
+4147: # Video snapshot directory (or filename) (string)
+4148: #snapshot-path=
+4149: 
+4150: # Video snapshot file prefix (string)
+4151: #snapshot-prefix=vlcsnap-
+4152: 
+4153: # Video snapshot format (string)
+4154: #snapshot-format=png
+4155: 
+4156: # Display video snapshot preview (boolean)
+4157: #snapshot-preview=1
+4158: 
+4159: # Use sequential numbers instead of timestamps (boolean)
+4160: #snapshot-sequential=0
+4161: 
+4162: # Video snapshot width (integer)
+4163: #snapshot-width=-1
+4164: 
+4165: # Video snapshot height (integer)
+4166: #snapshot-height=-1
+4167: 
+4168: # Video width (integer)
+4169: #width=-1
+4170: 
+4171: # Video height (integer)
+4172: #height=-1
+4173: 
+4174: # Video X coordinate (integer)
+4175: #video-x=0
+4176: 
+4177: # Video Y coordinate (integer)
+4178: #video-y=0
+4179: 
+4180: # Video cropping (string)
+4181: #crop=
+4182: 
+4183: # Custom crop ratios list (string)
+4184: #custom-crop-ratios=
+4185: 
+4186: # Source aspect ratio (string)
+4187: #aspect-ratio=
+4188: 
+4189: # Video Auto Scaling (boolean)
+4190: #autoscale=1
+4191: 
+4192: # Monitor pixel aspect ratio (string)
+4193: #monitor-par=
+4194: 
+4195: # Custom aspect ratios list (string)
+4196: #custom-aspect-ratios=
+4197: 
+4198: # Fix HDTV height (boolean)
+4199: #hdtv-fix=1
+4200: 
+4201: # Window decorations (boolean)
+4202: #video-deco=1
+4203: 
+4204: # Video title (string)
+4205: #video-title=
+4206: 
+4207: # Video alignment (integer)
+4208: #align=0
+4209: 
+4210: # Zoom video (float)
+4211: #zoom=1.000000
+4212: 
+4213: # Deinterlace (integer)
+4214: #deinterlace=-1
+4215: 
+4216: # Deinterlace mode (string)
+4217: #deinterlace-mode=auto
+4218: 
+4219: # Video output module (string)
+4220: #vout=
+4221: 
+4222: # Video filter module (string)
+4223: video-filter=sharpen:gradfun:grain:adjust
+4224: 
+4225: # Video splitter module (string)
+4226: #video-splitter=
+4227: 
+4228: # Enable sub-pictures (boolean)
+4229: #spu=1
+4230: 
+4231: # On Screen Display (boolean)
+4232: #osd=1
+4233: 
+4234: # Text rendering module (string)
+4235: #text-renderer=
+4236: 
+4237: # Use subtitle file (string)
+4238: #sub-file=
+4239: 
+4240: # Autodetect subtitle files (boolean)
+4241: #sub-autodetect-file=1
+4242: 
+4243: # Subtitle autodetection fuzziness (integer)
+4244: #sub-autodetect-fuzzy=3
+4245: 
+4246: # Subtitle autodetection paths (string)
+4247: #sub-autodetect-path=.\subtitles, .\subs
+4248: 
+4249: # Force subtitle position (integer)
+4250: #sub-margin=0
+4251: 
+4252: # Subpictures source module (string)
+4253: #sub-source=
+4254: 
+4255: # Subpictures filter module (string)
+4256: #sub-filter=
+4257: 
+4258: # Program (integer)
+4259: #program=0
+4260: 
+4261: # Programs (string)
+4262: #programs=
+4263: 
+4264: # Audio track (integer)
+4265: #audio-track=-1
+4266: 
+4267: # Subtitle track (integer)
+4268: #sub-track=-1
+4269: 
+4270: # Audio language (string)
+4271: #audio-language=
+4272: 
+4273: # Subtitle language (string)
+4274: #sub-language=
+4275: 
+4276: # Menu language (string)
+4277: #menu-language=
+4278: 
+4279: # Audio track ID (integer)
+4280: #audio-track-id=-1
+4281: 
+4282: # Subtitle track ID (integer)
+4283: #sub-track-id=-1
+4284: 
+4285: # Preferred Closed Captions decoder (integer)
+4286: #captions=608
+4287: 
+4288: # Preferred video resolution (integer)
+4289: #preferred-resolution=-1
+4290: 
+4291: # Input repetitions (integer)
+4292: #input-repeat=0
+4293: 
+4294: # Start time (float)
+4295: #start-time=0.000000
+4296: 
+4297: # Stop time (float)
+4298: #stop-time=0.000000
+4299: 
+4300: # Run time (float)
+4301: #run-time=0.000000
+4302: 
+4303: # Fast seek (boolean)
+4304: #input-fast-seek=0
+4305: 
+4306: # Playback speed (float)
+4307: #rate=1.000000
+4308: 
+4309: # Input list (string)
+4310: #input-list=
+4311: 
+4312: # Input slave (experimental) (string)
+4313: #input-slave=
+4314: 
+4315: # Bookmarks list for a stream (string)
+4316: #bookmarks=
+4317: 
+4318: # DVD device (string)
+4319: #dvd=
+4320: 
+4321: # VCD device (string)
+4322: #vcd=D:
+4323: 
+4324: # MTU of the network interface (integer)
+4325: #mtu=1400
+4326: 
+4327: # TCP connection timeout (integer)
+4328: #ipv4-timeout=5000
+4329: 
+4330: # HTTP server address (string)
+4331: #http-host=
+4332: 
+4333: # HTTP server port (integer)
+4334: #http-port=8080
+4335: 
+4336: # HTTPS server port (integer)
+4337: #https-port=8443
+4338: 
+4339: # RTSP server address (string)
+4340: #rtsp-host=
+4341: 
+4342: # RTSP server port (integer)
+4343: #rtsp-port=554
+4344: 
+4345: # HTTP/TLS server certificate (string)
+4346: #http-cert=
+4347: 
+4348: # HTTP/TLS server private key (string)
+4349: #http-key=
+4350: 
+4351: # HTTP proxy (string)
+4352: #http-proxy=
+4353: 
+4354: # HTTP proxy password (string)
+4355: #http-proxy-pwd=
+4356: 
+4357: # SOCKS server (string)
+4358: #socks=
+4359: 
+4360: # SOCKS user name (string)
+4361: #socks-user=
+4362: 
+4363: # SOCKS password (string)
+4364: #socks-pwd=
+4365: 
+4366: # Title metadata (string)
+4367: #meta-title=
+4368: 
+4369: # Author metadata (string)
+4370: #meta-author=
+4371: 
+4372: # Artist metadata (string)
+4373: #meta-artist=
+4374: 
+4375: # Genre metadata (string)
+4376: #meta-genre=
+4377: 
+4378: # Copyright metadata (string)
+4379: #meta-copyright=
+4380: 
+4381: # Description metadata (string)
+4382: #meta-description=
+4383: 
+4384: # Date metadata (string)
+4385: #meta-date=
+4386: 
+4387: # URL metadata (string)
+4388: #meta-url=
+4389: 
+4390: # File caching (ms) (integer)
+4391: #file-caching=1000
+4392: 
+4393: # Live capture caching (ms) (integer)
+4394: #live-caching=300
+4395: 
+4396: # Disc caching (ms) (integer)
+4397: #disc-caching=300
+4398: 
+4399: # Network caching (ms) (integer)
+4400: #network-caching=1000
+4401: 
+4402: # Clock reference average counter (integer)
+4403: #cr-average=40
+4404: 
+4405: # Clock synchronisation (integer)
+4406: #clock-synchro=-1
+4407: 
+4408: # Clock jitter (integer)
+4409: #clock-jitter=5000
+4410: 
+4411: # Network synchronisation (boolean)
+4412: #network-synchronisation=0
+4413: 
+4414: # Record directory (string)
+4415: #input-record-path=
+4416: 
+4417: # Prefer native stream recording (boolean)
+4418: #input-record-native=1
+4419: 
+4420: # Timeshift directory (string)
+4421: #input-timeshift-path=
+4422: 
+4423: # Timeshift granularity (integer)
+4424: #input-timeshift-granularity=-1
+4425: 
+4426: # Change title according to current media (string)
+4427: #input-title-format=$Z
+4428: 
+4429: # Disable all lua plugins (boolean)
+4430: #lua=1
+4431: 
+4432: # Preferred decoders list (string)
+4433: #codec=
+4434: 
+4435: # Preferred encoders list (string)
+4436: #encoder=
+4437: 
+4438: # Access module (string)
+4439: #access=
+4440: 
+4441: # Demux module (string)
+4442: #demux=any
+4443: 
+4444: # Stream filter module (string)
+4445: #stream-filter=
+4446: 
+4447: # Demux filter module (string)
+4448: #demux-filter=
+4449: 
+4450: # Default stream output chain (string)
+4451: #sout=
+4452: 
+4453: # Display while streaming (boolean)
+4454: #sout-display=0
+4455: 
+4456: # Keep stream output open (boolean)
+4457: #sout-keep=0
+4458: 
+4459: # Enable streaming of all ES (boolean)
+4460: #sout-all=1
+4461: 
+4462: # Enable audio stream output (boolean)
+4463: #sout-audio=1
+4464: 
+4465: # Enable video stream output (boolean)
+4466: #sout-video=1
+4467: 
+4468: # Enable SPU stream output (boolean)
+4469: #sout-spu=1
+4470: 
+4471: # Stream output muxer caching (ms) (integer)
+4472: #sout-mux-caching=1500
+4473: 
+4474: # VLM configuration file (string)
+4475: #vlm-conf=
+4476: 
+4477: # SAP announcement interval (integer)
+4478: #sap-interval=5
+4479: 
+4480: # Mux module (string)
+4481: #mux=
+4482: 
+4483: # Access output module (string)
+4484: #access_output=
+4485: 
+4486: # Hop limit (TTL) (integer)
+4487: #ttl=-1
+4488: 
+4489: # Multicast output interface (string)
+4490: #miface=
+4491: 
+4492: # DiffServ Code Point (integer)
+4493: #dscp=0
+4494: 
+4495: # Preferred packetizer list (string)
+4496: #packetizer=
+4497: 
+4498: # VoD server module (string)
+4499: #vod-server=
+4500: 
+4501: # Use a plugins cache (boolean)
+4502: #plugins-cache=1
+4503: 
+4504: # Scan for new plugins (boolean)
+4505: #plugins-scan=1
+4506: 
+4507: # Preferred keystore list (string)
+4508: #keystore=
+4509: 
+4510: # Increase the priority of the process (boolean)
+4511: #high-priority=0
+4512: 
+4513: # Clock source (string)
+4514: #clock-source=
+4515: 
+4516: # Play files randomly forever (boolean)
+4517: #random=0
+4518: 
+4519: # Repeat all (boolean)
+4520: #loop=0
+4521: 
+4522: # Repeat current item (boolean)
+4523: #repeat=0
+4524: 
+4525: # Play and exit (boolean)
+4526: #play-and-exit=0
+4527: 
+4528: # Play and stop (boolean)
+4529: #play-and-stop=0
+4530: 
+4531: # Play and pause (boolean)
+4532: #play-and-pause=0
+4533: 
+4534: # Start paused (boolean)
+4535: #start-paused=0
+4536: 
+4537: # Auto start (boolean)
+4538: #playlist-autostart=1
+4539: 
+4540: # Pause on audio communication (boolean)
+4541: #playlist-cork=1
+4542: 
+4543: # Allow only one running instance (boolean)
+4544: #one-instance=0
+4545: 
+4546: # Use only one instance when started from file manager (boolean)
+4547: #one-instance-when-started-from-file=1
+4548: 
+4549: # Enqueue items into playlist in one instance mode (boolean)
+4550: #playlist-enqueue=0
+4551: 
+4552: # Use media library (boolean)
+4553: #media-library=0
+4554: 
+4555: # Display playlist tree (boolean)
+4556: #playlist-tree=0
+4557: 
+4558: # Default stream (string)
+4559: #open=
+4560: 
+4561: # Automatically preparse items (boolean)
+4562: #auto-preparse=1
+4563: 
+4564: # Preparsing timeout (integer)
+4565: #preparse-timeout=5000
+4566: 
+4567: # Allow metadata network access (boolean)
+4568: metadata-network-access=1
+4569: 
+4570: # Subdirectory behavior (string)
+4571: #recursive=collapse
+4572: 
+4573: # Ignored extensions (string)
+4574: #ignore-filetypes=m3u,db,nfo,ini,jpg,jpeg,ljpg,gif,png,pgm,pgmyuv,pbm,pam,tga,bmp,pnm,xpm,xcf,pcx,tif,tiff,lbm,sfv,txt,sub,idx,srt,cue,ssa
+4575: 
+4576: # Show hidden files (boolean)
+4577: #show-hiddenfiles=0
+4578: 
+4579: # Services discovery modules (string)
+4580: #services-discovery=
+4581: 
+4582: # Show advanced options (boolean)
+4583: #advanced=0
+4584: 
+4585: # Interface interaction (boolean)
+4586: #interact=1
+4587: 
+4588: # Locally collect statistics (boolean)
+4589: #stats=1
+4590: 
+4591: # Interface module (string)
+4592: #intf=
+4593: 
+4594: # Extra interface modules (string)
+4595: #extraintf=
+4596: 
+4597: # Control interfaces (string)
+4598: #control=
+4599: 
+4600: # Mouse wheel vertical axis control (integer)
+4601: #hotkeys-y-wheel-mode=0
+4602: 
+4603: # Mouse wheel horizontal axis control (integer)
+4604: #hotkeys-x-wheel-mode=2
+4605: 
+4606: # Fullscreen (string)
+4607: #global-key-toggle-fullscreen=
+4608: 
+4609: # Fullscreen (string)
+4610: #key-toggle-fullscreen=f
+4611: 
+4612: # Exit fullscreen (string)
+4613: #global-key-leave-fullscreen=
+4614: 
+4615: # Exit fullscreen (string)
+4616: #key-leave-fullscreen=Esc
+4617: 
+4618: # Play/Pause (string)
+4619: #global-key-play-pause=
+4620: 
+4621: # Play/Pause (string)
+4622: #key-play-pause=Space
+4623: 
+4624: # Pause only (string)
+4625: #global-key-pause=
+4626: 
+4627: # Pause only (string)
+4628: #key-pause=Browser Stop
+4629: 
+4630: # Play only (string)
+4631: #global-key-play=
+4632: 
+4633: # Play only (string)
+4634: #key-play=Browser Refresh
+4635: 
+4636: # Faster (string)
+4637: #global-key-faster=
+4638: 
+4639: # Faster (string)
+4640: #key-faster=+
+4641: 
+4642: # Slower (string)
+4643: #global-key-slower=
+4644: 
+4645: # Slower (string)
+4646: #key-slower=-
+4647: 
+4648: # Normal rate (string)
+4649: #global-key-rate-normal=
+4650: 
+4651: # Normal rate (string)
+4652: #key-rate-normal==
+4653: 
+4654: # Faster (fine) (string)
+4655: #global-key-rate-faster-fine=
+4656: 
+4657: # Faster (fine) (string)
+4658: #key-rate-faster-fine=]
+4659: 
+4660: # Slower (fine) (string)
+4661: #global-key-rate-slower-fine=
+4662: 
+4663: # Slower (fine) (string)
+4664: #key-rate-slower-fine=[
+4665: 
+4666: # Next (string)
+4667: #global-key-next=
+4668: 
+4669: # Next (string)
+4670: #key-next=n
+4671: 
+4672: # Previous (string)
+4673: #global-key-prev=
+4674: 
+4675: # Previous (string)
+4676: #key-prev=p
+4677: 
+4678: # Stop (string)
+4679: #global-key-stop=
+4680: 
+4681: # Stop (string)
+4682: #key-stop=s
+4683: 
+4684: # Position (string)
+4685: #global-key-position=
+4686: 
+4687: # Position (string)
+4688: #key-position=t
+4689: 
+4690: # Very short backwards jump (string)
+4691: #global-key-jump-extrashort=
+4692: 
+4693: # Very short backwards jump (string)
+4694: #key-jump-extrashort=Shift+Left
+4695: 
+4696: # Very short forward jump (string)
+4697: #global-key-jump+extrashort=
+4698: 
+4699: # Very short forward jump (string)
+4700: #key-jump+extrashort=Shift+Right
+4701: 
+4702: # Short backwards jump (string)
+4703: #global-key-jump-short=
+4704: 
+4705: # Short backwards jump (string)
+4706: #key-jump-short=Alt+Left
+4707: 
+4708: # Short forward jump (string)
+4709: #global-key-jump+short=
+4710: 
+4711: # Short forward jump (string)
+4712: #key-jump+short=Alt+Right
+4713: 
+4714: # Medium backwards jump (string)
+4715: #global-key-jump-medium=
+4716: 
+4717: # Medium backwards jump (string)
+4718: #key-jump-medium=Ctrl+Left
+4719: 
+4720: # Medium forward jump (string)
+4721: #global-key-jump+medium=
+4722: 
+4723: # Medium forward jump (string)
+4724: #key-jump+medium=Ctrl+Right
+4725: 
+4726: # Long backwards jump (string)
+4727: #global-key-jump-long=
+4728: 
+4729: # Long backwards jump (string)
+4730: #key-jump-long=Ctrl+Alt+Left
+4731: 
+4732: # Long forward jump (string)
+4733: #global-key-jump+long=
+4734: 
+4735: # Long forward jump (string)
+4736: #key-jump+long=Ctrl+Alt+Right
+4737: 
+4738: # Next frame (string)
+4739: #global-key-frame-next=
+4740: 
+4741: # Next frame (string)
+4742: #key-frame-next=e
+4743: 
+4744: # Activate (string)
+4745: #global-key-nav-activate=
+4746: 
+4747: # Activate (string)
+4748: #key-nav-activate=Enter
+4749: 
+4750: # Navigate up (string)
+4751: #global-key-nav-up=
+4752: 
+4753: # Navigate up (string)
+4754: #key-nav-up=Up
+4755: 
+4756: # Navigate down (string)
+4757: #global-key-nav-down=
+4758: 
+4759: # Navigate down (string)
+4760: #key-nav-down=Down
+4761: 
+4762: # Navigate left (string)
+4763: #global-key-nav-left=
+4764: 
+4765: # Navigate left (string)
+4766: #key-nav-left=Left
+4767: 
+4768: # Navigate right (string)
+4769: #global-key-nav-right=
+4770: 
+4771: # Navigate right (string)
+4772: #key-nav-right=Right
+4773: 
+4774: # Go to the DVD menu (string)
+4775: #global-key-disc-menu=
+4776: 
+4777: # Go to the DVD menu (string)
+4778: #key-disc-menu=Shift+m
+4779: 
+4780: # Select previous DVD title (string)
+4781: #global-key-title-prev=
+4782: 
+4783: # Select previous DVD title (string)
+4784: #key-title-prev=Shift+o
+4785: 
+4786: # Select next DVD title (string)
+4787: #global-key-title-next=
+4788: 
+4789: # Select next DVD title (string)
+4790: #key-title-next=Shift+b
+4791: 
+4792: # Select prev DVD chapter (string)
+4793: #global-key-chapter-prev=
+4794: 
+4795: # Select prev DVD chapter (string)
+4796: #key-chapter-prev=Shift+p
+4797: 
+4798: # Select next DVD chapter (string)
+4799: #global-key-chapter-next=
+4800: 
+4801: # Select next DVD chapter (string)
+4802: #key-chapter-next=Shift+n
+4803: 
+4804: # Quit (string)
+4805: #global-key-quit=
+4806: 
+4807: # Quit (string)
+4808: #key-quit=Ctrl+q
+4809: 
+4810: # Volume up (string)
+4811: #global-key-vol-up=
+4812: 
+4813: # Volume up (string)
+4814: #key-vol-up=Ctrl+Up
+4815: 
+4816: # Volume down (string)
+4817: #global-key-vol-down=
+4818: 
+4819: # Volume down (string)
+4820: #key-vol-down=Ctrl+Down
+4821: 
+4822: # Mute (string)
+4823: #global-key-vol-mute=
+4824: 
+4825: # Mute (string)
+4826: #key-vol-mute=m
+4827: 
+4828: # Subtitle delay up (string)
+4829: #global-key-subdelay-up=
+4830: 
+4831: # Subtitle delay up (string)
+4832: #key-subdelay-up=h
+4833: 
+4834: # Subtitle delay down (string)
+4835: #global-key-subdelay-down=
+4836: 
+4837: # Subtitle delay down (string)
+4838: #key-subdelay-down=g
+4839: 
+4840: # Subtitle sync / bookmark audio timestamp (string)
+4841: #global-key-subsync-markaudio=
+4842: 
+4843: # Subtitle sync / bookmark audio timestamp (string)
+4844: #key-subsync-markaudio=Shift+h
+4845: 
+4846: # Subtitle sync / bookmark subtitle timestamp (string)
+4847: #global-key-subsync-marksub=
+4848: 
+4849: # Subtitle sync / bookmark subtitle timestamp (string)
+4850: #key-subsync-marksub=Shift+j
+4851: 
+4852: # Subtitle sync / synchronize audio & subtitle timestamps (string)
+4853: #global-key-subsync-apply=
+4854: 
+4855: # Subtitle sync / synchronize audio & subtitle timestamps (string)
+4856: #key-subsync-apply=Shift+k
+4857: 
+4858: # Subtitle sync / reset audio & subtitle synchronization (string)
+4859: #global-key-subsync-reset=
+4860: 
+4861: # Subtitle sync / reset audio & subtitle synchronization (string)
+4862: #key-subsync-reset=Ctrl+Shift+k
+4863: 
+4864: # Subtitle position up (string)
+4865: #global-key-subpos-up=
+4866: 
+4867: # Subtitle position up (string)
+4868: #key-subpos-up=
+4869: 
+4870: # Subtitle position down (string)
+4871: #global-key-subpos-down=
+4872: 
+4873: # Subtitle position down (string)
+4874: #key-subpos-down=
+4875: 
+4876: # Audio delay up (string)
+4877: #global-key-audiodelay-up=
+4878: 
+4879: # Audio delay up (string)
+4880: #key-audiodelay-up=k
+4881: 
+4882: # Audio delay down (string)
+4883: #global-key-audiodelay-down=
+4884: 
+4885: # Audio delay down (string)
+4886: #key-audiodelay-down=j
+4887: 
+4888: # Cycle audio track (string)
+4889: #global-key-audio-track=
+4890: 
+4891: # Cycle audio track (string)
+4892: #key-audio-track=b
+4893: 
+4894: # Cycle through audio devices (string)
+4895: #global-key-audiodevice-cycle=
+4896: 
+4897: # Cycle through audio devices (string)
+4898: #key-audiodevice-cycle=Shift+a
+4899: 
+4900: # Cycle subtitle track in reverse order (string)
+4901: #global-key-subtitle-revtrack=
+4902: 
+4903: # Cycle subtitle track in reverse order (string)
+4904: #key-subtitle-revtrack=Alt+v
+4905: 
+4906: # Cycle subtitle track (string)
+4907: #global-key-subtitle-track=
+4908: 
+4909: # Cycle subtitle track (string)
+4910: #key-subtitle-track=v
+4911: 
+4912: # Toggle subtitles (string)
+4913: #global-key-subtitle-toggle=
+4914: 
+4915: # Toggle subtitles (string)
+4916: #key-subtitle-toggle=Shift+v
+4917: 
+4918: # Cycle next program Service ID (string)
+4919: #global-key-program-sid-next=
+4920: 
+4921: # Cycle next program Service ID (string)
+4922: #key-program-sid-next=x
+4923: 
+4924: # Cycle previous program Service ID (string)
+4925: #global-key-program-sid-prev=
+4926: 
+4927: # Cycle previous program Service ID (string)
+4928: #key-program-sid-prev=Shift+x
+4929: 
+4930: # Cycle source aspect ratio (string)
+4931: #global-key-aspect-ratio=
+4932: 
+4933: # Cycle source aspect ratio (string)
+4934: #key-aspect-ratio=a
+4935: 
+4936: # Cycle video crop (string)
+4937: #global-key-crop=
+4938: 
+4939: # Cycle video crop (string)
+4940: #key-crop=c
+4941: 
+4942: # Toggle autoscaling (string)
+4943: #global-key-toggle-autoscale=
+4944: 
+4945: # Toggle autoscaling (string)
+4946: #key-toggle-autoscale=o
+4947: 
+4948: # Increase scale factor (string)
+4949: #global-key-incr-scalefactor=
+4950: 
+4951: # Increase scale factor (string)
+4952: #key-incr-scalefactor=Alt+o
+4953: 
+4954: # Decrease scale factor (string)
+4955: #global-key-decr-scalefactor=
+4956: 
+4957: # Decrease scale factor (string)
+4958: #key-decr-scalefactor=Alt+Shift+o
+4959: 
+4960: # Toggle deinterlacing (string)
+4961: #global-key-deinterlace=
+4962: 
+4963: # Toggle deinterlacing (string)
+4964: #key-deinterlace=d
+4965: 
+4966: # Cycle deinterlace modes (string)
+4967: #global-key-deinterlace-mode=
+4968: 
+4969: # Cycle deinterlace modes (string)
+4970: #key-deinterlace-mode=Shift+d
+4971: 
+4972: # Show controller in fullscreen (string)
+4973: #global-key-intf-show=
+4974: 
+4975: # Show controller in fullscreen (string)
+4976: #key-intf-show=i
+4977: 
+4978: # Boss key (string)
+4979: #global-key-intf-boss=
+4980: 
+4981: # Boss key (string)
+4982: #key-intf-boss=
+4983: 
+4984: # Context menu (string)
+4985: #global-key-intf-popup-menu=
+4986: 
+4987: # Context menu (string)
+4988: #key-intf-popup-menu=Menu
+4989: 
+4990: # Take video snapshot (string)
+4991: #global-key-snapshot=
+4992: 
+4993: # Take video snapshot (string)
+4994: #key-snapshot=Shift+s
+4995: 
+4996: # Record (string)
+4997: #global-key-record=
+4998: 
+4999: # Record (string)
+5000: #key-record=Shift+r
+5001: 
+5002: # Zoom (string)
+5003: #global-key-zoom=
+5004: 
+5005: # Zoom (string)
+5006: #key-zoom=z
+5007: 
+5008: # Un-Zoom (string)
+5009: #global-key-unzoom=
+5010: 
+5011: # Un-Zoom (string)
+5012: #key-unzoom=Shift+z
+5013: 
+5014: # Toggle wallpaper mode in video output (string)
+5015: #global-key-wallpaper=
+5016: 
+5017: # Toggle wallpaper mode in video output (string)
+5018: #key-wallpaper=w
+5019: 
+5020: # Crop one pixel from the top of the video (string)
+5021: #global-key-crop-top=
+5022: 
+5023: # Crop one pixel from the top of the video (string)
+5024: #key-crop-top=Alt+r
+5025: 
+5026: # Uncrop one pixel from the top of the video (string)
+5027: #global-key-uncrop-top=
+5028: 
+5029: # Uncrop one pixel from the top of the video (string)
+5030: #key-uncrop-top=Alt+Shift+r
+5031: 
+5032: # Crop one pixel from the left of the video (string)
+5033: #global-key-crop-left=
+5034: 
+5035: # Crop one pixel from the left of the video (string)
+5036: #key-crop-left=Alt+d
+5037: 
+5038: # Uncrop one pixel from the left of the video (string)
+5039: #global-key-uncrop-left=
+5040: 
+5041: # Uncrop one pixel from the left of the video (string)
+5042: #key-uncrop-left=Alt+Shift+d
+5043: 
+5044: # Crop one pixel from the bottom of the video (string)
+5045: #global-key-crop-bottom=
+5046: 
+5047: # Crop one pixel from the bottom of the video (string)
+5048: #key-crop-bottom=Alt+c
+5049: 
+5050: # Uncrop one pixel from the bottom of the video (string)
+5051: #global-key-uncrop-bottom=
+5052: 
+5053: # Uncrop one pixel from the bottom of the video (string)
+5054: #key-uncrop-bottom=Alt+Shift+c
+5055: 
+5056: # Crop one pixel from the right of the video (string)
+5057: #global-key-crop-right=
+5058: 
+5059: # Crop one pixel from the right of the video (string)
+5060: #key-crop-right=Alt+f
+5061: 
+5062: # Uncrop one pixel from the right of the video (string)
+5063: #global-key-uncrop-right=
+5064: 
+5065: # Uncrop one pixel from the right of the video (string)
+5066: #key-uncrop-right=Alt+Shift+f
+5067: 
+5068: # Random (string)
+5069: #global-key-random=
+5070: 
+5071: # Random (string)
+5072: #key-random=r
+5073: 
+5074: # Normal/Loop/Repeat (string)
+5075: #global-key-loop=
+5076: 
+5077: # Normal/Loop/Repeat (string)
+5078: #key-loop=l
+5079: 
+5080: # Shrink the viewpoint field of view (360°) (string)
+5081: #global-key-viewpoint-fov-in=
+5082: 
+5083: # Shrink the viewpoint field of view (360°) (string)
+5084: #key-viewpoint-fov-in=Page Up
+5085: 
+5086: # Expand the viewpoint field of view (360°) (string)
+5087: #global-key-viewpoint-fov-out=
+5088: 
+5089: # Expand the viewpoint field of view (360°) (string)
+5090: #key-viewpoint-fov-out=Page Down
+5091: 
+5092: # Roll the viewpoint clockwise (360°) (string)
+5093: #global-key-viewpoint-roll-clock=
+5094: 
+5095: # Roll the viewpoint clockwise (360°) (string)
+5096: #key-viewpoint-roll-clock=
+5097: 
+5098: # Roll the viewpoint anti-clockwise (360°) (string)
+5099: #global-key-viewpoint-roll-anticlock=
+5100: 
+5101: # Roll the viewpoint anti-clockwise (360°) (string)
+5102: #key-viewpoint-roll-anticlock=
+5103: 
+5104: # 1:4 Quarter (string)
+5105: #global-key-zoom-quarter=
+5106: 
+5107: # 1:4 Quarter (string)
+5108: #key-zoom-quarter=Alt+1
+5109: 
+5110: # 1:2 Half (string)
+5111: #global-key-zoom-half=
+5112: 
+5113: # 1:2 Half (string)
+5114: #key-zoom-half=Alt+2
+5115: 
+5116: # 1:1 Original (string)
+5117: #global-key-zoom-original=
+5118: 
+5119: # 1:1 Original (string)
+5120: #key-zoom-original=Alt+3
+5121: 
+5122: # 2:1 Double (string)
+5123: #global-key-zoom-double=
+5124: 
+5125: # 2:1 Double (string)
+5126: #key-zoom-double=Alt+4
+5127: 
+5128: # Very short jump length (integer)
+5129: #extrashort-jump-size=3
+5130: 
+5131: # Short jump length (integer)
+5132: #short-jump-size=10
+5133: 
+5134: # Medium jump length (integer)
+5135: #medium-jump-size=60
+5136: 
+5137: # Long jump length (integer)
+5138: #long-jump-size=300
+5139: 
+5140: # Set playlist bookmark 1 (string)
+5141: #global-key-set-bookmark1=
+5142: 
+5143: # Set playlist bookmark 1 (string)
+5144: #key-set-bookmark1=Ctrl+F1
+5145: 
+5146: # Set playlist bookmark 2 (string)
+5147: #global-key-set-bookmark2=
+5148: 
+5149: # Set playlist bookmark 2 (string)
+5150: #key-set-bookmark2=Ctrl+F2
+5151: 
+5152: # Set playlist bookmark 3 (string)
+5153: #global-key-set-bookmark3=
+5154: 
+5155: # Set playlist bookmark 3 (string)
+5156: #key-set-bookmark3=Ctrl+F3
+5157: 
+5158: # Set playlist bookmark 4 (string)
+5159: #global-key-set-bookmark4=
+5160: 
+5161: # Set playlist bookmark 4 (string)
+5162: #key-set-bookmark4=Ctrl+F4
+5163: 
+5164: # Set playlist bookmark 5 (string)
+5165: #global-key-set-bookmark5=
+5166: 
+5167: # Set playlist bookmark 5 (string)
+5168: #key-set-bookmark5=Ctrl+F5
+5169: 
+5170: # Set playlist bookmark 6 (string)
+5171: #global-key-set-bookmark6=
+5172: 
+5173: # Set playlist bookmark 6 (string)
+5174: #key-set-bookmark6=Ctrl+F6
+5175: 
+5176: # Set playlist bookmark 7 (string)
+5177: #global-key-set-bookmark7=
+5178: 
+5179: # Set playlist bookmark 7 (string)
+5180: #key-set-bookmark7=Ctrl+F7
+5181: 
+5182: # Set playlist bookmark 8 (string)
+5183: #global-key-set-bookmark8=
+5184: 
+5185: # Set playlist bookmark 8 (string)
+5186: #key-set-bookmark8=Ctrl+F8
+5187: 
+5188: # Set playlist bookmark 9 (string)
+5189: #global-key-set-bookmark9=
+5190: 
+5191: # Set playlist bookmark 9 (string)
+5192: #key-set-bookmark9=Ctrl+F9
+5193: 
+5194: # Set playlist bookmark 10 (string)
+5195: #global-key-set-bookmark10=
+5196: 
+5197: # Set playlist bookmark 10 (string)
+5198: #key-set-bookmark10=Ctrl+F10
+5199: 
+5200: # Play playlist bookmark 1 (string)
+5201: #global-key-play-bookmark1=
+5202: 
+5203: # Play playlist bookmark 1 (string)
+5204: #key-play-bookmark1=F1
+5205: 
+5206: # Play playlist bookmark 2 (string)
+5207: #global-key-play-bookmark2=
+5208: 
+5209: # Play playlist bookmark 2 (string)
+5210: #key-play-bookmark2=F2
+5211: 
+5212: # Play playlist bookmark 3 (string)
+5213: #global-key-play-bookmark3=
+5214: 
+5215: # Play playlist bookmark 3 (string)
+5216: #key-play-bookmark3=F3
+5217: 
+5218: # Play playlist bookmark 4 (string)
+5219: #global-key-play-bookmark4=
+5220: 
+5221: # Play playlist bookmark 4 (string)
+5222: #key-play-bookmark4=F4
+5223: 
+5224: # Play playlist bookmark 5 (string)
+5225: #global-key-play-bookmark5=
+5226: 
+5227: # Play playlist bookmark 5 (string)
+5228: #key-play-bookmark5=F5
+5229: 
+5230: # Play playlist bookmark 6 (string)
+5231: #global-key-play-bookmark6=
+5232: 
+5233: # Play playlist bookmark 6 (string)
+5234: #key-play-bookmark6=F6
+5235: 
+5236: # Play playlist bookmark 7 (string)
+5237: #global-key-play-bookmark7=
+5238: 
+5239: # Play playlist bookmark 7 (string)
+5240: #key-play-bookmark7=F7
+5241: 
+5242: # Play playlist bookmark 8 (string)
+5243: #global-key-play-bookmark8=
+5244: 
+5245: # Play playlist bookmark 8 (string)
+5246: #key-play-bookmark8=F8
+5247: 
+5248: # Play playlist bookmark 9 (string)
+5249: #global-key-play-bookmark9=
+5250: 
+5251: # Play playlist bookmark 9 (string)
+5252: #key-play-bookmark9=F9
+5253: 
+5254: # Play playlist bookmark 10 (string)
+5255: #global-key-play-bookmark10=
+5256: 
+5257: # Play playlist bookmark 10 (string)
+5258: #key-play-bookmark10=F10
+5259: 
+5260: # Clear the playlist (string)
+5261: #global-key-clear-playlist=
+5262: 
+5263: # Clear the playlist (string)
+5264: #key-clear-playlist=Ctrl+w
+5265: 
+5266: # Reset subtitles text scale (string)
+5267: #global-key-subtitle-text-scale-normal=
+5268: 
+5269: # Reset subtitles text scale (string)
+5270: #key-subtitle-text-scale-normal=Ctrl+0
+5271: 
+5272: # Scale down subtitles text (string)
+5273: #global-key-subtitle-text-scale-up=
+5274: 
+5275: # Scale down subtitles text (string)
+5276: #key-subtitle-text-scale-up=Ctrl+Mouse Wheel Up
+5277: 
+5278: # Scale up subtitles text (string)
+5279: #global-key-subtitle-text-scale-down=
+5280: 
+5281: # Scale up subtitles text (string)
+5282: #key-subtitle-text-scale-down=Ctrl+Mouse Wheel Down
+5283: 
+5284: # Playlist bookmark 1 (string)
+5285: #bookmark1=
+5286: 
+5287: # Playlist bookmark 2 (string)
+5288: #bookmark2=
+5289: 
+5290: # Playlist bookmark 3 (string)
+5291: #bookmark3=

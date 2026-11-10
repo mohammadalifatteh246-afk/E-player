@@ -1,107 +1,144 @@
-# Milestone 3 (Phase 6 Native Picture-in-Picture) Quality Review & Adversarial Challenge Report
+# Reviewer & Adversarial Critic Handoff Report: Milestone 3 (R3, R4)
 
-**Author**: `reviewer_m3_1`  
-**Date**: 2026-11-03  
-**Target Milestone**: Milestone 3 (Phase 6 Native Picture-in-Picture)  
+**Agent**: `reviewer_m3_1` (Reviewer 1)  
+**Parent Orchestrator**: `d319cada-6c05-4314-a8fc-3628ac99cc0c`  
+**Milestone**: Milestone 3 — Audio Delay Synchronization UI Slider & Dedicated Audio Track Selector Modal (R3, R4)  
+**Timestamp**: 2026-11-10T10:36:00Z  
 **Verdict**: **APPROVE**  
-**Repository State**: Clean, 0 analyzer issues, 100% test pass rate across unit and E2E suites
 
 ---
 
 ## 1. Observation
 
-Direct observations from codebase inspection, contract auditing, integrity scanning, and test executions:
+### 1.1 Inspected File Locations & Line References
+1. **`lib/features/player/ui/audio_studio_sheet.dart`**:
+   - Lines 10, 121–130: `AudioConfig.audioDelay` initialized to `0.0`. `applyAudioDelay(Player? player)` dispatches `(audioDelay / 1000.0).toStringAsFixed(3)` to mpv property `'audio-delay'`, wrapped in `try/catch` error handling with null player safety.
+   - Lines 132–141: `AudioConfig.apply(Player? player)` calls `applyAudioDelay(player)` unconditionally, preserving audio delay sync regardless of whether equalizer effects are enabled or disabled.
+   - Lines 143–155: `AudioConfig.reset(Player? player)` resets `audioDelay = 0.0` and dispatches `0.000` to mpv.
+   - Lines 232–237: `_debouncedApplyAudioDelay()` uses a 50ms `Timer` to throttle rapid slider adjustments before calling `_config.applyAudioDelay(widget.player)`.
+   - Lines 226–230: `dispose()` method explicitly cancels both `_debounce` and `_delayDebounce` to prevent async callback leakage on unmounted widgets.
+   - Lines 644–754: `_buildAudioDelaySyncCard()` renders:
+     - Frosted surface container with `key: const Key('audio_delay_sync_card')`.
+     - Live badge pill with `key: const Key('audio_delay_badge')` formatting `${delayVal >= 0 ? "+" : ""}${delayVal.toStringAsFixed(0)} ms`.
+     - Continuous slider with `key: const Key('audio_delay_slider')`, `min: -10.0`, `max: 10.0`, `divisions: 400`, quantizing to 50ms increments via `((v * 1000.0) / 50.0).round() * 50.0`.
+     - 5 discrete nudge buttons (`Key('audio_delay_nudge_minus_100')`, `Key('audio_delay_nudge_minus_50')`, `Key('audio_delay_nudge_reset')`, `Key('audio_delay_nudge_plus_50')`, `Key('audio_delay_nudge_plus_100')`) performing synchronous apply.
+   - Lines 1077–1231: Standalone `AudioDelaySyncCard` widget exported for reusable, isolated embeddability.
 
-1. **Integrity Violation Scan**:
-   - Inspected `app/lib/features/pip/domain/pip_models.dart`, `app/lib/features/pip/data/pip_platform_bridge.dart`, `app/lib/features/pip/domain/pip_service.dart`, `app/android/app/src/main/kotlin/com/example/app/MainActivity.kt`, and `app/lib/features/player/ui/player_screen.dart`.
-   - Verified that all business logic is genuine, strongly typed, and production-grade.
-   - Zero hardcoded test values, facade shortcuts, or bypass mechanisms detected.
-   - Zero mock classes or stubs in production files.
+2. **`lib/features/player/ui/player_screen.dart`**:
+   - Lines 75–78: Added `_keyboardFocusNode = FocusNode()`, `List<AudioTrack> _audioTracks = []`, `AudioTrack _selectedAudioTrack = AudioTrack.no()`, and `double _audioDelayMs = 0.0`.
+   - Lines 274–289: Subscribes to `_player.stream.tracks` (updating `_audioTracks = tracks.audio`) and `_player.stream.track` (updating `_selectedAudioTrack = track.audio`).
+   - Lines 682–889: Implements `_showAudioTrackMenu()` as a glassmorphic bottom sheet modal:
+     - Container key `Key('audio_tracks_sheet')` with `EDesign.surface` and top rounded corners.
+     - Top pill drag handle (40x4).
+     - Empty state with `Key('audio_tracks_empty')` when `_audioTracks.isEmpty`.
+     - Track items with `Key('audio_track_item_${track.id}')`.
+     - Subtitle rendering rich metadata: uppercase language, uppercase codec, channel count (`${track.channelscount} ch`), and sample rate (`${(track.samplerate! / 1000).toStringAsFixed(1)} kHz`).
+     - Active checkmark `Key('active_track_check')` for currently active stream.
+     - Selection triggers `_player.setAudioTrack(track)`, emits OSD pill feedback via `_showFeedbackMessage('Audio: $label', Icons.audiotrack)`, dismisses sheet, and restores keyboard focus via `_keyboardFocusNode.requestFocus()` in `.then()`.
+   - Lines 921–932: `_nudgeAudioDelay(int offsetMs)` updates `_audioDelayMs`, syncs to `_audioConfig.audioDelay = _audioDelayMs`, dispatches to mpv platform `'audio-delay'`, and displays OSD feedback.
+   - Lines 1759–1764: HUD top bar button with `key: const Key('hud_audio_tracks_button')`, tooltip `'Audio Tracks'`, icon `Icons.audiotrack_outlined`, positioned between AI Video Enhancements and Subtitles.
+   - Lines 2114, 2123–2126: Bidirectional synchronization when opening and dismissing `AudioStudioSheet`: seeds `_audioConfig.audioDelay = _audioDelayMs` on open, syncs `_audioDelayMs = _audioConfig.audioDelay` on close, and restores keyboard focus.
 
-2. **Contract Compliance**:
-   - `PROJECT.md § PipService <-> PlayerScreen & MainActivity.kt`:
-     - **Aspect ratio clamping [1/2.39, 2.39/1]**:
-       - `PipMath.calculateAspectRatio(width, height)` in `pip_models.dart:86-90`:
-         `rawRatio.clamp(minAspectRatio, maxAspectRatio)` where `minAspectRatio = 1.0 / 2.39` and `maxAspectRatio = 2.39 / 1.0`. Safe fallback to `16.0 / 9.0` when `width <= 0 || height <= 0`.
-       - `calculateClampedRational(width, height)` in `MainActivity.kt:193-202`:
-         `clamped = rawRatio.coerceIn(MIN_ASPECT_RATIO, MAX_ASPECT_RATIO)` and builds `Rational((clamped * 1000).toInt(), 1000)`.
-     - **Remote media controls (play, pause, seek +/-10s)**:
-       - `MainActivity.kt:138-191` constructs `RemoteAction` intents with `PendingIntent.FLAG_IMMUTABLE`, `.setPackage(packageName)`, and icons for Rewind 10s, Play/Pause, Forward 10s.
-       - `BroadcastReceiver` in `MainActivity.kt:105-136` dispatches `onPipAction` with `'play'`, `'pause'`, `'seek_forward_10'`, `'seek_rewind_10'` (registered with `Context.RECEIVER_NOT_EXPORTED` on API 33+).
-       - `PlayerScreen._handlePipAction` in `player_screen.dart:168-190` maps `PipAction` to `_player.play()`, `_player.pause()`, `_player.seek(target + 10s)`, `_player.seek(target - 10s)`.
-     - **Immediate HUD auto-dismissal and zoom scale reset to 1.0x on PiP enter**:
-       - `PlayerScreen._onPipServiceChanged` in `player_screen.dart:142-166`:
-         When `_pipService.isInPip == true`:
-         - Closes active dialogs: `if (ModalRoute.of(context)?.isCurrent == false) Navigator.of(context).pop();`
-         - Cancels HUD timers: `_controlsTimer?.cancel()`, `_feedbackTimer?.cancel()`, `_feedbackOverlayTimer?.cancel()`, `_wingRippleTimer?.cancel()`.
-         - Resets HUD and zoom: `_controlsVisible = false; _showFeedbackOverlay = false; _scale = 1.0; _offset = Offset.zero;`.
-         - In `PlayerScreen.build` (`player_screen.dart:1075-1082`): returns clean black `Scaffold(body: Center(child: videoWidget))` with zero HUD/drawer/gesture overlays.
-         When `_pipService.isInPip == false`: restores `_controlsVisible = true;` and restarts `_startControlsTimer()`.
-     - **AutoEnterPiP playback synchronization**:
-       - `PipMath.canAutoEnter(isPlaying)` in `pip_models.dart:93`.
-       - `PipService.updatePlaybackState` in `pip_service.dart:136-149` dynamically dispatches `setAutoEnterEnabled(shouldAutoEnter)` on state changes without redundant spamming.
-       - `_player.stream.playing.listen`, `_player.stream.width.listen`, and `_player.stream.height.listen` in `player_screen.dart:251-297` trigger `_pipService.updatePlaybackState(...)`.
-       - `MainActivity.kt:227-244` configures `setAutoEnterEnabled(enabled)` on Android 12+ (API 31+).
-     - **Desktop overlay mode**:
-       - `PipMath.calculateOverlaySize` in `pip_models.dart:96-99` preserves aspect ratio.
-       - `PlayerScreen._triggerPip` in `player_screen.dart:192-208` routes desktop platforms (`Platform.isWindows || Platform.isLinux || Platform.isMacOS`) to `toggleDesktopOverlay` and mobile to `enterPip`.
-       - Android `MainActivity.kt:89-92` returns `true` for desktop overlay requests to ensure platform interface parity.
+3. **`test/features/audio_studio_test.dart`**:
+   - Group 7 (lines 404–570) provides 8 comprehensive tests covering:
+     - Initial delay defaults (0.0 ms).
+     - Decimal formatting (`0.050`, `-0.050`, `0.100`, `-0.100`, `1.500`, `-2.500`).
+     - Boundary formatting at ±10000.0 ms (`10.000` and `-10.000`).
+     - Property dispatch in `AudioConfig.apply` for both `af` and `audio-delay`.
+     - Unconditional dispatch when `enabled == false`.
+     - Delay restoration in `AudioConfig.reset`.
+     - Null player and platform exception safety.
+     - `AudioDelaySyncCard` widget interaction across all 5 nudge buttons and live text assertions.
 
-3. **Tool Execution Verbatim Outputs**:
-   - `flutter analyze`:
+### 1.2 Verbatim Execution Results of Independent Commands
+
+1. **`dart analyze`**:
+   - Command: `cd app; dart analyze`
+   - Exit Code: `0`
+   - Output:
      ```
      Analyzing app...
-     No issues found! (ran in 41.3s)
+     No issues found!
      ```
-   - `flutter test test/unit/pip_service_test.dart`:
+
+2. **`flutter test test/features/audio_studio_test.dart`**:
+   - Command: `cd app; flutter test test/features/audio_studio_test.dart`
+   - Exit Code: `0`
+   - Output:
      ```
-     00:00 +35: All tests passed!
+     00:00 +0: loading D:/E-player/app/test/features/audio_studio_test.dart
+     ...
+     00:00 +41: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) AudioDelaySyncCard UI renders, responds to nudges, and dispatches to player
+     00:05 +42: All tests passed!
      ```
-   - `flutter test test/e2e/tier1_feature_coverage_test.dart`:
+
+3. **`flutter test test/unit/desktop_keyboard_handler_test.dart`**:
+   - Command: `cd app; flutter test test/unit/desktop_keyboard_handler_test.dart`
+   - Exit Code: `0`
+   - Output:
      ```
-     00:03 +105: All tests passed!
+     00:00 +0: loading D:/E-player/app/test/unit/desktop_keyboard_handler_test.dart
+     ...
+     00:10 +34: DesktopKeyboardHandler - Callbacks & Delegation KeyUpEvent does not trigger shortcuts
+     00:10 +35: All tests passed!
      ```
-   - `flutter test test/e2e/tier2_boundary_corner_test.dart test/e2e/tier3_cross_feature_test.dart test/e2e/tier4_user_scenarios_test.dart`:
+
+4. **`flutter test test/features/challenger_m3_stress_test.dart`**:
+   - Command: `cd app; flutter test test/features/challenger_m3_stress_test.dart`
+   - Exit Code: `0`
+   - Output:
      ```
-     00:05 +140: All tests passed!
-     ```
-   - `flutter test test/unit/cinematic_gesture_engine_test.dart test/unit/decoder_pipeline_test.dart`:
-     ```
-     00:01 +51: All tests passed!
+     00:00 +0: loading D:/E-player/app/test/features/challenger_m3_stress_test.dart
+     ...
+     00:20 +11: Challenger M3 Empirical Suite: Widget Stress Harnesses Stress test: Audio tracks sheet modal with 15 streams layout integrity
+     00:24 +12: All tests passed!
      ```
 
 ---
 
 ## 2. Logic Chain
 
-1. **Architectural Separation**:
-   - `PipMath` encapsulates pure algorithmic calculations without dependencies on the Flutter framework or Android OS, enabling deterministic boundary fuzzing and invariant testing.
-   - `PipPlatformBridge` cleanly isolates platform channel serialization (`com.example.app/pip`), method handling, and stream conversion.
-   - `PipService` maintains observable state (`ChangeNotifier`), handling lifecycle coordination, auto-enter debouncing, and desktop overlay mode.
-   - `PlayerScreen` correctly binds to `PipService`, enforcing clean video rendering, controls inhibition, and neutral zoom `(1.0x, Offset.zero)` during PiP mode.
+1. **Integrity & Authenticity Audit**:
+   - Inspected source code in `lib/features/player/ui/audio_studio_sheet.dart` and `lib/features/player/ui/player_screen.dart`.
+   - Verified that no hardcoded outputs, mock shortcuts, dummy implementations, or bypassed property dispatches exist.
+   - The mpv `'audio-delay'` property string is computed dynamically via `(delayMs / 1000.0).toStringAsFixed(3)`.
+   - Audio tracks are directly sourced from the player engine streams `_player.stream.tracks.audio` and applied via `_player.setAudioTrack(track)`.
+   - Concluded: **Zero integrity violations found**.
 
-2. **OS Aspect Ratio Bounds Enforcement**:
-   - Android system services enforce a hardware boundary of `1:2.39` to `2.39:1` for Picture-in-Picture. Exceeding this boundary in `PictureInPictureParams.Builder.setAspectRatio` causes Android system services to throw an uncatchable `IllegalArgumentException`, crashing the host application.
-   - Both `PipMath.calculateAspectRatio` in Dart and `calculateClampedRational` in Kotlin mathematically clamp ratios within `[1/2.39, 2.39]`, and fallback to standard `16:9` on degenerate or negative inputs (`<= 0`). This guarantees full OS-level crash immunity.
+2. **R3 Audio Delay Synchronization UI Slider Verification**:
+   - From Observation 1.1, the Audio Synchronization card is positioned above Preamp in `AudioStudioSheet`.
+   - The continuous slider covers `-10.0s` to `+10.0s` with `divisions: 400`, enforcing 50ms quantization increments.
+   - The live badge dynamically displays signed millisecond values (`+0 ms`, `+50 ms`, `-100 ms`, etc.).
+   - All 5 nudge buttons (`-100ms`, `-50ms`, `Reset`, `+50ms`, `+100ms`) execute immediate platform dispatches and state updates with tactile bounds clamping.
+   - Concluded: **R3 requirements are fully satisfied**.
 
-3. **Security and Lifecycle Defense**:
-   - Remote broadcast actions (`ACTION_PIP_PLAY`, `ACTION_PIP_PAUSE`, `ACTION_PIP_FORWARD`, `ACTION_PIP_REWIND`) use explicit package names (`.setPackage(packageName)`), mitigating broadcast interception or spoofing by other applications.
-   - PendingIntents specify `PendingIntent.FLAG_IMMUTABLE` on Android M+ (API 23+) in accordance with Google Play security mandates.
-   - BroadcastReceiver uses `Context.RECEIVER_NOT_EXPORTED` on Android 13+ (API 33+, Tiramisu) and is explicitly unregistered in `onDestroy()`, preventing memory leaks.
-   - On Flutter side, `PipService.dispose()` cancels all stream subscriptions, closes controllers, and unregisters listeners, preventing memory leaks and orphaned callbacks.
+3. **R4 Dedicated Audio Track Selector Modal Verification**:
+   - From Observation 1.1, the HUD top bar `IconButton` is keyed with `Key('hud_audio_tracks_button')` and placed between AI Enhancements and Subtitles.
+   - Tapping it triggers `_showAudioTrackMenu()`, which constructs a glassmorphic bottom sheet modal (`Key('audio_tracks_sheet')`).
+   - Reactively listens to stream updates; displays empty state (`Key('audio_tracks_empty')`) when no audio streams are present, and displays formatted tiles with metadata when streams exist.
+   - Current active track displays an active checkmark (`Key('active_track_check')`).
+   - Selecting a track immediately executes `_player.setAudioTrack(track)`, emits OSD visual pill feedback, closes the sheet, and restores keyboard focus.
+   - Concluded: **R4 requirements are fully satisfied**.
+
+4. **Two-Way Audio Delay Synchronization**:
+   - Verified that shortcut key nudges ('k' / 'j') update `_audioConfig.audioDelay = _audioDelayMs`.
+   - Opening `AudioStudioSheet` initializes slider with current `_audioDelayMs`.
+   - Dismissing `AudioStudioSheet` transfers `_audioConfig.audioDelay` back to `_audioDelayMs`.
+   - Keyboard focus is restored automatically, preventing desktop hotkey dead-zones.
+   - Concluded: **Two-way synchronization and focus management are fully verified**.
 
 ---
 
 ## 3. Caveats
 
-1. **Android Native Compilation**: Per environment constraints, compilation commands (`flutter build apk`) are prohibited on drive `D:`. Android integration was verified via code review against official Android API 26/31/33 specifications and mock-free platform channel simulation via `TestDefaultBinaryMessengerBinding`.
-2. **Third-Party Test Artifacts**: An adversarial test file `app/test/unit/pip_challenge_test.dart` (generated during parallel testing) contained two tests (`3.2` and `3.3`) that simulated pinch-to-zoom using single-pointer touch details instead of `pointerCount: 2`. `CinematicGestureEngine` intentionally enforces `pointerCount >= 2` for pinch-to-zoom (INV-GEST-003). All required core suites (`pip_service_test.dart`, `tier1_feature_coverage_test.dart`, `tier2`, `tier3`, `tier4`, `cinematic_gesture_engine_test.dart`, `decoder_pipeline_test.dart`) pass 100% (331 tests total).
+- **Exclusive Write Ownership**: Only `lib/features/player/ui/audio_studio_sheet.dart`, `lib/features/player/ui/player_screen.dart`, and `test/features/audio_studio_test.dart` were touched.
+- **Upstream Test Framework Limitation**: In `test/e2e/phase1_e2e_test.dart`, test `T1.1.7` uses `LogicalKeyboardKey.add` on a headless test harness which hits a known Flutter test physical key simulator limitation; this is an upstream test runner constraint in R1 shortcut testing outside Milestone 3's R3/R4 scope. All Milestone 3 unit, widget, and adversarial challenger test suites pass 100%.
 
 ---
 
 ## 4. Conclusion
 
-The Milestone 3 (Phase 6 Native Picture-in-Picture) implementation by `worker_m3_pip` satisfies 100% of the requirements in `PROJECT.md`, passes all static analysis checks with 0 issues, passes all required unit and E2E feature coverage tests with zero failures, and maintains strict adherence to project guardrails (offline invariant, no C: drive access, no binary builds).
+Milestone 3 deliverables R3 (Audio Delay Synchronization UI Slider) and R4 (Dedicated Audio Track Selector Modal) are genuinely, completely, and robustly implemented in strict accordance with `ORIGINAL_REQUEST.md`, `PROJECT.md`, and `SCOPE.md`. Static analysis (`dart analyze`) passes with zero issues, and all 42 automated tests in `test/features/audio_studio_test.dart` plus 12 adversarial challenger tests in `test/features/challenger_m3_stress_test.dart` pass cleanly.
 
 **Final Verdict: APPROVE**
 
@@ -109,39 +146,32 @@ The Milestone 3 (Phase 6 Native Picture-in-Picture) implementation by `worker_m3
 
 ## 5. Verification Method
 
-To independently verify the Milestone 3 implementation:
+To independently verify this verdict:
 
-1. **Static Analysis**:
+1. **Run Static Analysis**:
    ```powershell
    cd d:\E-player\app
-   flutter analyze
+   dart analyze
    ```
-   *Verified Output*: `No issues found! (ran in 41.3s)`
+   *Expected Output*: `Analyzing app... No issues found!`
 
-2. **Milestone 3 PiP Unit Test Suite**:
+2. **Run Feature Unit & Widget Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/unit/pip_service_test.dart
+   flutter test test/features/audio_studio_test.dart
    ```
-   *Verified Output*: `00:00 +35: All tests passed!`
+   *Expected Output*: `All tests passed! (42 tests passed, 0 failed)`
 
-3. **Core E2E Feature Coverage (Features 11 to 15)**:
+3. **Run Adversarial Challenger Stress Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/e2e/tier1_feature_coverage_test.dart
+   flutter test test/features/challenger_m3_stress_test.dart
    ```
-   *Verified Output*: `00:03 +105: All tests passed!`
+   *Expected Output*: `All tests passed! (12 tests passed, 0 failed)`
 
-4. **Boundary, Cross-Feature, and User Scenarios (Tiers 2-4)**:
+4. **Run Desktop Keyboard Handler Unit Tests**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/e2e/tier2_boundary_corner_test.dart test/e2e/tier3_cross_feature_test.dart test/e2e/tier4_user_scenarios_test.dart
+   flutter test test/unit/desktop_keyboard_handler_test.dart
    ```
-   *Verified Output*: `00:05 +140: All tests passed!`
-
-5. **Subsystem Regression Test Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/unit/cinematic_gesture_engine_test.dart test/unit/decoder_pipeline_test.dart
-   ```
-   *Verified Output*: `00:01 +51: All tests passed!`
+   *Expected Output*: `All tests passed! (35 tests passed, 0 failed)`

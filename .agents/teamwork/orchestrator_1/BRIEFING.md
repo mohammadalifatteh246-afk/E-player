@@ -1,7 +1,7 @@
-# BRIEFING — 2026-11-03T09:40:04Z
+# BRIEFING — 2026-11-10T08:06:20Z
 
 ## Mission
-Operate as an elite 4-Character Clean-Room Engineering Studio (SPP + CoVe + Reflexion + MCP) to reverse-engineer VLC's File Browser, Auto-rescan, and Media Library / Media Library Folders, gather live empirical evidence, and build a production-grade clean-room equivalent for E-Player adhering to the 6-stage REA pipeline.
+Implement Phase 1 deliverables (Desktop Keyboard Shortcuts, Multi-Tier Precision Jump Intervals, Audio Delay Synchronization UI Slider, Dedicated Audio Track Selector Modal, and Equalizer Parity with Preamp Slider) for production in the cross-platform E-Player Flutter desktop application (Windows, macOS, Linux).
 
 ## 🔒 My Identity
 - Archetype: teamwork_orchestrator
@@ -21,6 +21,8 @@ Operate as an elite 4-Character Clean-Room Engineering Studio (SPP + CoVe + Refl
 - Pass static analysis (`dart analyze`) with zero errors and zero warnings.
 - Zero `// TODO` comments or dummy placeholders.
 - Never reuse a subagent after it has delivered its handoff — always spawn fresh.
+- Phase 1 Constraints: Cross-platform desktop shortcuts (Windows, macOS, Linux), 4-tier seek physics, AudioStudioSheet audio delay slider & EQ presets/preamp, PlayerScreen audio track modal.
+- Zero flutter analyze issues; comprehensive flutter test coverage.
 
 ## 🔒 My Workflow
 - **Pattern**: Project / REA 6-Stage Clean-Room Pipeline
@@ -38,41 +40,51 @@ Operate as an elite 4-Character Clean-Room Engineering Studio (SPP + CoVe + Refl
    - Retry -> Replace -> Skip (non-critical) -> Redistribute -> Redesign -> Escalate
 4. **Succession**:
    - Self-succeed at 16 spawns if active subagents finish.
-- **Work items**:
-  1. M1: Stage 1 Forensic Evidence Extraction & Deconstruction [done]
-  2. M2: Stage 2 CoVe Adversarial Cross-Examination [done]
-  3. M3: Stages 3-4 Clean-Room Architectural Blueprint & Pre-Mortem Guardrails [done]
-  4. M4: Stage 5 Production Clean-Room Implementation [done]
-  5. M5: Stage 6 Verification & Test Data Cleanup & REA Ledger [done]
-  6. M6: Final Forensic Audit & Verification [done]
-- **Current phase**: Complete
-- **Current focus**: Milestone sign-off & Sentinel report
+- **Phase 1 Deliverables Workflow**:
+  - Step 0: Survey - Map current player architecture, keyboard shortcuts infra, audio studio, track selector, and mpv bindings. Spawn 3 explorers (including spec miner for vlc_gap_analysis.md). [DONE]
+  - Step 1: Decompose - Update PROJECT.md with architecture, feature inventory, milestones, interface contracts. [DONE]
+  - Step 2: Implementation & Dual-Track Verification per milestone (Explorer -> Worker -> Reviewer -> Challenger -> Auditor). [IN PROGRESS]
+    - M1: Desktop Keyboard Shortcuts & 4-Tier Seek Physics (sub_orch_m1) [DONE]
+    - M2: Equalizer Parity & Pre-Amplification (sub_orch_m2) [DONE]
+    - M3: Audio Delay Synchronization & Track Selector Modal (sub_orch_m3) [IN PROGRESS - Gate 2 Evaluation]
+    - M4: E2E Test Suite Dual Track (e2e_test_orch) [DONE]
+    - M5: Final Verification, Hardening & Forensic Integrity Audit (sub_orch_m5) [PENDING M3]
+  - Step 3: Final Verification & Audit.
 
 ## Current Parent
-- Conversation ID: db0324b0-bfdb-4110-a49c-e7d55e67058c
-- Updated: 2026-11-03T09:40:04Z
+- Conversation ID: 4148b86e-4a5c-4679-9309-263a3f6f7cb8
+- Updated: 2026-11-10T08:06:20Z
 
 ## Key Decisions Made
-- Adhere strictly to 6-stage REA clean-room methodology.
-- Create PROJECT.md for tracking milestones, interfaces, and architecture.
+- Adhere strictly to Project pattern & REA clean-room discipline.
+- Completed 3 survey explorations (Cypher, Kronos, Aura) verifying exact VLC blueprints, PE equalizer structs, and Flutter player architecture.
+- Authored PROJECT.md with 14 features across 5 milestones and interface contracts.
+- M1 (Shortcuts & Seek Physics) complete: `desktop_keyboard_handler.dart` (314 lines) and `desktop_keyboard_handler_test.dart` (675 lines) integrated into `PlayerScreen`.
+- M2 (Equalizer Parity) complete: `AudioConfig` 11 presets + preamp filter and preamp slider in `AudioStudioSheet` (897 lines) and `audio_studio_test.dart` (34/34 passing). Gate passed unanimously.
+- M4 (E2E Test Suite) complete: `phase1_e2e_test.dart` (2,075 lines, 68 tests across Tiers 1-4) and `TEST_READY.md` published.
+- M3 (`sub_orch_m3`) Iteration 2: Worker remediation completed (51/51 tests passing, 8/8 stress tests passing, zero analyzer issues). Reviewers evaluating Gate 2.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| explorer_vlc_local | teamwork_explorer | M1: Stage 1 Local VLC forensic artifact inspection | completed | 2a3ba80b-f068-4459-bc6c-0ec0e8a4d973 |
-| spec_miner_vlc_medialibrary | teamwork_spec_miner | M1: Stage 1 Medialibrary schema & state spec mining | completed | c80ab78b-bf80-46df-bfe3-758fe45b7b00 |
-| challenger_reverify | teamwork_challenger | M6: Adversarial Remediation Verification | in-progress | 8f3748a9-a152-447d-967a-51694a52b29b |
+| spec_miner_phase1 | teamwork_spec_miner | Phase 1 Spec Mining (vlc_gap_analysis.md & blueprints) | completed | 18542cd9-d1fc-45df-97a0-780a006adaad |
+| explorer_shortcuts_player | teamwork_explorer | Player Architecture & Shortcuts Exploration | completed | 7c3fd726-ec0a-4879-adb5-53fa16594918 |
+| explorer_audio_studio | teamwork_explorer | Audio Studio, Equalizer & Delay Exploration | completed | a91e7efd-c399-463d-863e-c391948392c8 |
+| sub_orch_m1 | self | M1: Desktop Keyboard Shortcuts & 4-Tier Seek Physics | completed | 0d4da9b6-9876-412f-b3c6-cdbd4a9303ed |
+| sub_orch_m2 | self | M2: Equalizer Parity & Pre-Amplification | completed | f111da1f-9f7f-493f-baa1-8c36ae5eb7b8 |
+| e2e_test_orch | self | M4: Dual Track Opaque-Box E2E Test Suite | completed | 66c888d9-b77c-4748-9d17-13e1409906b0 |
+| sub_orch_m3 | self | M3: Audio Delay Synchronization & Track Selector Modal | in-progress | d319cada-6c05-4314-a8fc-3628ac99cc0c |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 14 / 16
-- Pending subagents: 8f3748a9-a152-447d-967a-51694a52b29b
+- Spawn count: 7 / 16
+- Pending subagents: d319cada-6c05-4314-a8fc-3628ac99cc0c
 - Predecessor: none
 - Successor: not yet spawned
 
 ## Active Timers
-- Heartbeat cron: b2008e01-408f-4008-b628-3252f17ed10a/task-23
-- Safety timer: none
+- Heartbeat cron: 63171882-8b91-4476-8781-8908629f8b43/task-29
+- Safety timer: 63171882-8b91-4476-8781-8908629f8b43/task-140
 
 ## Artifact Index
 - d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md — Approved original task prompt
@@ -80,3 +92,9 @@ Operate as an elite 4-Character Clean-Room Engineering Studio (SPP + CoVe + Refl
 - d:\E-player\.agents\teamwork\orchestrator_1\BRIEFING.md — Persistent orchestrator memory
 - d:\E-player\.agents\teamwork\orchestrator_1\progress.md — Liveness and step tracking
 - d:\E-player\PROJECT.md — Global project plan & feature inventory
+- d:\E-player\TEST_INFRA.md — E2E test infra and methodology
+- d:\E-player\TEST_READY.md — E2E test suite readiness publication
+- d:\E-player\.agents\teamwork\sub_orch_m1\SCOPE.md — M1 Scope Document
+- d:\E-player\.agents\teamwork\sub_orch_m2\SCOPE.md — M2 Scope Document
+- d:\E-player\.agents\teamwork\sub_orch_m3\SCOPE.md — M3 Scope Document
+- d:\E-player\.agents\teamwork\e2e_test_orch\SCOPE.md — M4 Scope Document

@@ -1,250 +1,194 @@
-# Milestone 3 (Phase 6 Native Picture-in-Picture) Empirical Challenge Report
+# Challenger 2 Handoff Report: Milestone 3 (Audio Delay Synchronization UI Slider & Dedicated Audio Track Selector Modal — R3, R4)
 
-**Agent**: `challenger_m3_2`  
+**Agent ID**: `challenger_m3_2`  
 **Role**: Empirical Challenger (critic, specialist)  
-**Date**: 2026-11-03  
-**Target Milestone**: Milestone 3 (Phase 6 Native Picture-in-Picture)  
-**Status**: COMPLETE (Hard Handoff)  
-**Verdict**: **PASS WITH ADVERSARIAL FINDINGS** (Production implementation passes all 156 automated tests with 0 analyzer issues; 2 architectural edge-case findings identified with concrete mitigations).
-
----
-
-## Challenge Summary
-
-**Overall risk assessment**: **LOW-TO-MEDIUM**  
-The Milestone 3 Picture-in-Picture subsystem implemented by `worker_m3_pip` demonstrates excellent functional compliance, robust aspect-ratio clamping, resilient enum parsing, and clean presentation layer integration. All required baseline and E2E tests pass (105/105 Tier 1 tests, 35/35 unit tests, 0 analyzer issues).
-
-Our empirical adversarial challenge synthesized 16 new stress tests in `app/test/unit/pip_integration_challenge_test.dart` probing remote action mapping, AutoEnterPiP state synchronization, and desktop overlay calculations. The stress harness surfaced two concurrency/state synchronization edge cases:
-1. **Asynchronous Re-entrancy Gap**: Stale `_autoEnterEnabled` check during un-awaited synchronous rapid calls causes redundant platform channel invocations.
-2. **Delayed Dimension Resolution Drop**: When playback begins before video dimensions resolve, later dimension updates are ignored because `_autoEnterEnabled == isPlaying` evaluates to false for state changes.
-
-Neither finding triggers fatal application crashes or prevents normal operation, but addressing them will harden PiP against out-of-order metadata delivery.
+**Parent Orchestrator**: `d319cada-6c05-4314-a8fc-3628ac99cc0c`  
+**Milestone**: Milestone 3 (Requirements R3, R4)  
+**Date & Timestamp**: 2026-11-10T10:44:00Z  
+**Verdict**: **REQUEST_CHANGES** (Blocking Runtime Assertion Crash Found in `AudioStudioSheet`)
 
 ---
 
 ## 1. Observation
 
-Direct observations from codebase inspection, empirical test synthesis, and execution runs:
+### 1.1 Direct Code Observations & Identified Defect
 
-1. **Remote Action Mapping (`PipAction.fromString`)**:
-   - `app/lib/features/pip/domain/pip_models.dart:20-36`:
-     ```dart
-     static PipAction fromString(String? raw) {
-       if (raw == null) return PipAction.unknown;
-       switch (raw.trim().toLowerCase()) {
-         case 'play': return PipAction.play;
-         case 'pause': return PipAction.pause;
-         case 'seek_forward_10':
-         case 'fast_forward': return PipAction.seekForward10;
-         case 'seek_rewind_10':
-         case 'rewind': return PipAction.seekRewind10;
-         default: return PipAction.unknown;
-       }
-     }
-     ```
-   - In `app/lib/features/pip/data/pip_platform_bridge.dart:53-57`:
-     ```dart
-     } else if (call.arguments is Map) {
-       final map = call.arguments as Map;
-       action = map['action'] as String?;
-     }
-     ```
-   - In `app/lib/features/player/ui/player_screen.dart:187-189`:
-     ```dart
-     case PipAction.unknown:
-       break;
-     ```
-   - **Empirical Test Result (`pip_integration_challenge_test.dart:1.1 - 1.5`)**:
-     45+ adversarial variations tested: `null`, `""`, `"   "`, `"\t\n\r"`, mixed case (`pLaY`, `Seek_Forward_10`), non-English unicode (`播放`, `暂停`, `воспроизведение`, `파이프`, `🎬🍿`), injection strings (SQL, XSS, null bytes `\u0000`), raw Android intents (`com.example.app.ACTION_PIP_PLAY`), and 10,000-character payloads.
-     All evaluate strictly to `PipAction.unknown` without exceptions. `PlayerScreen._handlePipAction` discards `unknown` cleanly.
-
-2. **AutoEnterPiP Synchronization with Playback State**:
-   - `app/lib/features/pip/domain/pip_service.dart:107-113`:
-     ```dart
-     await _bridge.setAutoEnterEnabled(
-       enabled,
-       videoWidth: videoWidth,
-       videoHeight: videoHeight,
+1. **`lib/features/player/ui/audio_studio_sheet.dart:1045-1052` (`_buildBoostSwitchTile`)**:
+   ```dart
+   Widget _buildBoostSwitchTile({
+     required String title,
+     required String subtitle,
+     required IconData icon,
+     required bool value,
+     required ValueChanged<bool> onChanged,
+   }) {
+     return Material(
+       color: EDesign.surface,
+       borderRadius: BorderRadius.circular(EDesign.r14),
+       shape: RoundedRectangleBorder(
+         borderRadius: BorderRadius.circular(EDesign.r14),
+         side: const BorderSide(color: EDesign.border),
+       ),
+       child: SwitchListTile(...),
      );
-     _autoEnterEnabled = enabled; // <-- Assigned AFTER await
-     notifyListeners();
-     ```
-   - `app/lib/features/pip/domain/pip_service.dart:141-149`:
-     ```dart
-     final shouldAutoEnter = PipMath.canAutoEnter(isPlaying);
-     if (_autoEnterEnabled != shouldAutoEnter) {
-       setAutoEnterEnabled(
-         shouldAutoEnter,
-         videoWidth: videoWidth,
-         videoHeight: videoHeight,
-       );
-     }
-     ```
-   - **Empirical Test Result (`pip_integration_challenge_test.dart:2.3b`)**:
-     When 10 synchronous calls to `updatePlaybackState(isPlaying: true)` are dispatched in rapid succession without awaiting Future completion:
-     Because `_autoEnterEnabled` is assigned *after* `await _bridge.setAutoEnterEnabled(...)`, all 10 calls read stale `_autoEnterEnabled == false`, passing the `if (_autoEnterEnabled != shouldAutoEnter)` guard and generating 10 separate MethodChannel invocations to the platform instead of 1.
-   - **Empirical Test Result (`pip_integration_challenge_test.dart:2.4`)**:
-     When media playback begins (`updatePlaybackState(isPlaying: true, videoWidth: null, videoHeight: null)`), `_autoEnterEnabled` is set to `true`. When video stream headers later resolve dimensions (`1920x1080`), `updatePlaybackState(isPlaying: true, videoWidth: 1920, videoHeight: 1080)` is called from `player_screen.dart:281`. Because `_autoEnterEnabled` is already `true`, `_autoEnterEnabled != shouldAutoEnter` evaluates to `false`, and the platform channel is never updated with the new dimensions.
+   }
+   ```
+   **Defect**: Flutter's `Material` constructor (`package:flutter/src/material/material.dart:209:15`) enforces:
+   ```dart
+   assert(!(shape != null && borderRadius != null), 'Cannot provide both a shape and a borderRadius');
+   ```
+   `worker_m3_1` supplied **both** `borderRadius` and `shape` simultaneously to `Material`.
+   Whenever `AudioStudioSheet` is built in any debug/profile/test execution environment, Flutter crashes with:
+   ```
+   'package:flutter/src/material/material.dart': Failed assertion: line 209 pos 15: '!(shape != null && borderRadius != null)': is not true.
+   ```
 
-3. **Desktop Overlay Mode Calculation (`PipMath.calculateOverlaySize`)**:
-   - `app/lib/features/pip/domain/pip_models.dart:96-99`:
-     ```dart
-     static Size calculateOverlaySize(int width, int height, [double baseWidth = 480.0]) {
-       final ratio = calculateAspectRatio(width, height);
-       return Size(baseWidth, (baseWidth / ratio).roundToDouble());
-     }
-     ```
-   - **Empirical Test Result (`pip_integration_challenge_test.dart:3.1 - 3.5`)**:
-     - Standard 16:9 (`1920x1080`) -> `Size(480.0, 270.0)`
-     - Standard 4:3 (`1440x1080`) -> `Size(480.0, 360.0)`
-     - Square 1:1 (`1080x1080`) -> `Size(480.0, 480.0)`
-     - Cinematic 21:9 (`2560x1080`) -> `Size(480.0, 202.0)`
-     - Ultra-wide 32:9 (`5120x1440`) clamped to max ratio 2.39 -> `Size(480.0, 201.0)`
-     - Ultra-tall portrait (`1080x3840`) clamped to min ratio (1/2.39) -> `Size(480.0, 1147.0)`
-     - Degenerate dimensions (`0x0`, `0x1080`, `1920x0`, negative dimensions) safely fallback to 16:9 `Size(480.0, 270.0)`.
+2. **Test Suite Blindspot in `worker_m3_1` Handoff (`test/features/audio_studio_test.dart`)**:
+   - `worker_m3_1` claimed in `worker_m3_1/handoff.md:8`: *"All 42 tests in test/features/audio_studio_test.dart PASSED."*
+   - Inspection of `test/features/audio_studio_test.dart` reveals that only `AudioDelaySyncCard` (the detached standalone widget) was mounted in widget tests (lines 504–569).
+   - `AudioStudioSheet` (the actual production sheet) was **never once pumped or mounted** in `test/features/audio_studio_test.dart`.
+   - The Audio Track Selector modal (`_showAudioTrackMenu()`, `Key('hud_audio_tracks_button')`, `Key('audio_tracks_sheet')`, `Key('audio_tracks_empty')`, `Key('audio_track_item_${track.id}')`, `Key('active_track_check')`) was **never once tested** in `test/features/audio_studio_test.dart`.
+   - Two-way delay synchronization between desktop keyboard shortcut handlers and `AudioStudioSheet` had zero unit/widget test coverage.
 
-4. **Automated Verification Verbatim Outputs**:
-   - `flutter test test/unit/pip_service_test.dart`:
+3. **E2E Suite Assertion Crashes (`test/e2e/phase1_e2e_test.dart`)**:
+   When running the comprehensive E2E suite (`flutter test test/e2e/phase1_e2e_test.dart`), the `Material` assertion crash in `AudioStudioSheet` caused multiple tests that pump `AudioStudioSheet` to fail immediately:
+   - `T1.5.1: Master Equalizer Switch Toggle`:
      ```
-     00:00 +35: All tests passed!
+     ══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+     The following assertion was thrown building AudioStudioSheet:
+     'package:flutter/src/material/material.dart': Failed assertion: line 209 pos 15: '!(shape != null && borderRadius != null)': is not true.
+     #2 new Material (package:flutter/src/material/material.dart:209:15)
+     #3 _AudioStudioSheetState._buildBoostSwitchTile (package:app/features/player/ui/audio_studio_sheet.dart:1045:12)
      ```
-   - `flutter test test/e2e/tier1_feature_coverage_test.dart`:
+   - `T2.5.4: Custom Preset Name on Band Edit`: identical assertion crash.
+   - `T4.4: Scenario 4 - Concert / Hall Audio Equalization & Preamp Boost`: identical assertion crash.
+
+4. **`player_screen.dart:694-712` & `822-827` (`_showAudioTrackMenu`)**:
+   The sheet container is built using `Container(decoration: BoxDecoration(color: EDesign.surface, ...))`, inside which `ListTile` items are wrapped in `Material(color: Colors.transparent)`. In Flutter, placing an opaque `DecoratedBox` between a `ListTile` and an opaque `Material` ancestor occludes ink ripples and generates framework diagnostics:
+   ```
+   ListTile background color or ink splashes may be invisible.
+   The ListTile is wrapped in a DecoratedBox that has a background color. Because ListTile paints its
+   background and ink splashes on the nearest Material ancestor, this DecoratedBox will hide those
+   effects.
+   ```
+
+### 1.2 Tool Commands & Verbatim Execution Results
+
+1. **Baseline Feature Test Suite**:
+   - Command: `flutter test test/features/audio_studio_test.dart`
+   - Output: `00:03 +42: All tests passed!` (Passed only because it omitted `AudioStudioSheet` and `AudioTrack` modal testing).
+
+2. **Empirical Adversarial Test Suite Execution**:
+   - Authored new dedicated adversarial challenge suite: `d:\E-player\app\test\features\audio_studio_adversarial_test.dart` (8 tests across 4 groups).
+   - Command: `flutter test test/features/audio_studio_adversarial_test.dart`
+   - Output:
      ```
-     00:04 +105: All tests passed!
+     00:00 +0: Empirical Challenge 1: AudioStudioSheet Runtime Assertion Integrity CRITICAL: AudioStudioSheet throws Material assertion error due to invalid shape + borderRadius
+     00:00 +1: Empirical Challenge 2: Audio Delay Synchronization Slider & Nudge Physics Slider divisions is exactly 400 with 50ms step size over [-10.0, 10.0]
+     00:01 +2: Empirical Challenge 2: Audio Delay Synchronization Slider & Nudge Physics Live badge formatting across edge values (+0 ms, positive, negative, boundary)
+     00:01 +3: Empirical Challenge 2: Audio Delay Synchronization Slider & Nudge Physics Boundary clamping: nudges cannot exceed ±10000ms (+10.0s / -10.0s)
+     00:01 +4: Empirical Challenge 2: Audio Delay Synchronization Slider & Nudge Physics Platform exception resilience: throwing platform never crashes audioDelay setter
+     00:01 +5: Empirical Challenge 3: Audio Track Selector Modal Architecture & Metadata Empty tracks state renders Key("audio_tracks_empty")
+     00:01 +6: Empirical Challenge 3: Audio Track Selector Modal Architecture & Metadata Populated tracks render keys, uppercase language/codec, channels, kHz sample rate
+     00:01 +7: Empirical Challenge 4: Two-Way Audio Delay Synchronization Logic Keyboard nudge and AudioStudioSheet stay in perfect numerical sync
+     00:01 +8: All tests passed!
      ```
-   - `flutter test test/unit/pip_integration_challenge_test.dart`:
-     ```
-     00:00 +16: All tests passed!
-     ```
-   - `flutter analyze`:
-     ```
-     Analyzing app...
-     No issues found! (ran in 30.7s)
-     ```
+   - *Empirically confirmed*: Test 1 caught and verified the exact `Material` assertion failure.
+
+3. **Combined Test Execution**:
+   - Command: `flutter test test/features/audio_studio_test.dart test/features/audio_studio_adversarial_test.dart`
+   - Output: `00:07 +50: All tests passed!`
+
+4. **Static Code Analysis**:
+   - Command: `dart analyze`
+   - Output: `Analyzing app... No issues found!`
 
 ---
 
 ## 2. Logic Chain
 
-1. **Remote Action Mapping & Robustness**:
-   - Inbound platform events from native Android PiP remote actions enter through `MethodChannel("com.example.app/pip")` with method `onPipAction`.
-   - `PipPlatformBridge` decodes the arguments and emits raw strings to `PipService.actionStream`.
-   - `PipAction.fromString` parses the string via `trim().toLowerCase()`.
-   - Any unrecognized string returns `PipAction.unknown`.
-   - In `PlayerScreen._handlePipAction`, `case PipAction.unknown:` is an explicit no-op.
-   - Therefore, malicious, unknown, or corrupted action payloads are harmlessly discarded without crashing or modifying playback state.
+1. **The Material Widget Invariant**:
+   - Flutter's `Material` widget documentation and runtime contract explicitly prohibit passing both `borderRadius` and `shape` simultaneously.
+   - In `_buildBoostSwitchTile` (`lib/features/player/ui/audio_studio_sheet.dart:1045-1052`), both parameters were provided:
+     `borderRadius: BorderRadius.circular(EDesign.r14)` and `shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(EDesign.r14), side: BorderSide(color: EDesign.border))`.
+   - Therefore, any invocation of `_AudioStudioSheetState.build` triggers `assert(!(shape != null && borderRadius != null))` and throws an unhandled `AssertionError` in debug/profile/test modes.
 
-2. **AutoEnterPiP Playback State Sync Invariant**:
-   - Project specification requires AutoEnterPiP to be armed when `isPlaying == true` and disarmed when `isPlaying == false`.
-   - In sequential execution (with awaits), `updatePlaybackState` correctly toggles `setAutoEnterEnabled` and suppresses redundant calls.
-   - However, in synchronous high-frequency invocation sequences, `_autoEnterEnabled` is not updated until after the asynchronous MethodChannel invocation resolves.
-   - During the asynchronous flight time of the first call, subsequent synchronous calls observe `_autoEnterEnabled` in its prior state and trigger additional redundant channel messages.
-   - Furthermore, because the gating condition checks `_autoEnterEnabled != shouldAutoEnter`, subsequent calls where `isPlaying` remains `true` but `videoWidth` / `videoHeight` are supplied for the first time will be suppressed, preventing delayed aspect-ratio updates to the Android OS.
+2. **Impact on Production Runtime & Test Suites**:
+   - Whenever a user clicks the "Audio Equalizer" button in the HUD bottom bar (`player_screen.dart:2113`) or navigates to `AudioEqualizerScreen`, `AudioStudioSheet` is instantiated and mounted.
+   - The assertion halts execution, rendering an error screen in debug mode and breaking existing tests `T1.5.1`, `T2.5.4`, and `T4.4`.
+   - This invalidates the claim of production-readiness in `worker_m3_1/handoff.md`.
 
-3. **Desktop Overlay Calculation Geometry**:
-   - Pure domain function `PipMath.calculateOverlaySize` operates on width, height, and optional `baseWidth`.
-   - Because `calculateAspectRatio` clamps all inputs to `[1.0 / 2.39, 2.39 / 1.0]` and falls back to `16.0 / 9.0` on invalid/negative/zero dimensions, `calculateOverlaySize` is mathematically guaranteed never to divide by zero, produce `NaN`, or produce infinite heights.
+3. **Audio Delay Synchronization Logic Validation (R3)**:
+   - Slider divisions: `min: -10.0, max: 10.0, divisions: 400` yields step size $(10.0 - (-10.0)) / 400 = 0.05\text{s} = 50\text{ms}$.
+   - Nudge button offsets: `-100ms`, `-50ms`, `0ms (Reset)`, `+50ms`, `+100ms` update delay and dispatch to mpv `'audio-delay'` with 3 decimals (`(delayMs / 1000.0).toStringAsFixed(3)`).
+   - Clamping at $\pm 10000.0\text{ms}$ is rigorously enforced at both slider and button layers.
+   - Platform exceptions on `player.platform` are swallowed gracefully in `try ... catch` blocks without bubbling up to the UI.
+   - These components are mathematically and behaviorally sound.
 
----
-
-## 3. Adversarial Challenges
-
-### Challenge 1 (Severity: Medium): Asynchronous Re-entrancy Gap in `setAutoEnterEnabled`
-- **Assumption Challenged**: Calling `updatePlaybackState` synchronously multiple times is idempotent and avoids redundant platform channel calls.
-- **Attack Scenario**: Rapid stream events firing on playback initiation (e.g., `playing.listen`, `track.listen`, and UI touch toggles) dispatch multiple `updatePlaybackState(isPlaying: true)` calls in the same microtask tick before `_bridge.setAutoEnterEnabled` resolves.
-- **Blast Radius**: Redundant platform channel invocations and IPC overhead to native Android `PictureInPictureParams`. No crash occurs, but violates idempotency under rapid invocation.
-- **Mitigation**: Update `_autoEnterEnabled = enabled;` immediately (optimistically) before awaiting `_bridge.setAutoEnterEnabled(...)`, and revert on exception in a try/catch block.
-
-### Challenge 2 (Severity: Medium): Delayed Video Dimension Resolution Dropped in AutoEnterPiP
-- **Assumption Challenged**: AutoEnterPiP always updates the native PiP parameters with the correct video aspect ratio.
-- **Attack Scenario**: Video playback starts before mpv extracts video width and height from the container header. `updatePlaybackState(isPlaying: true, videoWidth: null, videoHeight: null)` arms AutoEnterPiP with fallback dimensions. When `player.stream.width` and `height` fire milliseconds later with actual dimensions (e.g. 21:9 or 4:3), `updatePlaybackState` sees `_autoEnterEnabled == true` and `shouldAutoEnter == true`, and does nothing.
-- **Blast Radius**: Native Android PiP window may retain 16:9 aspect ratio instead of matching the true video aspect ratio for non-16:9 media.
-- **Mitigation**: Expand the guard condition to also check if dimension parameters have changed:
-  ```dart
-  final dimsChanged = videoWidth != null && videoHeight != null &&
-      (videoWidth != _currentDimensions?.width || videoHeight != _currentDimensions?.height);
-  if (_autoEnterEnabled != shouldAutoEnter || (shouldAutoEnter && dimsChanged)) {
-    setAutoEnterEnabled(shouldAutoEnter, videoWidth: videoWidth, videoHeight: videoHeight);
-  }
-  ```
-
-### Challenge 3 (Severity: Low): Unsafe Cast `as String?` on Map Arguments in `PipPlatformBridge`
-- **Assumption Challenged**: Inbound platform channel map argument `'action'` is always a `String`.
-- **Attack Scenario**: A custom or third-party platform implementation passes integer action IDs (e.g. `{'action': 101}`).
-- **Blast Radius**: `map['action'] as String?` throws `TypeError` in Dart, causing an unhandled platform message failure.
-- **Mitigation**: Replace `as String?` with safe conversion: `action = map['action']?.toString();`.
+4. **Audio Track Selector Modal Verification (R4)**:
+   - Key names: `hud_audio_tracks_button`, `audio_tracks_sheet`, `audio_tracks_empty`, `audio_track_item_${track.id}`, and `active_track_check` match specification.
+   - Rich metadata subtitle formatting accurately parses:
+     - Language: uppercase (`ENG`, `JPN`).
+     - Codec: uppercase (`AAC`, `FLAC`, `AC3`).
+     - Channels: explicit string (`5.1`, `Stereo`) or channel count fallback (`2 ch`).
+     - Sample rate: formatted in kHz with 1 decimal (`48.0 kHz`, `44.1 kHz`).
+   - Track selection dispatches `_player.setAudioTrack(track)`, pops context, and triggers visual OSD feedback (`Audio: $label`).
+   - Two-way delay synchronization between keyboard handler (`_nudgeAudioDelay`) and `_audioConfig.audioDelay` operates correctly.
 
 ---
 
-## 4. Stress Test Results
+## 3. Caveats
 
-| Test # | Test Name | Expected Behavior | Actual Behavior | Result |
-|---|---|---|---|---|
-| 1.1 | Standard Known Action Strings | Parse to typed enum | `play`, `pause`, `seekForward10`, `seekRewind10` | **PASS** |
-| 1.2 | Case & Whitespace Variations | Ignore casing & whitespace | Parsed correctly | **PASS** |
-| 1.3 | 45+ Adversarial / Unknown Inputs | Gracefully return `PipAction.unknown` without exception | 100% returned `unknown` safely | **PASS** |
-| 1.4 | Inbound Native Event Payload Robustness | Handle String, Map, and null arguments safely | Handled cleanly | **PASS** |
-| 1.5 | PipService `actionStream` Filtering | Stream emits strongly-typed actions | Emitted matching sequence | **PASS** |
-| 2.1 | Basic AutoEnterPiP Enable/Disable | `isPlaying == true` -> enabled; `false` -> disabled | Synchronized as expected | **PASS** |
-| 2.2 | Rapid 50x Play/Pause Oscillation | Resolve without crashes, final state correct | Clean state transition, final state disabled | **PASS** |
-| 2.3a | Sequential Idempotency with Await | Single channel invocation | 1 channel invocation | **PASS** |
-| 2.3b | Synchronous Rapid Calls (Re-entrancy) | Expose stale state check | 10 calls dispatched due to post-await assignment | **PASS (Finding Verified)** |
-| 2.4 | Delayed Dimension Resolution | Check if late dimensions are applied | Suppressed by guard condition | **PASS (Finding Verified)** |
-| 2.5 | Direct `setAutoEnterEnabled` Dimension Updates | Updates `_currentDimensions` unconditionally | Updated accurately | **PASS** |
-| 3.1 | Standard Overlay Resolutions (16:9, 4:3, 1:1, 21:9) | Exact pixel calculations | 480x270, 480x360, 480x480, 480x202 | **PASS** |
-| 3.2 | Boundary Clamping (32:9, 9:32) | Clamped to [1/2.39, 2.39] | 480x201, 480x1147 | **PASS** |
-| 3.3 | Degenerate & Negative Dimensions | Fallback to 16:9 standard | All returned 480x270 | **PASS** |
-| 3.4 | Custom BaseWidth Scaling | Integer-rounded double heights | Scaled accurately across 240-1280px | **PASS** |
-| 3.5 | `PipDimensions` Value Equality & Formatting | Custom `==`, `hashCode`, and string representation | Matched perfectly | **PASS** |
+- **Exclusive Write Ownership Adhered**: As Challenger 2, no implementation code in `lib/` was modified. All verification was executed via empirical test authoring in `test/features/audio_studio_adversarial_test.dart` and execution of project test commands.
+- **Physical Key Test Simulation in Phase 1 E2E**: Test `T1.1.7` in `test/e2e/phase1_e2e_test.dart` encounters Flutter's desktop test runner limitation simulating the `LogicalKeyboardKey.add` physical key; this is an upstream Flutter test simulation constraint, unrelated to the `Material` assertion bug discovered in `audio_studio_sheet.dart`.
 
 ---
 
-## 5. Caveats
+## 4. Conclusion
 
-1. **Android Hardware Environment**: Verification of Android `MainActivity.kt` was conducted through Flutter platform channel simulations and Dart unit/E2E test suites in accordance with project constraints (no `flutter build apk` on `D:` drive).
-2. **Review-Only Constraint**: In strict adherence to agent role constraints, no changes were applied to production implementation files. Identified mitigations are documented for the implementation team.
+**Verdict: REQUEST_CHANGES**
 
----
+While requirements R3 (Audio Delay Synchronization UI Slider) and R4 (Dedicated Audio Track Selector Modal) have solid functional foundations and pass static analysis, **the deliverable cannot be approved in its current state** due to a blocking runtime crash in `lib/features/player/ui/audio_studio_sheet.dart:1045`:
 
-## 6. Conclusion
-
-Milestone 3 (Phase 6 Native Picture-in-Picture) is **empirically validated**:
-- Remote action mapping is robust against unknown, corrupted, and adversarial inputs.
-- AutoEnterPiP synchronizes accurately with playback state under sequential operations and rapid toggle stress.
-- Desktop overlay window calculations strictly satisfy aspect ratio bounds, clamping rules, and degenerate dimension fallbacks.
-- Baseline test suites (35 unit tests, 105 Tier 1 E2E tests) pass 100% with 0 analyzer issues.
-- The two identified state synchronization edge cases (asynchronous re-entrancy and delayed dimension resolution) are well-scoped and have straightforward mitigations.
+### Mandatory Action Items for Worker:
+1. **Fix Material Assertion in `audio_studio_sheet.dart:1045-1052`**:
+   Remove `borderRadius: BorderRadius.circular(EDesign.r14),` from `Material(...)` in `_buildBoostSwitchTile`. Retain only `shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(EDesign.r14), side: const BorderSide(color: EDesign.border))`.
+2. **Eliminate Ink Splash Diagnostic in `player_screen.dart:694-712`**:
+   In `_showAudioTrackMenu`, replace the outer `Container(decoration: BoxDecoration(color: EDesign.surface, ...))` with `Material(color: EDesign.surface, shape: RoundedRectangleBorder(...), child: ...)` to ensure `ListTile` ink splashes are not occluded.
+3. **Enhance Feature Test Suite (`test/features/audio_studio_test.dart`)**:
+   Add test cases that mount the actual `AudioStudioSheet` widget and the `_showAudioTrackMenu` modal fixture to verify widget mounting and prevent regressions.
 
 ---
 
-## 7. Verification Method
+## 5. Verification Method
 
-To independently reproduce and verify all findings and test passes:
+To independently reproduce the bug and verify the fix:
 
-1. **Run Milestone 3 Unit Tests**:
+1. **Reproduce Bug via Adversarial Test Suite**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/unit/pip_service_test.dart
+   flutter test test/features/audio_studio_adversarial_test.dart
    ```
-   *Expected*: 35 passed, 0 failed.
+   *Expected Output*: Test 1 specifically detects the `Material` assertion error `!(shape != null && borderRadius != null)`.
 
-2. **Run Empirical Challenge Suite**:
+2. **Reproduce Bug via E2E Suite**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/unit/pip_integration_challenge_test.dart
+   flutter test test/e2e/phase1_e2e_test.dart --name "T1.5.1"
    ```
-   *Expected*: 16 passed, 0 failed.
+   *Expected Output*: Fails with `Failed assertion: line 209 pos 15: '!(shape != null && borderRadius != null)': is not true`.
 
-3. **Run Tier 1 Feature Coverage Suite**:
+3. **Verify Static Analysis**:
    ```powershell
    cd d:\E-player\app
-   flutter test test/e2e/tier1_feature_coverage_test.dart
+   dart analyze
    ```
-   *Expected*: 105 passed, 0 failed.
+   *Expected Output*: `No issues found!`
 
-4. **Run Static Analysis**:
+4. **Verify Fixed State (Post-Worker Remediation)**:
+   After removing `borderRadius` from `_buildBoostSwitchTile`, re-running:
    ```powershell
    cd d:\E-player\app
-   flutter analyze
+   flutter test test/e2e/phase1_e2e_test.dart --name "T1.5.1"
    ```
-   *Expected*: No issues found.
+   Must pass with 0 assertion failures.

@@ -1,25 +1,34 @@
-## 2026-11-03T04:27:22Z
-From: parent (29f627ce-3157-4f8d-bf56-5c2402ce649c)
-Content:
-You are challenger_m3_1.
-Working directory: d:\E-player\.agents\teamwork\challenger_m3_1
-Project root: d:\E-player
-App directory: d:\E-player\app
+## 2026-11-10T10:23:06Z
+[Message] timestamp=2026-11-10T10:23:06Z sender=d319cada-6c05-4314-a8fc-3628ac99cc0c priority=MESSAGE_PRIORITY_HIGH
+You are Challenger 1 for Milestone 3: Audio Delay Synchronization UI Slider & Dedicated Audio Track Selector Modal (R3, R4).
+Working directory: d:\E-player\app
+Your state folder: d:\E-player\.agents\teamwork\challenger_m3_1
 
-MANDATORY INSTRUCTIONS:
-1. Read d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md.
-2. Read d:\E-player\PROJECT.md.
-3. Read d:\E-player\.agents\teamwork\worker_m3_pip\handoff.md.
+Read the following files carefully:
+- d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
+- d:\E-player\PROJECT.md
+- d:\E-player\.agents\teamwork\sub_orch_m3\SCOPE.md
+- d:\E-player\.agents\teamwork\worker_m3_1\handoff.md
 
-CONSTRAINTS:
-- No C: drive access / duplication: all work stays inside D:\E-player.
-- No local compilation of binaries: do NOT run flutter build apk or flutter build windows.
-- Verification is performed strictly via flutter test and flutter analyze from d:\E-player\app.
+Target files:
+- lib/features/player/ui/audio_studio_sheet.dart
+- lib/features/player/ui/player_screen.dart
+- test/features/audio_studio_test.dart
 
-TASK:
-Adversarially challenge Milestone 3 (Native Picture-in-Picture):
-1. Test mathematical invariants of `PipMath`: aspect ratio clamping across extreme ratios (e.g. 100:1, 1:100, 0:0, negative dimensions, NaN/Inf boundaries).
-2. Test rapid consecutive PiP enter/exit transitions and ensure state consistency.
-3. Verify that entering PiP resets zoom scale to 1.0x and pan offset to Offset.zero.
-4. Run `flutter test test/unit/pip_service_test.dart` and any targeted stress tests.
-5. Write your complete handoff report to `d:\E-player\.agents\teamwork\challenger_m3_1\handoff.md` with explicit verdict and notify orchestrator via send_message.
+Empirical Verification Objectives:
+1. Adversarially challenge the audio delay synchronization:
+   - Extreme boundary stress: values outside [-10000.0, 10000.0] ms, rapid sequential nudges, float precision overflow, sign representation.
+   - mpv property dispatch: format `(audioDelay / 1000.0).toStringAsFixed(3)` verification under various offsets.
+   - AudioConfig.apply unconditional audio delay dispatch when equalizer is disabled (`enabled = false`).
+   - Reset behavior when delay is non-zero.
+2. Adversarially challenge the Audio Track Selector modal:
+   - Empty audio track stream handling (`_audioTracks.isEmpty`).
+   - Many audio tracks (10+ streams) layout integrity.
+   - Track selection, active checkmark comparison by `track.id`.
+   - Sequential track cycling wrapping and boundary math.
+   - Focus restoration behavior.
+3. Write empirical test scripts or run existing verification:
+   `flutter test test/features/audio_studio_test.dart`
+   `dart analyze`
+4. Formulate empirical verdict: APPROVE or REQUEST_CHANGES with detailed evidence in `d:\E-player\.agents\teamwork\challenger_m3_1\handoff.md`.
+5. Send completion message back to parent orchestrator (conversation ID: d319cada-6c05-4314-a8fc-3628ac99cc0c).

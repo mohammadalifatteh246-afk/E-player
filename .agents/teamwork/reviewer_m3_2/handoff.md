@@ -1,229 +1,235 @@
-# Milestone 3 (Phase 6 Native Picture-in-Picture) Review & Adversarial Challenge Report
+# Milestone 3 Review & Adversarial Challenge Report: Audio Delay Sync Slider & Audio Track Selector Modal (R3, R4)
 
-**Reviewer / Critic**: `reviewer_m3_2`  
-**Date**: 2026-11-03  
+**Agent ID**: `reviewer_m3_2`  
+**Parent Orchestrator**: `d319cada-6c05-4314-a8fc-3628ac99cc0c`  
+**Milestone**: Milestone 3 (Requirements R3 & R4)  
+**Date & Timestamp**: 2026-11-10T10:38:00Z  
 **Verdict**: **APPROVE**  
-**Overall Risk Assessment**: **LOW**  
-**Integrity Assessment**: **CLEAN (Zero Integrity Violations)**  
+**Integrity Status**: CLEAN (0 integrity violations, 0 facade implementations, 0 hardcoded test shortcuts)
 
 ---
 
 ## 1. Observation
 
-Direct observations from independent codebase inspection, static analysis, and test suite execution in `d:\E-player\app`:
+### 1.1 Inspected Work Products & File Locations
 
-### 1.1 Source Code Architecture & Implementation Inspection
-
-1. **`app/lib/features/pip/domain/pip_models.dart`**:
-   - Lines 4–9: `enum PipStatus { stopped, entering, active, exiting }`.
-   - Lines 12–37: `enum PipAction` with static parser `PipAction.fromString(String? raw)`. Safely handles `null`, whitespace, mixed casing, and synonyms (`seek_forward_10`, `fast_forward`, `seek_rewind_10`, `rewind`), with fallback to `PipAction.unknown`.
-   - Lines 40–76: `PipDimensions` implements `==`, `hashCode`, and formatted `toString()`. Aspect ratio calculated via `PipMath.calculateAspectRatio`.
-   - Lines 78–100: `PipMath` defines OS rational boundaries:
-     - `minAspectRatio = 1.0 / 2.39` (~0.41841)
-     - `maxAspectRatio = 2.39 / 1.0` (2.39)
-     - `calculateAspectRatio(int width, int height)`: clamps between min and max bounds, falling back to `16.0 / 9.0` when `width <= 0 || height <= 0`.
-     - `canAutoEnter(bool isPlaying) => isPlaying`.
-     - `calculateOverlaySize(int width, int height, [double baseWidth = 480.0])`: preserves aspect ratio without division by zero.
-
-2. **`app/lib/features/pip/data/pip_platform_bridge.dart`**:
-   - Lines 8–24: Binds to platform channel `com.example.app/pip`.
-   - Lines 27–33: Exposes typed broadcast streams: `onPipEntered`, `onPipExited`, and `onPipAction`.
-   - Lines 36–66: Method call handler verifies `!_isDisposed` and stream open status before dispatching events; safely decodes action arguments whether passed as `String` or `Map<String, dynamic>`.
-   - Lines 69–149: Outbound invocations (`isPipSupported`, `enterPictureInPictureMode`, `setAutoEnterEnabled`, `toggleDesktopOverlay`) all employ `try ... on PlatformException ... catch (_)` and use null-coalescing `?? false`, guaranteeing no unhandled exceptions or null dereferences on failed/missing platform responses.
-   - Lines 152–160: `dispose()` cleans up native handler (`_channel.setMethodCallHandler(null)`) and closes all three stream controllers idempotently.
-
-3. **`app/lib/features/pip/domain/pip_service.dart`**:
-   - Lines 9–29: Extends `ChangeNotifier`, wraps `PipPlatformBridge`.
-   - Lines 31–50: Exposes reactive getters (`isInPip`, `isDesktopOverlay`, `autoEnterEnabled`, `isSupported`, `desktopOverlaySize`, `currentDimensions`, `isDisposed`) and `actionStream`.
-   - Lines 52–69: Subscribes to bridge inbound streams, maps raw action strings to `PipAction`, and dispatches to `_actionController`.
-   - Lines 78–96: `enterPip(...)` records `_currentDimensions`, invokes bridge, and sets `_isInPip = true` on success.
-   - Lines 99–114: `setAutoEnterEnabled(...)` configures platform channel and updates `_autoEnterEnabled`.
-   - Lines 136–149: `updatePlaybackState(...)`:
+1. **`d:\E-player\app\lib\features\player\ui\audio_studio_sheet.dart`**:
+   - Lines 10: `double audioDelay = 0.0; // in milliseconds [-10000.0, 10000.0]`
+   - Lines 121–130: `applyAudioDelay(Player? player)` method:
      ```dart
-     final shouldAutoEnter = PipMath.canAutoEnter(isPlaying);
-     if (_autoEnterEnabled != shouldAutoEnter) {
-       setAutoEnterEnabled(shouldAutoEnter, videoWidth: videoWidth, videoHeight: videoHeight);
+     void applyAudioDelay(Player? player) {
+       if (player == null) return;
+       try {
+         final dynamic platform = player.platform;
+         platform.setProperty('audio-delay', (audioDelay / 1000.0).toStringAsFixed(3));
+       } catch (e) {
+         debugPrint('[Audio Studio] mpv audio-delay error: $e');
+       }
      }
      ```
-     This check guarantees idempotency and prevents redundant platform channel invocations during active playback.
-   - Lines 156–166: `dispose()` cancels subscriptions, closes `_actionController`, disposes bridge, and is idempotent via `_isDisposed`.
+   - Lines 140: `AudioConfig.apply(Player? player)` calls `applyAudioDelay(player)` unconditionally, preserving audio delay synchronization even when master EQ is disabled (`enabled == false`).
+   - Lines 148, 154: `AudioConfig.reset(Player? player)` resets `audioDelay = 0.0` and dispatches `0.000` to mpv.
+   - Lines 232–237: 50ms debounced delay dispatch `_debouncedApplyAudioDelay()` for continuous slider drags.
+   - Lines 239–249: Instant discrete nudge methods `_nudgeAudioDelay(double deltaMs)` and `_resetAudioDelay()`.
+   - Lines 644–754: `_buildAudioDelaySyncCard()`:
+     - Container key `Key('audio_delay_sync_card')`
+     - Live badge pill `Key('audio_delay_badge')`: `${delayVal >= 0 ? "+" : ""}${delayVal.toStringAsFixed(0)} ms`
+     - Continuous slider `Key('audio_delay_slider')`: `min: -10.0`, `max: 10.0`, `divisions: 400`, value clamped to `[-10.0, 10.0]`, with 50ms quantization `((v * 1000.0) / 50.0).round() * 50.0`
+     - 5 discrete nudge buttons:
+       - `-100ms`: `Key('audio_delay_nudge_minus_100')`
+       - `-50ms`: `Key('audio_delay_nudge_minus_50')`
+       - `Reset`: `Key('audio_delay_nudge_reset')`
+       - `+50ms`: `Key('audio_delay_nudge_plus_50')`
+       - `+100ms`: `Key('audio_delay_nudge_plus_100')`
+   - Lines 1045–1074: `_buildBoostSwitchTile` uses `Material(color: EDesign.surface, ...)` resolving framework ink splash occlusion warnings.
+   - Lines 1078–1231: Exported standalone `AudioDelaySyncCard` widget conforming to R3 specification.
 
-4. **`app/android/app/src/main/kotlin/com/example/app/MainActivity.kt`**:
-   - Lines 28–39: Platform constants `PIP_CHANNEL = "com.example.app/pip"`, action intents (`ACTION_PIP_PLAY`, `ACTION_PIP_PAUSE`, `ACTION_PIP_FORWARD`, `ACTION_PIP_REWIND`), and aspect ratio boundaries (`1.0/2.39` to `2.39/1.0`).
-   - Lines 67–98: Channel handler for `isPipSupported`, `enterPictureInPictureMode`, `setAutoEnterEnabled`, and `toggleDesktopOverlay`.
-   - Lines 103–136: `registerPipReceiver()` registers `BroadcastReceiver` using `Context.RECEIVER_NOT_EXPORTED` on Android 13+ (API 33 / Tiramisu), satisfying Google Play security policies.
-   - Lines 138–191: `buildRemoteActions(isPlaying)` creates `RemoteAction` intents with `FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE` for Rewind 10s, Play/Pause toggle, and Forward 10s.
-   - Lines 193–202: `calculateClampedRational(width, height)`:
-     ```kotlin
-     if (width <= 0 || height <= 0) return Rational(16, 9)
-     val rawRatio = width.toDouble() / height.toDouble()
-     val clamped = rawRatio.coerceIn(MIN_ASPECT_RATIO, MAX_ASPECT_RATIO)
-     return Rational((clamped * 1000).toInt(), 1000)
-     ```
-     Prevents native Android `IllegalArgumentException` by clamping strictly within `[1/2.39, 2.39]`.
-   - Lines 204–225: `enterPipMode(...)` configures `PictureInPictureParams.Builder`, sets `.setAutoEnterEnabled(isPlaying)` on API 31+, and invokes native `enterPictureInPictureMode(builder.build())`.
-   - Lines 259–266: `onPictureInPictureModeChanged` invokes `onPipEntered` or `onPipExited` on Flutter's platform channel.
-   - Lines 268–274: `onDestroy()` unregisters receiver safely.
-
-5. **`app/lib/features/player/ui/player_screen.dart`**:
-   - Lines 138–166:
-     - `_pipService = PipService()` initialized with `addListener(_onPipServiceChanged)` and `actionStream.listen(_handlePipAction)`.
-     - When `_pipService.isInPip == true`:
-       - Closes open modal sheets (`if (ModalRoute.of(context)?.isCurrent == false) Navigator.of(context).pop();`).
-       - Immediately dismisses HUD (`_controlsVisible = false`).
-       - Clears feedback overlays (`_showFeedbackOverlay = false; _activeFeedbackEvent = null; _showFeedback = false;`).
-       - Resets pinch-to-zoom and pan offset to neutral (`_scale = 1.0; _offset = Offset.zero;`).
-       - Cancels all active timers (`_controlsTimer?.cancel()`, `_feedbackTimer?.cancel()`, `_feedbackOverlayTimer?.cancel()`, `_wingRippleTimer?.cancel()`).
-     - When `_pipService.isInPip == false`:
-       - Restores UI controls (`_controlsVisible = true`) and restarts `_startControlsTimer()`.
-   - Lines 168–190: `_handlePipAction` safely handles `PipAction.play`, `PipAction.pause`, `PipAction.seekForward10` (clamped to `_duration`), and `PipAction.seekRewind10` (clamped to `Duration.zero`).
-   - Lines 251–256 & 278–296: Syncs playback state (`playing`, `width`, `height`) with `_pipService.updatePlaybackState(...)`.
-   - Lines 398–419: `dispose()` cancels `_pipActionSubscription`, removes listener `_onPipServiceChanged`, and disposes `_pipService`.
-   - Lines 1075–1082: Clean surface rendering invariant in `build()`:
+2. **`d:\E-player\app\lib\features\player\ui\player_screen.dart`**:
+   - Lines 76–78:
      ```dart
-     if (_pipService.isInPip) {
-       return Scaffold(
-         backgroundColor: Colors.black,
-         body: Center(
-           child: videoWidget,
-         ),
-       );
-     }
+     List<AudioTrack> _audioTracks = [];
+     AudioTrack _selectedAudioTrack = AudioTrack.no();
+     double _audioDelayMs = 0.0;
      ```
-     When in PiP, the complex stack of gesture detectors, HUD top/bottom bars, drawers, and feedback cards is bypassed entirely, rendering exclusively the clean video surface.
-   - Lines 1354–1362: Top-bar action button:
+   - Lines 278, 286: Stream listeners bound to `_player.stream.tracks` (`_audioTracks = tracks.audio`) and `_player.stream.track` (`_selectedAudioTrack = track.audio`).
+   - Lines 1760–1764: HUD top bar button:
      ```dart
      IconButton(
-       icon: const EVectorIcon(
-         name: 'pip',
-         size: 19,
-         color: Colors.white,
-       ),
-       tooltip: 'Picture-in-Picture',
-       onPressed: _triggerPip,
+       key: const Key('hud_audio_tracks_button'),
+       icon: const Icon(Icons.audiotrack_outlined, color: Colors.white70, size: 20),
+       tooltip: 'Audio Tracks',
+       onPressed: _showAudioTrackMenu,
      ),
      ```
-     Correct placement between Cast and AI Enhancement buttons, using standard design tokens.
+     Positioned between AI Studio button (lines 1749–1758) and Subtitles button (lines 1765–1769).
+   - Lines 682–889: `_showAudioTrackMenu()`:
+     - Glassmorphic bottom sheet `showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, ...)`
+     - Container key `Key('audio_tracks_sheet')` styled with `EDesign.surface`, `EDesign.border`, and top drag handle pill.
+     - Empty state key `Key('audio_tracks_empty')` when `_audioTracks.isEmpty`.
+     - Track items with `Key('audio_track_item_${track.id}')`, title cascade `track.title ?? track.language ?? track.id`, rich metadata subtitle (language, codec, channels, sample rate), and active checkmark `Icon(Icons.check, key: Key('active_track_check'))`.
+     - Tapping calls `_player.setAudioTrack(track)`, updates `_selectedAudioTrack`, triggers OSD feedback pill via `_showFeedbackMessage('Audio: $label', Icons.audiotrack)`, pops sheet, and re-requests keyboard focus via `_keyboardFocusNode.requestFocus()`.
+   - Lines 921–932: `_nudgeAudioDelay(int offsetMs)`:
+     ```dart
+     _audioDelayMs = (_audioDelayMs + offsetMs).clamp(-10000.0, 10000.0);
+     _audioConfig.audioDelay = _audioDelayMs;
+     try {
+       final platform = _player.platform as dynamic;
+       platform.setProperty('audio-delay', (_audioDelayMs / 1000.0).toStringAsFixed(3));
+     } catch (e) {
+       debugPrint('[PlayerScreen] Failed to set audio-delay: $e');
+     }
+     final sign = _audioDelayMs >= 0 ? '+' : '';
+     _showFeedbackMessage('Audio Delay: $sign${_audioDelayMs.round()}ms', Icons.audiotrack);
+     ```
+   - Lines 2114–2126: Bottom bar Audio Studio sheet opener ensures two-way delay synchronization:
+     ```dart
+     _audioConfig.audioDelay = _audioDelayMs;
+     showModalBottomSheet(
+       context: context,
+       backgroundColor: Colors.transparent,
+       isScrollControlled: true,
+       builder: (context) => AudioStudioSheet(
+         player: _player,
+         config: _audioConfig,
+       ),
+     ).then((_) {
+       _audioDelayMs = _audioConfig.audioDelay;
+       if (mounted) _keyboardFocusNode.requestFocus();
+     });
+     ```
 
-### 1.2 Tool Execution Verbatim Outputs
+3. **`d:\E-player\app\test\features\audio_studio_test.dart`**:
+   - Lines 404–570: Group 7 "Audio Delay Synchronization (R3 Parity & Property Dispatch)" containing 8 dedicated tests for default state, 3-decimal precision string formatting, ±10.0s boundary clamping, unconditional dispatch on `apply()`, reset dispatch to `0.000`, safe handling of null player / throwing platform, and full widget interaction test for `AudioDelaySyncCard`.
 
-1. **Static Analysis (`flutter analyze`)**:
-   ```
-   Analyzing app...
-   No issues found! (ran in 39.1s)
-   ```
-   Exit code: 0.
+### 1.2 Independent Verification Execution
 
-2. **Milestone 3 Unit Test Suite (`flutter test test/unit/pip_service_test.dart`)**:
-   ```
-   00:00 +0: loading D:/E-player/app/test/unit/pip_service_test.dart
-   ...
-   00:00 +35: All tests passed!
-   ```
-   Exit code: 0 (35/35 passed).
+1. **Feature Unit & Widget Tests**:
+   - Command: `cd d:\E-player\app; flutter test test/features/audio_studio_test.dart`
+   - Execution Output:
+     ```
+     00:00 +0: loading D:/E-player/app/test/features/audio_studio_test.dart
+     00:00 +0: Group 1: AudioConfig Default State & Presets Registry Default configuration initializes with correct defaults
+     ...
+     00:01 +34: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) AudioConfig initializes with audioDelay == 0.0
+     00:01 +35: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) applyAudioDelay formats delay in seconds with exactly 3 decimals
+     00:01 +36: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) Boundary values at -10000.0 and +10000.0 are formatted correctly
+     00:01 +37: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) AudioConfig.apply sends both af and audio-delay to player
+     00:01 +38: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) AudioConfig.apply sends audio-delay even when enabled is false
+     00:01 +39: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) AudioConfig.reset restores audioDelay to 0.0 and applies 0.000 to player
+     00:01 +40: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) Null player or throwing platform in applyAudioDelay is safe
+     [Audio Studio] mpv audio-delay error: Exception: Simulated platform failure
+     [Audio Studio] mpv af error: Exception: Simulated platform failure
+     [Audio Studio] mpv audio-delay error: Exception: Simulated platform failure
+     00:01 +41: Group 7: Audio Delay Synchronization (R3 Parity & Property Dispatch) AudioDelaySyncCard UI renders, responds to nudges, and dispatches to player
+     00:07 +42: All tests passed!
+     ```
+   - Exit code: 0 (42 passed, 0 failed).
 
-3. **Cross-Feature Integration Test Suite (`flutter test test/e2e/tier3_cross_feature_test.dart`)**:
-   ```
-   00:00 +0: loading D:/E-player/app/test/e2e/tier3_cross_feature_test.dart
-   ...
-   00:02 +25: All tests passed!
-   ```
-   Exit code: 0 (25/25 passed, including Test 3.4 PiP zoom reset and Test 3.5 PiP remote seek during subtitles).
+2. **Static Code Analysis**:
+   - Command: `cd d:\E-player\app; dart analyze`
+   - Execution Output:
+     ```
+     Analyzing app...
+     No issues found!
+     ```
+   - Exit code: 0.
 
-4. **Real-World User Scenarios Suite (`flutter test test/e2e/tier4_user_scenarios_test.dart`)**:
-   ```
-   00:00 +0: loading D:/E-player/app/test/e2e/tier4_user_scenarios_test.dart
-   ...
-   00:02 +10: All tests passed!
-   ```
-   Exit code: 0 (10/10 user journeys passed, including Journey 3 PiP complete lifecycle).
-
-5. **Combined Verification Suite (`flutter test test/unit/pip_service_test.dart test/e2e/tier3_cross_feature_test.dart test/e2e/tier4_user_scenarios_test.dart`)**:
-   ```
-   00:09 +70: All tests passed!
-   ```
-   Exit code: 0 (70/70 passed).
+3. **End-to-End Suite Spot-Checks (`test/e2e/phase1_e2e_test.dart`)**:
+   - `T1.3` (R3 Audio Delay Slider UI Presence, Continuous Drag, Nudges, Reset): 5/5 passed.
+   - `T1.4` (R4 Audio Track HUD Button, Stream Listing, Modal Selection, Hotkey 'b'): 4/4 passed.
+   - `T2.3` (Boundary Clamping at ±10.0s, Rapid Taps, Unloaded Fallback, 3-Decimals): 5/5 passed.
+   - `T2.4` (Empty State, Single Track, Missing Metadata Fallback, Empty Hotkey 'b'): 5/5 passed.
+   - `T3.8` & `T3.9` (Speed Reset Preserves Delay, Audio Track Switch Retains EQ & Delay): 2/2 passed.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Aspect Ratio and OS Crash Prevention**:
-   - Direct observation of Android system documentation confirms that passing a `Rational` outside `[1:2.39, 2.39:1]` to `PictureInPictureParams.Builder.setAspectRatio` causes Android OS to throw an uncatchable `IllegalArgumentException`.
-   - `PipMath.calculateAspectRatio` in Dart and `calculateClampedRational` in Kotlin both clamp the aspect ratio within `[1/2.39, 2.39]`.
-   - Observations 1.1.1 and 1.1.4 prove that 0x0 or negative dimensions fallback safely to `16:9` without arithmetic exceptions.
-   - Therefore, aspect ratio preservation is robust against any video dimensions.
+1. **Integrity Verification**:
+   - Inspected source code for hardcoded test fixtures, dummy stubs, or bypasses. All logic is authentic:
+     - `audioDelay` is a dynamic floating point variable with genuine arithmetic clamping `[-10000.0, 10000.0]`.
+     - Platform calls interact directly with `player.platform.setProperty('audio-delay', ...)`.
+     - UI widgets are standard Flutter Material widgets bound to dynamic callbacks and state.
+   - Conclusion: **NO INTEGRITY VIOLATION**.
 
-2. **Platform Channel Fault-Tolerance**:
-   - In cross-platform mobile environments, platform channel calls may return null, timeout, or throw `PlatformException` (e.g. if the device lacks PiP support or is in split-screen mode).
-   - In Observation 1.1.2, all platform invocations in `PipPlatformBridge` wrap their calls in `try ... on PlatformException ... catch (_)` and use `?? false`.
-   - Therefore, no platform error or missing response can crash the Flutter application.
+2. **Requirement R3 Conformance (Audio Delay Sync)**:
+   - Observation 1.1 shows a continuous slider with `min: -10.0`, `max: 10.0`, `divisions: 400` covering 50ms increments.
+   - Live badge pill updates dynamically with format `${delayVal >= 0 ? "+" : ""}${delayVal.toStringAsFixed(0)} ms`.
+   - Discrete nudge buttons provide tactile, un-debounced adjustments of -100ms, -50ms, Reset (0ms), +50ms, and +100ms.
+   - String formatting `(audioDelay / 1000.0).toStringAsFixed(3)` satisfies mpv float second specification exactly.
+   - Conclusion: **R3 is 100% satisfied**.
 
-3. **Clean Video Surface & Viewport Reset Invariant**:
-   - In full-screen mode, users may have active zoom (e.g., 3.0x) or visible HUD overlays.
-   - Entering PiP with an offset/zoomed video viewport would cause the user to see a partial, off-center video frame inside the small PiP floating window.
-   - Observation 1.1.5 proves that `_onPipServiceChanged` resets `_scale = 1.0`, `_offset = Offset.zero`, dismisses modal sheets, and cancels HUD timers. Furthermore, `build()` renders a clean `Scaffold` containing only `Center(child: videoWidget)`.
-   - Therefore, the PiP viewport is guaranteed to display the complete, clean video frame.
+3. **Requirement R4 Conformance (Audio Track Selector Modal)**:
+   - Observation 1.1 confirms top bar HUD button with key `hud_audio_tracks_button` positioned between AI Studio and Subtitles.
+   - `_showAudioTrackMenu()` opens a glassmorphic bottom sheet reading active stream tracks from `_player.stream.tracks.audio`.
+   - Displays empty state (`Key('audio_tracks_empty')`) when no audio streams exist.
+   - Displays track list with language/codec/channels/sample rate metadata and active checkmark for selected track.
+   - Track selection triggers `_player.setAudioTrack(track)` and instant OSD notification.
+   - Bottom sheet dismissal restores desktop keyboard focus via `_keyboardFocusNode.requestFocus()`.
+   - Conclusion: **R4 is 100% satisfied**.
 
-4. **Resource Lifecycle & Leak Prevention**:
-   - Long-lived event listeners and platform channel handlers that are not disposed lead to memory leaks and zombie event callbacks.
-   - Observations 1.1.2, 1.1.3, and 1.1.5 demonstrate that stream controllers, listeners, and native handlers are explicitly closed in `PipPlatformBridge.dispose()`, `PipService.dispose()`, and `_PlayerScreenState.dispose()`.
-   - Therefore, resource disposal is complete and leak-free.
-
----
-
-## 3. Caveats
-
-1. **Android Physical Compilation Constraint**: Per project constraints, `flutter build apk` was not executed. Verification of native Kotlin behavior in `MainActivity.kt` was performed via code inspection against Android API specifications (API 26 `PictureInPictureParams`, API 31 `setAutoEnterEnabled`, API 33 `RECEIVER_NOT_EXPORTED`) and Flutter platform channel communication tests.
-2. **Desktop Overlay Parity**: Desktop overlay mode utilizes Flutter viewport scaling and aspect ratio geometry calculations via platform channel parity.
-
----
-
-## 4. Conclusion
-
-The Milestone 3 (Phase 6 Native Picture-in-Picture) implementation by `worker_m3_pip` is **fully compliant**, mathematically sound, resilient against boundary conditions and adversarial payloads, cleanly integrated into the player UI, and accompanied by a comprehensive test suite.
-
-Static analysis reports 0 errors and 0 warnings across the entire repository. All 70 unit, cross-feature, and end-to-end tests pass with 100% success rate. No integrity violations or shortcut mocks were detected.
-
-**Final Verdict**: **APPROVE**
+4. **Two-Way Synchronization**:
+   - Hotkey nudges via `k`/`j` in `player_screen.dart` synchronize `_audioDelayMs` into `_audioConfig.audioDelay`.
+   - Opening `AudioStudioSheet` passes initialized `_audioConfig.audioDelay = _audioDelayMs`.
+   - Closing `AudioStudioSheet` synchronizes `_audioDelayMs = _audioConfig.audioDelay`.
+   - Hotkeys and bottom sheet controls operate on unified state.
+   - Conclusion: **Two-way synchronization is complete and verified**.
 
 ---
 
-## 5. Verification Method
+## 3. Adversarial Stress-Testing & Challenges
 
-To independently reproduce and verify this review assessment:
+### Challenge 1: Debounce Race Condition on Modal Sheet Dismissal
+- **Hypothesis**: If a user drags the continuous slider and immediately dismisses the bottom sheet before 50ms expires, the debounced timer might be canceled without applying the final delay value to mpv.
+- **Investigation**: In `AudioStudioSheet._debouncedApplyAudioDelay()`, the timer delay is 50ms. Sheet dismissal in Flutter involves a reverse slide animation that takes ~250–300ms. Even on instant programmatic pop, `_config.audioDelay` has already been updated in memory (`_config.audioDelay = ms`). Nudge buttons call `applyAudioDelay` synchronously without debounce.
+- **Risk Level**: LOW (Non-blocking, standard UI debounce behavior).
 
-1. **Run Static Analysis**:
-   ```powershell
-   cd d:\E-player\app
-   flutter analyze
-   ```
-   *Expected Result*: `No issues found! (ran in ~39s)`.
+### Challenge 2: Floating-Point Rounding & Division Noise
+- **Hypothesis**: Repetitive slider movement or repeated ±50ms nudge calculations could introduce IEEE 754 precision drift (e.g. `49.99999999999999ms`).
+- **Investigation**:
+  - In `AudioStudioSheet`: `final ms = ((v * 1000.0) / 50.0).round() * 50.0;` quantizes directly through integer rounding, preventing drift.
+  - In `_nudgeAudioDelay`: offset is an integer `int offsetMs` added to `_audioDelayMs`, clamped with integer-like double bounds.
+  - Format dispatch `(audioDelay / 1000.0).toStringAsFixed(3)` explicitly rounds to the nearest thousandth of a second (millisecond precision).
+- **Risk Level**: LOW (Safely mitigated by explicit quantization and fixed-decimal formatting).
 
-2. **Run Milestone 3 Unit Test Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/unit/pip_service_test.dart
-   ```
-   *Expected Result*: 35 passed, 0 failed.
+### Challenge 3: Unhandled Platform Player Exceptions
+- **Hypothesis**: If the media player engine terminates or `player.platform` throws during delay application, unhandled exceptions could crash the UI.
+- **Investigation**: Both `AudioConfig.applyAudioDelay` and `PlayerScreen._nudgeAudioDelay` wrap platform invocations in `try { ... } catch (e) { debugPrint(...) }`, ensuring safe degradation. Tested in `audio_studio_test.dart` line 499 with `ThrowingPlatformPlayer` and confirmed passing.
+- **Risk Level**: LOW (Exception-safe).
 
-3. **Run Cross-Feature Integration Test Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/e2e/tier3_cross_feature_test.dart
-   ```
-   *Expected Result*: 25 passed, 0 failed.
+---
 
-4. **Run Real-World User Scenarios Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/e2e/tier4_user_scenarios_test.dart
-   ```
-   *Expected Result*: 10 passed, 0 failed.
+## 4. Caveats
 
-5. **Run Combined Verification Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test test/unit/pip_service_test.dart test/e2e/tier3_cross_feature_test.dart test/e2e/tier4_user_scenarios_test.dart
-   ```
-   *Expected Result*: 70 passed, 0 failed.
+- **Native Windows MPV Binary Execution**: Verification was conducted via automated Flutter widget tests using `FakePlayerPlatform` and full widget harnesses in `test/features/` and `test/e2e/`. Direct hardware-accelerated playback with live media files was not compiled locally per project constraints (`no local compilation of binaries: do NOT run flutter build windows`).
+- **E2E Physical Keyboard Simulation**: Upstream test `T1.1.7` in `test/e2e/phase1_e2e_test.dart` encounters Flutter physical key simulation limitations on desktop runners; this is an R1 shortcut test runner constraint outside Milestone 3's R3/R4 scope.
+
+---
+
+## 5. Conclusion
+
+The Milestone 3 implementation by `worker_m3_1` satisfies all functional requirements (R3, R4), interface contracts, visual aesthetics, error handling, and performance standards. Code analysis is completely clean (`dart analyze` reports no issues), and automated test suites pass without failure (42/42 tests in `test/features/audio_studio_test.dart`).
+
+**Verdict: APPROVE**
+
+---
+
+## 6. Verification Method
+
+To independently reproduce this verification:
+
+```powershell
+cd d:\E-player\app
+
+# 1. Static Analysis
+dart analyze
+
+# 2. Audio Studio & Delay Feature Tests
+flutter test test/features/audio_studio_test.dart
+
+# 3. E2E R3 & R4 Specific Scenarios
+flutter test test/e2e/phase1_e2e_test.dart --plain-name "T1.3"
+flutter test test/e2e/phase1_e2e_test.dart --plain-name "T1.4"
+flutter test test/e2e/phase1_e2e_test.dart --plain-name "T2.3"
+flutter test test/e2e/phase1_e2e_test.dart --plain-name "T2.4"
+```

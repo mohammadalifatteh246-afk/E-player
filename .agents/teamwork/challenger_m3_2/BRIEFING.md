@@ -1,58 +1,67 @@
-# BRIEFING — 2026-11-03T04:36:00Z
+# BRIEFING — 2026-11-10T10:42:00Z
 
 ## Mission
-Empirically challenge Milestone 3 PiP integration with playback and platform channels: remote action mapping, AutoEnterPiP state sync, desktop overlay calculation, and test suite verification.
+Empirically challenge Milestone 3: Audio Delay Synchronization UI Slider & Dedicated Audio Track Selector Modal (R3, R4).
 
 ## 🔒 My Identity
 - Archetype: empirical_challenger
 - Roles: critic, specialist
-- Working directory: d:\E-player\.agents\teamwork\challenger_m3_2
-- Original parent: 29f627ce-3157-4f8d-bf56-5c2402ce649c
-- Milestone: Milestone 3
+- Working directory: d:\E-player\app
+- State folder: d:\E-player\.agents\teamwork\challenger_m3_2
+- Original parent: d319cada-6c05-4314-a8fc-3628ac99cc0c
+- Milestone: Milestone 3 (Audio Delay & Audio Track Selector)
 - Instance: 2 of 2 (challenger_m3_2)
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code (findings go into challenge report)
 - No C: drive access / duplication: all work stays inside D:\E-player
 - No local compilation of binaries: do NOT run flutter build apk or flutter build windows
-- Verification is performed strictly via flutter test and flutter analyze from d:\E-player\app
+- Verification is performed strictly via flutter test and dart analyze from d:\E-player\app
 - .agents/teamwork/ holds only metadata (plans, progress, handoffs) — NEVER place source code, tests, or data files here
 
 ## Current Parent
-- Conversation ID: 29f627ce-3157-4f8d-bf56-5c2402ce649c
-- Updated: 2026-11-03T04:27:28Z
+- Conversation ID: d319cada-6c05-4314-a8fc-3628ac99cc0c
+- Updated: 2026-11-10T10:23:16Z
 
 ## Review Scope
-- **Files to review**: `lib/features/pip/*`, `lib/features/player/ui/player_screen.dart`, `test/unit/pip_service_test.dart`, `test/e2e/tier1_feature_coverage_test.dart`
-- **Interface contracts**: `d:\E-player\PROJECT.md`, `d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`, `d:\E-player\.agents\teamwork\worker_m3_pip\handoff.md`
-- **Review criteria**: Correctness under edge cases, unknown inputs, state transitions, platform channel interactions, stress conditions
+- **Files to review**:
+  - `lib/features/player/ui/audio_studio_sheet.dart`
+  - `lib/features/player/ui/player_screen.dart`
+  - `test/features/audio_studio_test.dart`
+- **Interface contracts**:
+  - `d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`
+  - `d:\E-player\PROJECT.md`
+  - `d:\E-player\.agents\teamwork\sub_orch_m3\SCOPE.md`
+  - `d:\E-player\.agents\teamwork\worker_m3_1\handoff.md`
 
 ## Key Decisions Made
-- Authored dedicated empirical test harness: `test/unit/pip_integration_challenge_test.dart` (16 tests) covering remote actions, state sync, overlay calculations.
-- Discovered asynchronous re-entrancy vulnerability where rapid synchronous `updatePlaybackState` calls cause redundant platform channel invocations because `_autoEnterEnabled` is assigned post-await.
-- Discovered resolution update edge case where delayed video dimensions are dropped if media started playing before metadata loaded.
-- Confirmed total test pass across all required suites (35 unit + 105 tier 1 + 16 challenge = 156 tests passed).
-- Verified static analysis reports 0 issues.
+- Authored empirical adversarial challenge suite in `test/features/audio_studio_adversarial_test.dart` (8 tests across 4 groups).
+- Discovered and empirically verified a blocking `AssertionError` in `AudioStudioSheet` (`_buildBoostSwitchTile`: `!(shape != null && borderRadius != null)`) that causes crashes when `AudioStudioSheet` is pumped.
+- Verified slider divisions (400), step size (50ms), nudge buttons (±50ms, ±100ms, Reset), boundary clamping (±10000ms), and mpv property dispatch formatting (`0.000` to `±10.000`).
+- Verified key consistency in `player_screen.dart` and rich metadata formatting.
+- Verified two-way audio delay synchronization logic.
+- Issued verdict: REQUEST_CHANGES due to the `Material` assertion bug in `audio_studio_sheet.dart`.
 
 ## Artifact Index
 - `d:\E-player\.agents\teamwork\challenger_m3_2\DISPATCH.md` — Incoming task dispatch
 - `d:\E-player\.agents\teamwork\challenger_m3_2\BRIEFING.md` — Situational awareness
 - `d:\E-player\.agents\teamwork\challenger_m3_2\progress.md` — Liveness & heartbeat
 - `d:\E-player\.agents\teamwork\challenger_m3_2\handoff.md` — Final handoff report
-- `d:\E-player\app\test\unit\pip_integration_challenge_test.dart` — Empirical challenge test suite
+- `d:\E-player\app\test\features\audio_studio_adversarial_test.dart` — Empirical challenge test suite
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. `PipAction.fromString` crashes on malformed, exotic, or injection strings -> FALSE (100% resilient).
-  2. Inbound Map arguments with non-String action throw TypeError -> TRUE (`map['action'] as String?`).
-  3. Rapid synchronous calls to `updatePlaybackState` trigger redundant platform channel invocations -> TRUE (re-entrancy gap).
-  4. Video dimension updates while `isPlaying == true` are dropped -> TRUE (`_autoEnterEnabled != shouldAutoEnter` is false).
-  5. Desktop overlay calculation handles degenerate, clamped, and custom geometries -> TRUE (accurate).
+  1. Slider step precision & division calculation: 400 divisions over [-10.0, 10.0] -> TRUE (exact 50ms step size).
+  2. Nudge buttons deltas and boundary clamping: -100ms, -50ms, 0ms, +50ms, +100ms -> TRUE (properly clamps to ±10000ms).
+  3. Platform exception resilience: errors on `player.platform` do not crash UI -> TRUE (wrapped in try/catch).
+  4. AudioStudioSheet builds without assertion crashes -> FALSE (CRITICAL BUG: throws `Failed assertion: '!(shape != null && borderRadius != null)'`).
+  5. Audio Track Selector keys & rich metadata formatting -> TRUE (matches specs).
+  6. Two-way delay synchronization between keyboard shortcut and sheet -> TRUE.
 - **Vulnerabilities found**:
-  1. Asynchronous state flag update gap in `PipService.setAutoEnterEnabled` (Medium).
-  2. In-flight aspect ratio resolution dropped when video dimensions arrive after playback begins (Medium).
-  3. Potential `TypeError` on non-String Map action in `PipPlatformBridge` (Low).
-- **Untested angles**: Hardware-specific Android OEM PiP window resizing quirks (untestable on host without emulator/device).
+  1. `AudioStudioSheet` crash on build due to simultaneous `shape` and `borderRadius` in `Material` (`_buildBoostSwitchTile`).
+  2. Test suite blindspot in `worker_m3_1` handoff: `audio_studio_test.dart` omitted `AudioStudioSheet` and `AudioTrack` modal tests.
+  3. Potential ink splash occlusion warning in `_showAudioTrackMenu` `ListTile`.
+- **Untested angles**: Hardware-specific mpv audio-delay latency under live native audio device output on Windows audio endpoints (untestable on headless mock).
 
 ## Loaded Skills
 - None

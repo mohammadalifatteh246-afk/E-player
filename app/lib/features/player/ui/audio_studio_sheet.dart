@@ -6,8 +6,10 @@ import '../../../ui/theme/e_design_tokens.dart';
 class AudioConfig {
   bool enabled = true;
   String preset = 'Rock';
+  double preamp = 0.0;
+  double audioDelay = 0.0; // in milliseconds [-10000.0, 10000.0]
 
-  // 10-band Graphic EQ (dB gain: -12.0 to +12.0 dB)
+  // 10-band Graphic EQ (dB gain: -20.0 to +20.0 dB)
   // Bands: 60Hz, 170Hz, 310Hz, 600Hz, 1kHz, 3kHz, 6kHz, 12kHz, 14kHz, 16kHz
   static const List<int> freqs = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000];
   static const List<String> freqLabels = ['60', '170', '310', '600', '1K', '3K', '6K', '12K', '14K', '16K'];
@@ -30,12 +32,100 @@ class AudioConfig {
     'Vocal Boost': [-2.0, -2.5, -1.0, 2.0, 5.0, 5.0, 3.5, 1.5, 0.0, -1.5],
     'Techno': [6.0, 5.0, 0.0, -3.0, -2.5, 0.0, 4.0, 6.0, 6.5, 6.5],
     'Club': [0.0, 0.0, 2.0, 3.5, 3.5, 3.5, 2.0, 0.0, 0.0, 0.0],
+    // 11 VLC Canonical Presets (Forensically verified against libequalizer_plugin.dll)
+    'Full Bass': [-8.0, 9.6, 9.6, 5.6, 1.6, -4.0, -8.0, -10.4, -11.2, -11.2],
+    'Full Bass & Treble': [7.2, 5.6, 0.0, -7.2, -4.8, 1.6, 8.0, 11.2, 12.0, 12.0],
+    'Full Treble': [-9.6, -9.6, -9.6, -4.0, 2.4, 11.2, 16.0, 16.0, 16.0, 16.8],
+    'Headphones': [4.8, 11.2, 5.6, -3.2, -2.4, 1.6, 4.8, 9.6, 12.8, 14.4],
+    'Large Hall': [10.4, 10.4, 5.6, 5.6, 0.0, -4.8, -4.8, -4.8, 0.0, 0.0],
+    'Live': [-4.8, 0.0, 4.0, 5.6, 5.6, 5.6, 4.0, 2.4, 2.4, 2.4],
+    'Party': [7.2, 7.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 7.2, 7.2],
+    'Reggae': [0.0, 0.0, 0.0, -5.6, 0.0, 6.4, 6.4, 0.0, 0.0, 0.0],
+    'Ska': [-2.4, -4.8, -4.0, 0.0, 4.0, 5.6, 8.8, 9.6, 11.2, 9.6],
+    'Soft': [4.8, 1.6, 0.0, -2.4, 0.0, 4.0, 8.0, 9.6, 11.2, 12.0],
+    'Soft Rock': [4.0, 4.0, 2.4, 0.0, -4.0, -5.6, -3.2, 0.0, 2.4, 8.8],
+  };
+
+  static const Map<String, double> presetPreamps = {
+    'Flat': 0.0,
+    'Rock': 0.0,
+    'Pop': 0.0,
+    'Jazz': 0.0,
+    'Classical': 0.0,
+    'Bass Boost': 0.0,
+    'Vocal Boost': 0.0,
+    'Techno': 0.0,
+    'Club': 0.0,
+    'Full Bass': 5.0,
+    'Full Bass & Treble': 4.0,
+    'Full Treble': 3.0,
+    'Headphones': 4.0,
+    'Large Hall': 5.0,
+    'Live': 7.0,
+    'Party': 6.0,
+    'Reggae': 8.0,
+    'Ska': 6.0,
+    'Soft': 5.0,
+    'Soft Rock': 7.0,
   };
 
   void applyPreset(String name) {
     if (presets.containsKey(name)) {
       preset = name;
       eq = List<double>.from(presets[name]!);
+      preamp = presetPreamps[name] ?? 0.0;
+    }
+  }
+
+  String buildMpvAfString() {
+    if (!enabled) return '';
+
+    final List<String> filters = [];
+
+    // Pre-Amplification (MUST precede equalizer bands and DSP)
+    if (preamp.abs() > 0.05) {
+      final sign = preamp >= 0 ? '+' : '';
+      filters.add('volume=volume=$sign${preamp.toStringAsFixed(1)}dB:precision=fixed');
+    }
+
+    // Bass Boost
+    if (bassBoostEnabled && bassBoost > 0) {
+      filters.add('bass=g=${bassBoost.toStringAsFixed(1)}');
+    }
+
+    // Night Mode (Loudness normalization)
+    if (nightMode) {
+      filters.add('dynaudnorm=f=200:g=15');
+    }
+
+    // Virtualizer (Stereo widening)
+    if (virtualizer) {
+      filters.add('extrastereo=m=2.2');
+    }
+
+    // 3D Audio (Spatial sound widening)
+    if (threeDAudio) {
+      filters.add('stereowiden=level=0.7');
+    }
+
+    // 10-Band Graphic Equalizer
+    for (int i = 0; i < freqs.length; i++) {
+      if (eq[i].abs() > 0.05) {
+        filters.add('equalizer=f=${freqs[i]}:width_type=q:width=1.2:g=${eq[i].toStringAsFixed(1)}');
+      }
+    }
+
+    return filters.join(',');
+  }
+
+  /// Sets only the audio-delay property in mpv without re-pushing the 'af' filter chain.
+  void applyAudioDelay(Player? player) {
+    if (player == null) return;
+    try {
+      final dynamic platform = player.platform;
+      platform.setProperty('audio-delay', (audioDelay / 1000.0).toStringAsFixed(3));
+    } catch (e) {
+      debugPrint('[Audio Studio] mpv audio-delay error: $e');
     }
   }
 
@@ -43,51 +133,19 @@ class AudioConfig {
     if (player == null) return;
     try {
       final dynamic platform = player.platform;
-      if (!enabled) {
-        platform.setProperty('af', '');
-        return;
-      }
-
-      final List<String> filters = [];
-
-      // Bass Boost
-      if (bassBoostEnabled && bassBoost > 0) {
-        filters.add('bass=g=${bassBoost.toStringAsFixed(1)}');
-      }
-
-      // Night Mode (Loudness normalization)
-      if (nightMode) {
-        filters.add('dynaudnorm=f=200:g=15');
-      }
-
-      // Virtualizer (Stereo widening)
-      if (virtualizer) {
-        filters.add('extrastereo=m=2.2');
-      }
-
-      // 3D Audio (Spatial sound widening)
-      if (threeDAudio) {
-        filters.add('stereowiden=level=0.7');
-      }
-
-      // 10-Band Graphic Equalizer
-      for (int i = 0; i < freqs.length; i++) {
-        if (eq[i].abs() > 0.05) {
-          filters.add('equalizer=f=${freqs[i]}:width_type=q:width=1.2:g=${eq[i].toStringAsFixed(1)}');
-        }
-      }
-
-      final afString = filters.join(',');
-      platform.setProperty('af', afString);
+      platform.setProperty('af', buildMpvAfString());
     } catch (e) {
       debugPrint('[Audio Studio] mpv af error: $e');
     }
+    applyAudioDelay(player);
   }
 
   void reset(Player? player) {
     enabled = true;
     preset = 'Flat';
     eq = List<double>.filled(10, 0.0);
+    preamp = 0.0;
+    audioDelay = 0.0;
     bassBoost = 0.0;
     bassBoostEnabled = false;
     virtualizer = false;
@@ -155,12 +213,39 @@ class AudioStudioSheet extends StatefulWidget {
 class _AudioStudioSheetState extends State<AudioStudioSheet> {
   late AudioConfig _config;
   Timer? _debounce;
+  Timer? _delayDebounce;
   int? _activeSliderIndex;
 
   @override
   void initState() {
     super.initState();
     _config = widget.config;
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _delayDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _debouncedApplyAudioDelay() {
+    if (_delayDebounce?.isActive ?? false) _delayDebounce!.cancel();
+    _delayDebounce = Timer(const Duration(milliseconds: 50), () {
+      _config.applyAudioDelay(widget.player);
+    });
+  }
+
+  void _nudgeAudioDelay(double deltaMs) {
+    _config.audioDelay = (_config.audioDelay + deltaMs).clamp(-10000.0, 10000.0);
+    _config.applyAudioDelay(widget.player);
+    setState(() {});
+  }
+
+  void _resetAudioDelay() {
+    _config.audioDelay = 0.0;
+    _config.applyAudioDelay(widget.player);
+    setState(() {});
   }
 
   void _debouncedApply() {
@@ -217,6 +302,7 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
                     onTap: () {
                       _config.applyPreset(p);
                       _debouncedApply();
+                      setState(() {});
                       Navigator.pop(context);
                     },
                     child: Container(
@@ -372,7 +458,15 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Audio Synchronization Card
+          _buildAudioDelaySyncCard(),
+          const SizedBox(height: 16),
+
+          // Pre-Amplification Slider Card
+          _buildPreampCard(),
+          const SizedBox(height: 16),
 
           // 3. 10-Band Graphic Equalizer Scale (Reference Screen 7)
           AnimatedOpacity(
@@ -394,14 +488,14 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
               ),
               child: Column(
                 children: [
-                  // Top Scale Labels (+12dB)
+                  // Top Scale Labels (+20dB)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('+12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
-                        Text('+12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('+20dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('+20dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -434,14 +528,14 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Bottom Scale Labels (-12dB)
+                  // Bottom Scale Labels (-20dB)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('-12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
-                        Text('-12dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('-20dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
+                        Text('-20dB', style: TextStyle(color: EDesign.textMuted, fontSize: 10, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -547,6 +641,260 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
     );
   }
 
+  Widget _buildAudioDelaySyncCard() {
+    final delayVal = _config.audioDelay;
+    return Container(
+      key: const Key('audio_delay_sync_card'),
+      decoration: BoxDecoration(
+        color: EDesign.surface,
+        borderRadius: BorderRadius.circular(EDesign.r16),
+        border: Border.all(color: EDesign.border),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.sync, color: EDesign.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Audio Synchronization',
+                    style: TextStyle(
+                      color: EDesign.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                key: const Key('audio_delay_badge'),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: EDesign.elevatedSurface,
+                  borderRadius: BorderRadius.circular(EDesign.r8),
+                  border: Border.all(color: EDesign.border),
+                ),
+                child: Text(
+                  '${delayVal >= 0 ? "+" : ""}${delayVal.toStringAsFixed(0)} ms',
+                  style: const TextStyle(
+                    color: EDesign.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text(
+                '-10.0s',
+                style: TextStyle(
+                  color: EDesign.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: EDesign.primary,
+                    inactiveTrackColor: Colors.white12,
+                    thumbColor: EDesign.primary,
+                    overlayColor: EDesign.primary.withValues(alpha: 0.25),
+                    trackHeight: 3.0,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                  ),
+                  child: Slider(
+                    key: const Key('audio_delay_slider'),
+                    value: (delayVal / 1000.0).clamp(-10.0, 10.0),
+                    min: -10.0,
+                    max: 10.0,
+                    divisions: 400,
+                    onChanged: (v) {
+                      final ms = ((v * 1000.0) / 50.0).round() * 50.0;
+                      _config.audioDelay = ms.clamp(-10000.0, 10000.0);
+                      _debouncedApplyAudioDelay();
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ),
+              const Text(
+                '+10.0s',
+                style: TextStyle(
+                  color: EDesign.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNudgeButton('-100ms', const Key('audio_delay_nudge_minus_100'), () => _nudgeAudioDelay(-100)),
+              _buildNudgeButton('-50ms', const Key('audio_delay_nudge_minus_50'), () => _nudgeAudioDelay(-50)),
+              _buildNudgeButton('Reset', const Key('audio_delay_nudge_reset'), _resetAudioDelay),
+              _buildNudgeButton('+50ms', const Key('audio_delay_nudge_plus_50'), () => _nudgeAudioDelay(50)),
+              _buildNudgeButton('+100ms', const Key('audio_delay_nudge_plus_100'), () => _nudgeAudioDelay(100)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNudgeButton(String label, Key key, VoidCallback onTap) {
+    return OutlinedButton(
+      key: key,
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: EDesign.textPrimary,
+        side: const BorderSide(color: EDesign.border),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        minimumSize: const Size(54, 32),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(EDesign.r8),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildPreampCard() {
+    final preampVal = _config.preamp;
+    return AnimatedOpacity(
+      opacity: _config.enabled ? 1.0 : 0.4,
+      duration: const Duration(milliseconds: 200),
+      child: Container(
+        decoration: BoxDecoration(
+          color: EDesign.surface,
+          borderRadius: BorderRadius.circular(EDesign.r16),
+          border: Border.all(color: EDesign.border),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.tune, color: EDesign.primary, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      'Pre-Amplification',
+                      style: TextStyle(
+                        color: EDesign.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: EDesign.elevatedSurface,
+                        borderRadius: BorderRadius.circular(EDesign.r8),
+                        border: Border.all(color: EDesign.border),
+                      ),
+                      child: Text(
+                        '${preampVal >= 0 ? "+" : ""}${preampVal.toStringAsFixed(1)} dB',
+                        style: const TextStyle(
+                          color: EDesign.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18),
+                      color: (_config.enabled && preampVal != 0.0)
+                          ? EDesign.textSecondary
+                          : EDesign.disabled,
+                      tooltip: 'Reset Preamp to 0.0 dB',
+                      onPressed: (_config.enabled && preampVal != 0.0)
+                          ? () {
+                              _config.preamp = 0.0;
+                              _debouncedApply();
+                              setState(() {});
+                            }
+                          : null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Text(
+                  '-20dB',
+                  style: TextStyle(
+                    color: EDesign.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: EDesign.primary,
+                      inactiveTrackColor: Colors.white12,
+                      thumbColor: EDesign.primary,
+                      overlayColor: EDesign.primary.withValues(alpha: 0.25),
+                      trackHeight: 3.0,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                    ),
+                    child: Slider(
+                      value: preampVal.clamp(-20.0, 20.0),
+                      min: -20.0,
+                      max: 20.0,
+                      divisions: 80,
+                      onChanged: _config.enabled
+                          ? (v) {
+                              _config.preamp = (v * 2).round() / 2.0;
+                              _debouncedApply();
+                              setState(() {});
+                            }
+                          : null,
+                    ),
+                  ),
+                ),
+                const Text(
+                  '+20dB',
+                  style: TextStyle(
+                    color: EDesign.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _build10BandSlider(int index) {
     final value = _config.eq[index];
     final isFocused = _activeSliderIndex == index;
@@ -585,9 +933,9 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
               ),
               child: Slider(
-                value: value.clamp(-12.0, 12.0),
-                min: -12.0,
-                max: 12.0,
+                value: value.clamp(-20.0, 20.0),
+                min: -20.0,
+                max: 20.0,
                 onChangeStart: (_) {
                   setState(() => _activeSliderIndex = index);
                 },
@@ -599,6 +947,7 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
                         _config.preset = 'Custom';
                         _config.eq[index] = v;
                         _debouncedApply();
+                        setState(() {});
                       }
                     : null,
               ),
@@ -693,11 +1042,11 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: EDesign.surface,
+    return Material(
+      color: EDesign.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(EDesign.r14),
-        border: Border.all(color: EDesign.border),
+        side: const BorderSide(color: EDesign.border),
       ),
       child: SwitchListTile(
         title: Text(
@@ -720,6 +1069,162 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
         inactiveTrackColor: Colors.white12,
         onChanged: onChanged,
       ),
+    );
+  }
+}
+
+/// Standalone Audio Delay Synchronization Card conforming to R3 specification.
+class AudioDelaySyncCard extends StatefulWidget {
+  final Player? player;
+  final double initialDelayMs;
+  final ValueChanged<double>? onDelayChanged;
+
+  const AudioDelaySyncCard({
+    super.key,
+    required this.player,
+    this.initialDelayMs = 0.0,
+    this.onDelayChanged,
+  });
+
+  @override
+  State<AudioDelaySyncCard> createState() => AudioDelaySyncCardState();
+}
+
+class AudioDelaySyncCardState extends State<AudioDelaySyncCard> {
+  late double _delayMs;
+
+  @override
+  void initState() {
+    super.initState();
+    _delayMs = widget.initialDelayMs;
+  }
+
+  void updateDelay(double ms) {
+    final clamped = ms.clamp(-10000.0, 10000.0);
+    setState(() {
+      _delayMs = clamped;
+    });
+    if (widget.player != null) {
+      try {
+        final dynamic platform = widget.player!.platform;
+        platform.setProperty('audio-delay', (_delayMs / 1000.0).toStringAsFixed(3));
+      } catch (_) {}
+    }
+    widget.onDelayChanged?.call(_delayMs);
+  }
+
+  void nudge(double deltaMs) {
+    updateDelay(_delayMs + deltaMs);
+  }
+
+  void reset() {
+    updateDelay(0.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('audio_delay_sync_card'),
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: EDesign.surface,
+        borderRadius: BorderRadius.circular(EDesign.r16),
+        border: Border.all(color: EDesign.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.sync, color: EDesign.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Audio Synchronization',
+                    style: TextStyle(
+                      color: EDesign.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                key: const Key('audio_delay_badge'),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: EDesign.elevatedSurface,
+                  borderRadius: BorderRadius.circular(EDesign.r8),
+                  border: Border.all(color: EDesign.border),
+                ),
+                child: Text(
+                  '${_delayMs >= 0 ? "+" : ""}${_delayMs.toStringAsFixed(0)} ms',
+                  style: const TextStyle(
+                    color: EDesign.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text('-10.0s', style: TextStyle(color: EDesign.textMuted, fontSize: 10)),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: EDesign.primary,
+                    inactiveTrackColor: Colors.white12,
+                    thumbColor: EDesign.primary,
+                    overlayColor: EDesign.primary.withValues(alpha: 0.25),
+                  ),
+                  child: Slider(
+                    key: const Key('audio_delay_slider'),
+                    value: (_delayMs / 1000.0).clamp(-10.0, 10.0),
+                    min: -10.0,
+                    max: 10.0,
+                    divisions: 400,
+                    onChanged: (v) {
+                      updateDelay((v * 1000.0 * 2).round() / 2.0);
+                    },
+                  ),
+                ),
+              ),
+              const Text('+10.0s', style: TextStyle(color: EDesign.textMuted, fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNudgeBtn('-100ms', const Key('audio_delay_nudge_minus_100'), () => nudge(-100)),
+              _buildNudgeBtn('-50ms', const Key('audio_delay_nudge_minus_50'), () => nudge(-50)),
+              _buildNudgeBtn('Reset', const Key('audio_delay_nudge_reset'), reset),
+              _buildNudgeBtn('+50ms', const Key('audio_delay_nudge_plus_50'), () => nudge(50)),
+              _buildNudgeBtn('+100ms', const Key('audio_delay_nudge_plus_100'), () => nudge(100)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNudgeBtn(String label, Key key, VoidCallback onTap) {
+    return OutlinedButton(
+      key: key,
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: EDesign.textPrimary,
+        side: const BorderSide(color: EDesign.border),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        minimumSize: const Size(54, 32),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }

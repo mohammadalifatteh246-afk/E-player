@@ -1,7 +1,7 @@
-# BRIEFING — 2026-11-03T05:12:00Z
+# BRIEFING — 2026-11-09T10:05:00Z
 
 ## Mission
-Perform independent quality review and adversarial critique of Milestone 4 (Wireless Casting Engine) implementation.
+Perform adversarial engineering and technical specification review of `d:\E-player\docs\vlc_gap_analysis.md`, focusing on technical feasibility, blueprint precision, mpv property accuracy, Flutter architecture patterns, zero modifications to `app/`, and `dart analyze` clean pass.
 
 ## 🔒 My Identity
 - Archetype: reviewer / critic
@@ -10,6 +10,8 @@ Perform independent quality review and adversarial critique of Milestone 4 (Wire
 - Original parent: 29f627ce-3157-4f8d-bf56-5c2402ce649c
 - Milestone: Milestone 4 (Wireless Casting Engine)
 - Instance: 2 of 2
+- Current Task Parent: ae39413e-15f3-4708-97e2-c263b03bde20 (orchestrator_5)
+- Current Review Assignment: Reviewer 2 (Adversarial Engineering & Technical Specification Reviewer) for VLC Gap Analysis & Adoption Roadmap
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
@@ -18,46 +20,48 @@ Perform independent quality review and adversarial critique of Milestone 4 (Wire
 - Verification is performed strictly via flutter test and flutter analyze from d:\E-player\app
 - Strict offline invariant: 100% offline capability
 - Check for integrity violations (hardcoded test results, facade implementations, shortcuts bypassing tasks, fabricated verification)
+- Verify zero modifications under `d:\E-player\app` (`git status`)
+- Verify `dart analyze` in `d:\E-player\app` yields 0 issues
 
 ## Current Parent
-- Conversation ID: 29f627ce-3157-4f8d-bf56-5c2402ce649c
-- Updated: not yet
+- Conversation ID: ae39413e-15f3-4708-97e2-c263b03bde20
+- Updated: 2026-11-09T10:05:00Z
 
 ## Review Scope
-- **Files to review**: `app/lib/features/casting/domain/cast_service.dart`, `app/lib/features/casting/domain/cast_models.dart`, `app/lib/features/casting/domain/local_streaming_daemon.dart`, `app/lib/features/player/ui/player_screen.dart`, `test/e2e/tier3_cross_feature_test.dart`, `test/e2e/tier4_user_scenarios_test.dart`, `test/unit/local_streaming_daemon_test.dart`, `test/unit/cast_service_test.dart`, `worker_m4_cast/handoff.md`
-- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`
-- **Review criteria**: correctness, protocol matrix coverage, transcode profile selection, bi-directional sync, lifecycle management, HUD auto-dismiss coordination, integrity
+- **Files to review**: `d:\E-player\docs\vlc_gap_analysis.md`
+- **Target environment**: Flutter app at `d:\E-player\app`, media_kit/mpv playback backend
+- **Reference systems**: VLC Media Player installation at `C:\Program Files (x86)\VideoLAN\VLC`
+- **Review criteria**: Technical feasibility, blueprint precision, mpv properties validity, Flutter architecture conformance, systems rigor, edge cases and failure modes.
 
 ## Review Checklist
 - **Items reviewed**:
-  - `cast_service.dart` multi-protocol sink discovery & transcode profile resolution
-  - `cast_service.dart` bi-directional state synchronization (Play, Pause, Seek, Volume, Mute, Audio Route)
-  - `cast_service.dart` session lifecycle (connect starts daemon, disconnect/dispose stops daemon)
-  - `local_streaming_daemon.dart` HTTP 206 Partial Content Range streaming, tokenized authentication, WebVTT conversion, offline private IP validation
-  - `player_screen.dart` HUD auto-dismiss coordination (`_openCastSheet()` pause and restart)
-  - `tier3_cross_feature_test.dart` (25/25 passing)
-  - `tier4_user_scenarios_test.dart` (10/10 passing)
-  - `local_streaming_daemon_test.dart` & `cast_service_test.dart` (37/37 passing)
-  - `flutter analyze` (0 errors, 0 warnings)
-- **Verdict**: APPROVE
-- **Unverified claims**: None (all claims verified directly via independent execution)
+  - [x] Git status check (`app/` untouched): Verified 0 changes via `git status --porcelain app/`
+  - [x] Static analysis: Verified `dart analyze` in `d:\E-player\app` with "No issues found!"
+  - [x] VLC physical installation: Verified FileVersion 3.0.24, 360 DLLs across 29 subdirectories
+  - [x] VLC configuration: Verified jump sizes (3s, 10s, 60s, 300s) and max-volume (125%) in `%APPDATA%\vlc\vlcrc`
+  - [x] Inspection of `d:\E-player\docs\vlc_gap_analysis.md`: 1,303 lines thoroughly examined
+  - [x] mpv property & command verification: Verified `audio-delay`, `sub-delay`, `volume-max`, `af`, `vf`, and identified `frame-step` command distinction
+  - [x] Flutter architecture patterns: Audited Blueprint 1 (focus & seek bounds), Blueprint 2 (lifecycle & slider bounds), Blueprint 3 (gain curves)
+  - [x] 4-Phase Adoption Roadmap technical feasibility & sequencing: Validated Phase 1-4 logic
+  - [x] Unit test execution: Verified `local_streaming_daemon_test.dart` (17/17 passed)
+- **Verdict**: APPROVE (with actionable adversarial engineering refinements)
+- **Unverified claims**: None; all empirical claims independently verified
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Path traversal injection: blocked with 400 Bad Request
-  - Token spoofing / omission: blocked with 403 Forbidden
-  - Out of bounds HTTP Range: returns 416 with `bytes */totalSize`
-  - Zero-length / empty boundary ranges: verified safe
-  - Interface binding on offline sandboxes: verified safe fallback to 127.0.0.1
-  - HUD auto-dismiss timer during modal presentation: confirmed paused and cleanly resumed
-  - Rapid connect/disconnect daemon teardown: confirmed no socket or timer leakage
-- **Vulnerabilities found**: None critical/blocking; minor concurrency race on rapid successive connect calls noted as caveat.
-- **Untested angles**: Hardware Wi-Fi Direct P2P hardware pairing (out of scope for unit/E2E test harness).
+  - `frame-step` property vs command in libmpv: Confirmed `frame-step` is an MPV input command (`mpv_command`), requiring `command(['frame-step'])` rather than `setProperty`.
+  - Focus tree keystroke trapping: Confirmed raw `Focus` widget intercepts keys before `TextField` inputs unless guarded.
+  - Async gap lifecycle in Blueprint 2: Identified missing `mounted` guard in `_queryCurrentDelay()`.
+  - Slider boundary assertions in Blueprint 2: Identified discrepancy between clamp range (±10s) and Slider min/max (±5s).
+  - High gain volume over-amplification: Analyzed digital clipping risk above 100% volume without dynamic limiting.
+  - Forward seek boundary: Identified missing upper-bound clamp against `player.state.duration`.
+- **Vulnerabilities found**: 2 Major engineering findings and 2 Minor UI edge cases noted for clean-room implementation teams.
+- **Untested angles**: Hardware-specific optical media drivers (DVD/Blu-ray), which are out of scope for E-Player.
 
 ## Key Decisions Made
-- Confirmed zero integrity violations: no hardcoded outputs, no mock facades in production path.
-- Verified 100% offline compliance (no external WAN sockets, private LAN validation).
-- Issued unconditional APPROVE verdict.
+- Confirmed zero integrity violations: No hardcoded test assertions, no mock facades in production path, and zero modifications to `d:\E-player\app`.
+- Verified 100% clean static analysis (`dart analyze` = 0 issues).
+- Issued APPROVE verdict on `docs/vlc_gap_analysis.md` accompanied by comprehensive adversarial review report.
 
 ## Artifact Index
 - `DISPATCH.md` — incoming dispatch instructions

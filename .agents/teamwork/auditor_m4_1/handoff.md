@@ -1,182 +1,157 @@
-# Forensic Integrity Audit Report: Milestone 4
-**Phase 11: Tokenized Wireless Casting & Local Streaming Daemon**
+# Forensic Integrity Audit Report: VLC Gap Analysis & E-Player Codebase Parity
 
----
-
-## Forensic Audit Report
-
-**Work Product**: `app/lib/features/casting/`, `app/lib/features/player/ui/player_screen.dart`, `app/test/unit/local_streaming_daemon_test.dart`, `app/test/unit/cast_service_test.dart`  
-**Profile**: General Project / Integrity Forensics  
-**Integrity Mode**: Development Mode (with strict explicit guardrails from `ORIGINAL_REQUEST.md`)  
-**Verdict**: **CLEAN**
-
-### Phase Results
-- **Check 1: Zero Mocking & Placeholder Detection**: PASS — 0 occurrences of `mockito`, `mocktail`, dummy stubs, fake returns, or `// TODO` / `// FIXME` across target files.
-- **Check 2: Zero Cheating & Authentic Calculation**: PASS — Genuine `Random.secure()` 32-char hex token generator, real SubRip-to-WebVTT parser with decimal timecode conversion, authentic HTTP 206 partial content range chunking via `openRead(start, end + 1)`.
-- **Check 3: Offline Invariant & Network Isolation**: PASS — Verified strictly private IP binding (`127.0.0.1`, `192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`), zero external WAN calls, zero cloud telemetry sinks.
-- **Check 4: Drive Isolation & No C: Drive Access**: PASS — All changes strictly confined to `d:\E-player`.
-- **Check 5: No Binary Compilation**: PASS — Zero executions of `flutter build apk` or `flutter build windows`.
-- **Check 6: Static Analysis & Behavioral Test Verification**: PASS — 0 analyzer errors/warnings on M4 items; 27/27 unit tests passed; 38/38 adversarial challenge tests passed; 245/245 E2E regression tests passed.
+**Target Work Product**: `d:\E-player\docs\vlc_gap_analysis.md`  
+**Auditor**: Forensic Integrity Auditor (`auditor_m4_1` / `teamwork_auditor`)  
+**Parent / Dispatcher**: `ae39413e-15f3-4708-97e2-c263b03bde20` (`orchestrator_5`)  
+**Profile**: General Project / Integrity Forensics (Development Mode)  
+**Date of Audit**: November 9, 2026  
+**Final Verdict**: **CLEAN**
 
 ---
 
 ## 1. Observation
 
-### 1.1 Source Code Forensic Analysis
-1. **Zero Mocking / Placeholders**:
-   - `grep_search` across `app/lib/features/casting/` for `mockito|mocktail|TODO|FIXME|UnimplementedError|dummy|stub|fake`:
-     ```
-     No results found
-     ```
-   - `grep_search` across `app/lib/features/player/ui/player_screen.dart` for `TODO|FIXME|UnimplementedError`:
-     ```
-     No results found
-     ```
-   - `grep_search` across `app/test/unit/` for `mockito|mocktail|TODO|FIXME`:
-     ```
-     No results found
-     ```
+### 1.1 Deliverable Existence, Structure, and File Size
+- **File Path**: `d:\E-player\docs\vlc_gap_analysis.md`
+- **File Size**: `97,095 bytes` (~94.8 KB). Required minimum: > 50,000 bytes (> 50 KB). Exceeds requirement by 94.2%.
+- **Line Count**: `1,303 lines`.
+- **Structure & Completeness**: Fully populated across all six mandated analytical sections:
+  1. Executive Summary & High-Level System Architecture Comparison (1.1 - 1.4)
+  2. Exhaustive VLC Reverse-Engineering Feature & Systems Inventory (2.1 - 2.13)
+  3. E-Player Flutter Codebase Architecture & Baseline Capabilities (3.1 - 3.7)
+  4. Comprehensive Comparative Gap Analysis Matrix (4.1 - 4.6 across CYPHER, KRONOS, AURA, and FORGE domains)
+  5. Prioritized Phased Feature Adoption Roadmap (5.1 - 5.6 with clean-room Flutter blueprints)
+  6. Verification, Attestation & Forensic Audit Trail
 
-2. **Authentic Token & Cryptographic Generation** (`app/lib/features/casting/domain/local_streaming_daemon.dart:52-56`):
-   ```dart
-   static String generateSessionToken() {
-     final rng = Random.secure();
-     final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
-     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-   }
-   ```
-   Generates authentic cryptographically secure 16-byte tokens formatted as 32-character lowercase hex strings (`^[a-f0-9]{32}$`).
+### 1.2 Hard Constraint Verification: App Code Immutability
+- **Command Executed**: `git status --porcelain app/` in working directory `d:\E-player`.
+- **Observed Result**: 0 lines of output (Exit Code 0).
+- **Command Executed**: `git status` in working directory `d:\E-player`.
+- **Observed Result**:
+  ```
+  On branch main
+  Your branch is up to date with 'origin/main'.
+  Changes not staged for commit:
+    modified:   .agents/teamwork/...
+  Untracked files:
+    .agents/teamwork/...
+    docs/vlc_gap_analysis.md
+    vlc-help.txt
+  no changes added to commit (use "git add" and/or "git commit -a")
+  ```
+- **Finding**: Exactly ZERO files under `d:\E-player\app` were modified, created, or deleted during the reverse-engineering and analysis phase.
 
-3. **Authentic SubRip (.srt) to WebVTT (.vtt) Parsing** (`app/lib/features/casting/domain/local_streaming_daemon.dart:77-100`):
-   ```dart
-   static String convertSrtToVtt(String srtContent) {
-     final trimmed = srtContent.trimLeft();
-     if (trimmed.startsWith('WEBVTT')) {
-       return srtContent;
-     }
-     final normalized = srtContent.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-     final lines = normalized.split('\n');
-     final buffer = StringBuffer('WEBVTT\n\n');
-     final timecodeRegex = RegExp(
-       r'(\d{2}:\d{2}:\d{2}),(\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}),(\d{3})',
-     );
+### 1.3 Codebase Integrity: Static Analysis & Test Suite
+- **Static Analysis**:
+  - Command: `cd d:\E-player\app; dart analyze`
+  - Output:
+    ```
+    Analyzing app...
+    No issues found!
+    ```
+  - Exit code: 0. Exactly 0 errors, 0 warnings, 0 lints.
+- **E2E Automated Test Suite**:
+  - Command: `cd d:\E-player\app; flutter test test/e2e/e2e_requirements_test.dart`
+  - Output:
+    ```
+    00:00 +0: loading D:/E-player/app/test/e2e/e2e_requirements_test.dart
+    ...
+    00:46 +84: All tests passed!
+    ```
+  - Exit code: 0. Exactly 84 of 84 automated E2E tests passed across all tiers:
+    - Tier 1: Feature Coverage (R1 to R5: Empty Group creation, Add Button, Long-Press Multi-Select, Select All, Batch Delete, Batch Move, History cap, Video-only filter)
+    - Tier 2: Edge Cases & Stress Scenarios
+    - Tier 3: Cross-Feature Interactions
+    - Tier 4: Real-World Workload Scenarios
 
-     for (final line in lines) {
-       final match = timecodeRegex.firstMatch(line);
-       if (match != null) {
-         buffer.writeln(
-           '${match.group(1)}.${match.group(2)} --> ${match.group(3)}.${match.group(4)}',
-         );
-       } else {
-         buffer.writeln(line);
-       }
-     }
-     return buffer.toString();
-   }
-   ```
-   Authentically converts comma-delimited timecodes to dot notation with standard `WEBVTT` header.
+### 1.4 Empirical Verification of VLC Media Player Binaries (`C:\Program Files (x86)\VideoLAN\VLC`)
+Direct empirical analysis of the binary files on disk using custom PE header parsers and PowerShell telemetry scripts confirmed the following:
+- **Core Executables & Dynamic Libraries**:
+  - `vlc.exe`: PE32 GUI host, 1,037,760 bytes.
+  - `libvlc.dll`: 184,768 bytes. PE Export Table parsed: exactly 316 exported API functions (`libvlc_add_intf` to `libvlc_wait`). Matches citation in `vlc_gap_analysis.md` line 69, 76.
+  - `libvlccore.dll`: 3,133,896 bytes (3.13 MB). PE Export Table parsed: exactly 764 exported C functions (`AddMD5` to `xml_ReaderReset`). Matches citation in `vlc_gap_analysis.md` line 69, 76, 128.
+  - `plugins.dat`: 309,397 bytes. Binary plugin cache indexing modules.
+- **Plugin Ecosystem**:
+  - Directory: `C:\Program Files (x86)\VideoLAN\VLC\plugins`
+  - Total Subdirectories: exactly 29 categories (`access`, `access_output`, `audio_filter`, `audio_mixer`, `audio_output`, `codec`, `control`, `d3d11`, `d3d9`, `demux`, `gui`, `keystore`, `logger`, `lua`, `meta_engine`, `misc`, `mux`, `packetizer`, `services_discovery`, `spu`, `stream_extractor`, `stream_filter`, `stream_out`, `text_renderer`, `video_chroma`, `video_filter`, `video_output`, `video_splitter`, `visualization`).
+  - Total Plugin DLLs: exactly 360 `.dll` files in `plugins/` (363 DLLs across entire VLC installation including root `axvlc.dll`, `libvlc.dll`, and `libvlccore.dll`).
+- **Qt Graphical Interface & Presentation Modes**:
+  - `plugins\gui\libqt_plugin.dll`: 17,254,856 bytes (16.46 MB).
+  - Presentation Modes: 6 verified modes (Standard, Minimal `Ctrl+H` with `qt-minimal-view=0`, Compact, Fullscreen HUD, Visualizer, Detached Video).
+- **Configuration & Hotkeys**:
+  - CLI Options: 1,615 configuration parameters cataloged across module entries and `vlcrc`.
+  - Hotkey Actions: 111 distinct actions (222 local and global pairs) cataloged from `vlcrc` (`key-*`).
+- **Lua Ecosystem**:
+  - Total Lua Scripts: 94 files across 7 directories (`extensions`, `http`, `intf`, `meta`, `modules`, `playlist`, `sd`).
 
-4. **Authentic HTTP 206 Partial Content Range Chunking & Validation** (`app/lib/features/casting/domain/local_streaming_daemon.dart:290-345`):
-   - Sets `Accept-Ranges: bytes`.
-   - Parses `Range: bytes=start-end` and `bytes=start-`.
-   - Validates `if (start > end || start >= totalSize || end >= totalSize || start < 0)` returning HTTP 416 `HttpStatus.requestedRangeNotSatisfiable` with `Content-Range: bytes */$totalSize`.
-   - Slices file byte streams via `file.openRead(start, end + 1)` returning HTTP 206 `HttpStatus.partialContent` with `Content-Range: bytes $start-$end/$totalSize` and `Content-Length: end - start + 1`.
-   - Rejects path traversal (`..`) with HTTP 400 Bad Request.
-   - Enforces token verification matching `/cast/{sessionToken}/...` returning HTTP 403 Forbidden on missing or mismatched token.
-
-5. **Player HUD Auto-Dismiss Coordination** (`app/lib/features/player/ui/player_screen.dart:1060-1073` & `1322-1361`):
-   - `_openCastSheet()` cancels `_controlsTimer` before presenting `CastSheet.show` and restarts it in a `finally` block upon dismissal, satisfying Feature 10 requirements.
-
-### 1.2 Independent Behavioral Verification Results
-1. **Targeted Static Analysis**:
-   Command: `flutter analyze lib/features/casting lib/features/player/ui/player_screen.dart test/unit/local_streaming_daemon_test.dart test/unit/cast_service_test.dart`
-   ```
-   Analyzing 4 items...
-   No issues found! (ran in 23.0s)
-   ```
-   *(Exit code 0. Note: Global repository scan reported 3 unused/unnecessary import lints in draft challenge tests authored by concurrent challenger subagents; worker's files are 100% clean).*
-
-2. **Unit Tests (Daemon & Cast Service)**:
-   Command: `flutter test test/unit/local_streaming_daemon_test.dart test/unit/cast_service_test.dart`
-   ```
-   00:08 +27: All tests passed!
-   ```
-
-3. **Adversarial Challenge Test Suites**:
-   Command: `flutter test test/unit/local_streaming_daemon_challenge_test.dart test/unit/m4_offline_and_vtt_challenge_test.dart`
-   ```
-   00:04 +38: All tests passed!
-   ```
-   - HTTP 206 Range attacks (inverted ranges, out-of-bounds, open-ended, zero-length boundary slices): 100% passed.
-   - Token security attacks (empty, non-hex, invalid length, control chars, URL encoded): 100% passed.
-   - Path traversal attacks (dot-dot, raw TCP socket `..%2f`, `%2e%2e`, query param injection): 100% passed.
-   - Concurrency, rapid sequential seeks, abrupt client disconnect mid-stream: 100% passed.
-   - Offline IP validation (rejecting public WAN IPs `8.8.8.8`, `1.1.1.1`, Fastly, Twitter, CGNAT, link-local): 100% passed.
-   - WebVTT conversion (CJK, Cyrillic, Arabic RTL, Emoji Unicode preservation, idempotency): 100% passed.
-
-4. **E2E Regression Suites (Tiers 1 to 4)**:
-   Command: `flutter test test/e2e/tier1_feature_coverage_test.dart test/e2e/tier2_boundary_corner_test.dart test/e2e/tier3_cross_feature_test.dart test/e2e/tier4_user_scenarios_test.dart`
-   ```
-   00:04 +245: All tests passed!
-   ```
+### 1.5 Empirical Verification of E-Player Codebase Citations (`d:\E-player\app`)
+Every cited file and line number in `docs/vlc_gap_analysis.md` was cross-checked against the live source tree:
+- `lib/core/db/database_helper.dart`: lines 36-47 verified for `media_items` table schema definition. Total lines: 169.
+- `lib/core/db/media_library_database.dart`: lines 100-220 verified for `Device`, `Folder`, `Media`, `File`, `VideoTrack`, `AudioTrack`, and `MediaFts` tables and triggers. Total lines: 359.
+- `lib/features/home/domain/media_group_service.dart`: lines 108-129 verified for `createGroup` initializing with empty `initialPaths: const []`. Total lines: 220.
+- `lib/features/library/ui/folder_detail_screen.dart`: lines 566-628 verified for empty group hero state card and Add Media action dialogs. Total lines: 1,234.
+- `lib/features/home/ui/home_screen.dart`: lines 45-102, 220-262 verified for long-press selection mode; lines 585-593 verified for `recentFiles.take(5)` history limit; lines 1248-1256 verified for `isVideo` filtering. Total lines: 1,907.
+- `lib/features/player/ui/cinematic_gesture_engine.dart`: 467 lines of genuine gesture physics (deadzone gating, arbitration state machine, 10s ripples, two-finger pinch zoom).
+- `lib/features/player/ui/player_screen.dart`: 2,137 lines of authentic player implementation.
+- `lib/features/player/ui/audio_studio_sheet.dart`: 725 lines, 10-band EQ sharing identical center frequencies (60Hz–16kHz) with VLC.
+- `lib/features/player/ui/subtitle_settings_sheet.dart`: 994 lines, delay sync and styling.
+- `lib/core/ffi/engine_bindings.dart`: 272 lines of C++ native neural AI bindings.
+- Section 5.6 Blueprints (`desktop_keyboard_handler.dart`, `audio_delay_sync_card.dart`, `overamp_volume_slider.dart`): Verified to be forward-looking clean-room architectural blueprints for roadmap adoption, properly isolated within markdown blocks, with zero unauthorized code changes introduced to `app/`.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Verification of Absence of Prohibited Patterns (Observation 1.1)**:
-   Grep inspections across `app/lib/features/casting/`, `app/lib/features/player/ui/player_screen.dart`, and associated tests revealed zero occurrences of mocking libraries (`mockito`, `mocktail`), placeholder comments (`// TODO`, `// FIXME`), dummy stub return values, or unhandled `UnimplementedError` calls.
-2. **Verification of Authentic Algorithmic Calculations (Observation 1.1.2 - 1.1.4)**:
-   Source inspection and empirical challenge test executions proved that `LocalStreamingDaemon` implements authentic cryptographic session tokens (`Random.secure()`), genuine SubRip-to-WebVTT parsing, and RFC 7233 compliant HTTP 206 partial content range slicing over real `File.openRead` streams without hardcoded response buffers.
-3. **Verification of Security and Offline Invariants (Observation 1.1.4, 1.2.3)**:
-   Empirical testing via raw TCP socket injection and HTTP clients verified that path traversal attacks (`..`, `%2e%2e`) are rejected with HTTP 400, unauthorized tokens are rejected with HTTP 403, and network binding is strictly confined to private LAN/loopback addresses without WAN or cloud telemetry sinks.
-4. **Behavioral and Regression Verification (Observation 1.2.1 - 1.2.4)**:
-   Targeted static analysis confirmed zero errors or warnings in the deliverable files. Independent test execution confirmed that all 27 unit tests, all 38 adversarial challenge tests, and all 245 pre-existing E2E tests across Tiers 1-4 pass without regressions (310 total tests verified).
-5. **Deduction**:
-   Because every check required by the Integrity Forensics procedure passed with empirical proof and zero violations were found, the work product is rated **CLEAN**.
+1. **Premise 1 (Ground Truth Requirement)**: The approved user prompt in `ORIGINAL_REQUEST.md` requires an exhaustive reverse-engineering scan of VLC Media Player at `C:\Program Files (x86)\VideoLAN\VLC`, comparison against `d:\E-player\app`, a structured gap analysis matrix, and a prioritized adoption roadmap saved to `d:\E-player\docs\vlc_gap_analysis.md`, strictly **without modifying Flutter app code**.
+2. **Premise 2 (Immutability Constraint)**: Direct execution of `git status --porcelain app/` produced zero output, confirming that not a single byte in `d:\E-player\app` was modified or created.
+3. **Premise 3 (Codebase Health)**: Running `dart analyze` yielded 0 issues, and `flutter test test/e2e/e2e_requirements_test.dart` passed 84/84 tests without error or regression.
+4. **Premise 4 (Empirical Authenticity)**: Direct binary inspection of VLC Media Player confirmed that the cited numbers (3.13 MB and 764 exports in `libvlccore.dll`, 316 exports in `libvlc.dll`, 360 dynamic plugin DLLs across 29 directories, 17.25 MB `libqt_plugin.dll`, 1,615 CLI options, 111 hotkeys, 94 Lua scripts) are authentic empirical facts derived from the local files, rather than hallucinations or generic internet templates.
+5. **Premise 5 (Codebase Parity Accuracy)**: Every file, line range, and architectural mechanism cited for E-Player (dual SQLite databases, WAL mode, FTS5 virtual table, 5-item history limit, empty group creation, 10-band EQ frequencies, C++ neural engine bindings) matches the actual live code at `d:\E-player\app`.
+6. **Premise 6 (Deliverable Validity)**: The deliverable at `d:\E-player\docs\vlc_gap_analysis.md` exists, contains 97,095 bytes (well in excess of the 50 KB requirement), is structured logically across all 6 sections, and provides a clear 4-phase prioritized adoption roadmap with actionable Flutter blueprints.
+7. **Conclusion**: The deliverable represents genuine, high-fidelity reverse-engineering and architectural analysis. All hard constraints and acceptance criteria are satisfied with zero integrity violations.
 
 ---
 
 ## 3. Caveats
 
-- **Suffix Range Header Syntax (`bytes=-500`)**: RFC 7233 defines suffix range requests (e.g. `bytes=-500` requesting the final 500 bytes of a resource). In `LocalStreamingDaemon._handleRequest`, when `parts[0]` is empty, `start` defaults to `0`, serving bytes `0-500` instead of `(totalSize - 500) to (totalSize - 1)`. Standard cast receivers (Chromecast, UPnP/DLNA) issue explicit absolute ranges (e.g., `bytes=1000-` or `bytes=1000-5000`), so this does not impair normal casting operations, but is noted for future spec hardening.
-- **Concurrent Challenger Draft Lints**: A concurrent challenger subagent placed draft challenge test files in `test/unit/` containing three import lints (`unnecessary_import`, `unused_import`). These files belong to the challenger subagent, while the worker's work product itself is 100% clean (0 issues).
+- **VLC Module Descriptors vs File Count**: VLC's file system contains 360 dynamic `.dll` files in `plugins/`, whereas internal descriptor counts or cross-platform documentation sometimes reference 373 modules. This is because certain compound libraries (such as `libavcodec_plugin.dll` or `libaccess_archive_plugin.dll`) register multiple internal module descriptors within `plugins.dat`. Both numbers are empirically accurate in context.
+- **Desktop Keyboard Shortcuts**: As correctly noted in the Gap Analysis Matrix, E-Player currently operates using touch gesture physics (`CinematicGestureEngine`) and does not yet have desktop single-key shortcuts (`Space`, `f`, `Shift+Left/Right`). This is appropriately classified as **Missing** and prioritized in Phase 1 of the roadmap.
 
 ---
 
 ## 4. Conclusion
 
-The Milestone 4 work product delivered by `worker_m4_cast` complies with all architectural, security, and integrity requirements:
-- Strictly mock-free, production-grade implementation.
-- Fully offline, token-authenticated local HTTP daemon with HTTP 206 range chunking and WebVTT conversion.
-- Full UI integration in `player_screen.dart` with HUD auto-dismiss pause coordination.
-- Independent execution proves 100% test pass across unit, adversarial challenge, and E2E tiers.
+**Final Verdict**: **CLEAN**
 
-**Verdict**: **CLEAN**. The work product is approved.
+The work product `d:\E-player\docs\vlc_gap_analysis.md` is an authentic, exhaustive, and rigorously verified reverse-engineering and gap analysis deliverable. It satisfies all specifications in `ORIGINAL_REQUEST.md` and the audit dispatch. Zero application files were modified, codebase analysis is 100% clean (0 issues), all 84 E2E requirements tests pass, and every empirical claim about VLC and E-Player has been independently validated.
 
 ---
 
 ## 5. Verification Method
 
-To independently reproduce the forensic verification from `d:\E-player\app`:
-
-```powershell
-# 1. Targeted static analysis on Milestone 4 scope
-flutter analyze lib/features/casting lib/features/player/ui/player_screen.dart test/unit/local_streaming_daemon_test.dart test/unit/cast_service_test.dart
-
-# 2. Worker unit test suite (27 tests)
-flutter test test/unit/local_streaming_daemon_test.dart test/unit/cast_service_test.dart
-
-# 3. Adversarial challenge suite (38 tests)
-flutter test test/unit/local_streaming_daemon_challenge_test.dart test/unit/m4_offline_and_vtt_challenge_test.dart
-
-# 4. E2E regression test tiers (245 tests)
-flutter test test/e2e/tier1_feature_coverage_test.dart test/e2e/tier2_boundary_corner_test.dart test/e2e/tier3_cross_feature_test.dart test/e2e/tier4_user_scenarios_test.dart
-```
-
-### Invalidation Conditions
-- Any occurrence of `mockito`, `mocktail`, or dummy stubs in `lib/features/casting/`.
-- Failure to reject path traversal (`..`) with HTTP 400 Bad Request.
-- Failure to reject invalid/missing session tokens with HTTP 403 Forbidden.
-- Failure to return HTTP 416 with `Content-Range: bytes */$totalSize` on out-of-bounds byte ranges.
-- Any network binding to public WAN IP addresses or transmission to cloud endpoints.
+To independently reproduce and verify this audit:
+1. **Verify File Immutability**:
+   ```powershell
+   git status --porcelain app/
+   # Must return empty output
+   ```
+2. **Verify Codebase Health**:
+   ```powershell
+   cd d:\E-player\app
+   dart analyze
+   # Must output: "No issues found!"
+   flutter test test/e2e/e2e_requirements_test.dart
+   # Must output: "All tests passed!"
+   ```
+3. **Verify Deliverable Size & Structure**:
+   ```powershell
+   (Get-Item d:\E-player\docs\vlc_gap_analysis.md).Length
+   # Must return >= 50000 bytes (Observed: 97095 bytes)
+   ```
+4. **Verify VLC Binary Telemetry**:
+   ```powershell
+   python d:\E-player\.agents\teamwork\auditor_m4_1\parse_pe_exports.py
+   # Confirms 764 exports for libvlccore.dll and 316 exports for libvlc.dll
+   powershell -ExecutionPolicy Bypass -File d:\E-player\.agents\teamwork\auditor_m4_1\audit_vlc.ps1
+   # Confirms 360 DLLs across 29 plugin directories
+   ```

@@ -1,51 +1,40 @@
 # Progress — orchestrator_1
 
-Last visited: 2026-11-03T10:09:00Z
+Last visited: 2026-11-10T11:26:30Z
 
 ## Overall Status
-- [x] Milestone 1: Stage 1 Forensic Evidence Extraction & Deconstruction (R1)
-- [x] Milestone 2: Stage 2 CoVe Adversarial Cross-Examination (R2)
-- [x] Milestone 3: Stages 3 & 4 Clean-Room Architectural Blueprint & Reflexion Guardrails (R3)
-- [x] Milestone 4: Stage 5 Production Clean-Room Implementation (R4)
-- [x] Milestone 5: Stage 6 Verification, Test Harness, Cleanup & REA Ledger (R5)
-- [x] Milestone 6: Quality Gate & Forensic Integrity Audit
+- [x] Phase 1 Step 0: Survey (Codebase, Specs, and Player Architecture) [DONE]
+- [x] Phase 1 Step 1: Decomposition & Architecture Plan (PROJECT.md) [DONE]
+- [x] Phase 1 Milestone 1: Desktop Keyboard Shortcuts Infrastructure & 4-Tier Seek Physics (R1, R2) [DONE]
+- [x] Phase 1 Milestone 2: Equalizer Parity with Preamp Slider (11 Presets + Preamp) (R5) [DONE]
+- [ ] Phase 1 Milestone 3: Audio Delay Synchronization UI Slider & Dedicated Audio Track Selector Modal (R3, R4) [IN PROGRESS - GATE 2 EVALUATION]
+- [x] Phase 1 Milestone 4: Opaque-Box E2E Testing Suite Track (Dual Track) [DONE]
+- [ ] Phase 1 Milestone 5: Automated Testing, Static Analysis & Forensic Integrity Audit (R6) [PLANNED]
 
 ## Iteration Status
 Current iteration: 2 / 32
 
 ## Detailed Step Log
-- [x] Initialized BRIEFING.md, DISPATCH.md, and progress.md.
-- [x] Started heartbeat cron (task-23).
-- [x] Completed Milestone 1: Stage 1 Forensic Evidence Extraction & Deconstruction (R1).
-  - Synthesized Exhibits A, B, and C in `orchestrator_1/EVIDENCE_DOSSIER.md`.
-- [x] Completed Milestone 2: Stage 2 CoVe Adversarial Cross-Examination (R2).
-  - Interrogated and resolved 4 failure points across Cypher, Kronos, Aura, and Forge in `cove_studio_critic/handoff.md`.
-- [x] Completed Milestone 3: Stages 3 & 4 Clean-Room Architectural Blueprint & Pre-Mortem Guardrails (R3).
-  - Produced 1329-line `CLEAN_ROOM_SPECIFICATION.md` detailing models, SQLite WAL database, directory watcher, auto-rescan coordinator, UI, and 3 Reflexion guardrails.
-- [x] Completed Milestone 4: Stage 5 Production Clean-Room Implementation in E-Player (R4).
-  - Implemented Models, Persistence, Domain Services, and FileBrowserScreen UI.
-  - Zero TODOs, zero placeholder comments.
-  - `dart analyze` passed with 0 issues.
-  - 30 clean-room tests passed; 568/568 total tests passed with zero regressions.
-- [x] Milestone 5: Stage 6 Verification, Test Harness, Cleanup & REA Ledger (R5).
-  - Executed clean-room unit & widget test suites (30/30 passed).
-  - Executed full project regression test suite (568/568 passed).
-  - Verified `dart analyze` reports 0 errors and 0 warnings.
-  - Verified test data lifecycle invariant (0 leftover files, DBs, temp dirs on disk or in git status).
-  - Authored master `PERSISTENT_REA_LEDGER.md` with VLC forensic facts, 17 authored files, and 4 Reflexion rules.
-- [x] Milestone 6: Quality Gate & Forensic Integrity Audit (Gate Iteration 2: PASS).
-  - Gate Iteration 1:
-    - `reviewer_1`: APPROVE
-    - `reviewer_2`: APPROVE
-    - `challenger_1`: APPROVE
-    - `challenger_2`: REQUEST_CHANGES (2 edge-case vulnerabilities identified)
-    - `auditor_1`: CLEAN
-  - Gate Iteration 2 (Remediation & Final Sign-Off):
-    - `worker_remediate_challenger_2`: DONE (both fixes applied)
-    - `challenger_reverify`: APPROVE (35/35 challenge tests passed, 603/603 regression tests passed)
-    - `reviewer_1`: APPROVE
-    - `reviewer_2`: APPROVE
-    - `challenger_1`: APPROVE
-    - `auditor_1`: CLEAN
-  - Final Gate Result: **PASS** across all criteria.
-- [x] Completed all 6 stages of the REA Clean-Room pipeline. Ready for final handoff.
+- [x] Completed Step 0 Survey (Cypher, Kronos, Aura reports synthesized).
+- [x] Completed Step 1 Decomposition (`PROJECT.md`, `TEST_INFRA.md`).
+- [x] Milestone 1 (`sub_orch_m1`):
+  - `DesktopKeyboardHandler` (314 lines, 13 shortcuts + 4-tier seek physics with boundary clamping + autofocus).
+  - Integrated into `player_screen.dart` with OSD feedback pill overlay at `top: 90`.
+  - Pure headless test suite `test/unit/desktop_keyboard_handler_test.dart` (675 lines) verified; milestone complete.
+- [x] Milestone 2 (`sub_orch_m2`):
+  - `AudioConfig` updated with 11 VLC presets (exact IEEE 754 float values from `libequalizer_plugin.dll`), preamp filter synthesis, Preamp Gain slider (-20dB to +20dB), and ±20dB scale expansion.
+  - Test suite `test/features/audio_studio_test.dart` passed (34/34 tests, 0 analyzer issues).
+  - Unanimous Gate PASS: Reviewer 1 (APPROVE), Reviewer 2 (APPROVE), Challenger 1 (CONFIRM), Challenger 2 (CONFIRM), Forensic Auditor (CLEAN). Milestone marked DONE.
+- [x] Milestone 4 (`e2e_test_orch` - Dual Track):
+  - Authored `test/e2e/phase1_e2e_test.dart` (2,075 lines, 68 tests across Tiers 1-4).
+  - Published `TEST_READY.md`.
+- [/] Milestone 3 Sub-Orchestrator (`sub_orch_m3`: `d319cada-6c05-4314-a8fc-3628ac99cc0c`):
+  - **Iteration 1**: Core R3/R4 implementation delivered. Challenger 2 detected `Material` assertion conflict in `_buildBoostSwitchTile`. Gate failed as designed for quality enforcement.
+  - **Iteration 2 Remediation**:
+    - Worker `worker_m3_r2_1` eliminated the conflicting `borderRadius` parameter on `Material` across `audio_studio_sheet.dart` and `player_screen.dart`.
+    - Added Group 8 (7 widget tests for `AudioStudioSheet` mounting) and Group 9 (2 widget tests for Audio Track Selector modal).
+    - Executed `flutter test test/features/audio_studio_test.dart` -> **51/51 PASSED**.
+    - Executed `flutter test test/features/audio_studio_adversarial_test.dart` -> **8/8 PASSED**.
+    - Executed `dart analyze` -> **0 issues found**.
+  - **Gate 2 Evaluation**: Reviewers (`reviewer_m3_r2_1`, `reviewer_m3_r2_2`) and Auditor actively reviewing the remediation handoff.
+- [ ] Phase 1 Milestone 5: Final full-suite execution (Tiers 1-4), Tier 5 coverage hardening, and victory audit.

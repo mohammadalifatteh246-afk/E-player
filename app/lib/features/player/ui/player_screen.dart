@@ -27,6 +27,7 @@ import 'gesture_models.dart';
 import 'cinematic_gesture_engine.dart';
 import '../../pip/domain/pip_models.dart';
 import '../../pip/domain/pip_service.dart';
+import 'widgets/desktop_keyboard_handler.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String mediaPath;
@@ -70,6 +71,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   List<SubtitleTrack> _subtitleTracks = [];
   SubtitleTrack _selectedSubtitleTrack = SubtitleTrack.no();
+
+  final FocusNode _keyboardFocusNode = FocusNode();
+  List<AudioTrack> _audioTracks = [];
+  AudioTrack _selectedAudioTrack = AudioTrack.no();
+  double _audioDelayMs = 0.0;
+  bool _isFullscreen = false;
 
   // --- Phase 3: Gesture Engine States ---
   bool _gesturesEnabled = true;
@@ -265,10 +272,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted) setState(() => _playbackSpeed = rate);
     });
     _player.stream.tracks.listen((tracks) {
-      if (mounted) setState(() => _subtitleTracks = tracks.subtitle);
+      if (mounted) {
+        setState(() {
+          _subtitleTracks = tracks.subtitle;
+          _audioTracks = tracks.audio;
+        });
+      }
     });
     _player.stream.track.listen((track) {
-      if (mounted) setState(() => _selectedSubtitleTrack = track.subtitle);
+      if (mounted) {
+        setState(() {
+          _selectedSubtitleTrack = track.subtitle;
+          _selectedAudioTrack = track.audio;
+        });
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_keyboardFocusNode.hasFocus) {
+        _keyboardFocusNode.requestFocus();
+      }
     });
     _player.stream.volume.listen((vol) {
       if (mounted && !_isSwiping) _volume = vol;
@@ -411,6 +434,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _persistProgress();
     _controlsTimer?.cancel();
     _feedbackTimer?.cancel();
+    _keyboardFocusNode.dispose();
     VideoRotationService.resetOrientation();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
@@ -593,7 +617,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   void _setAspectRatio(String ratio) {
@@ -613,6 +639,303 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _player.setRate(nextSpeed);
     _showFeedbackMessage('Speed: ${nextSpeed}x', Icons.speed);
     _showControls();
+  }
+
+  void _toggleFullscreen() {
+    setState(() => _isFullscreen = !_isFullscreen);
+    if (Platform.isAndroid || Platform.isIOS) {
+      if (_isFullscreen) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    }
+    _showFeedbackMessage(
+      _isFullscreen ? 'Fullscreen' : 'Windowed',
+      _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+    );
+  }
+
+  void _cycleAspectRatio() {
+    const ratios = ['Fit', 'Crop', '16:9', '4:3', 'Fill', 'Original'];
+    final currentIndex = ratios.indexOf(_aspectRatio);
+    final nextIndex = (currentIndex + 1) % ratios.length;
+    final nextRatio = ratios[nextIndex];
+    _setAspectRatio(nextRatio);
+    _showFeedbackMessage('Aspect: $nextRatio', Icons.aspect_ratio_rounded);
+  }
+
+  void _cycleAudioTrack() {
+    if (_audioTracks.isEmpty) {
+      _showFeedbackMessage('No audio tracks', Icons.audiotrack);
+      return;
+    }
+    final currentIndex = _audioTracks.indexOf(_selectedAudioTrack);
+    final nextIndex = (currentIndex + 1) % _audioTracks.length;
+    final nextTrack = _audioTracks[nextIndex];
+    _player.setAudioTrack(nextTrack);
+    setState(() => _selectedAudioTrack = nextTrack);
+    final label = nextTrack.title ?? nextTrack.language ?? nextTrack.id;
+    _showFeedbackMessage('Audio: $label', Icons.audiotrack);
+  }
+
+  void _showAudioTrackMenu() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return StreamBuilder<Track>(
+          stream: _player.stream.track,
+          initialData: _player.state.track,
+          builder: (context, trackSnapshot) {
+            final activeTrack = trackSnapshot.data?.audio ?? _selectedAudioTrack;
+
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.65,
+              ),
+              child: Material(
+                key: const Key('audio_tracks_sheet'),
+                color: EDesign.surface,
+                elevation: 8,
+                shadowColor: Colors.black.withValues(alpha: 0.5),
+                clipBehavior: Clip.antiAlias,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(EDesign.r24),
+                  ),
+                  side: BorderSide(color: EDesign.border, width: 1.0),
+                ),
+                child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. Top Drag Handle Pill
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // 2. Header with Title & Dismiss Icon
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.audiotrack, color: EDesign.primary, size: 22),
+                            SizedBox(width: 10),
+                            Text(
+                              'Audio Tracks',
+                              style: TextStyle(
+                                color: EDesign.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: EDesign.textMuted, size: 20),
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: EDesign.border, height: 1),
+
+                  // 3. Content Body: Empty State or Scrollable Track Items
+                  Flexible(
+                    child: _audioTracks.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.audiotrack_outlined,
+                                  size: 48,
+                                  color: EDesign.textMuted,
+                                ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'No audio tracks found',
+                                  key: Key('audio_tracks_empty'),
+                                  style: TextStyle(
+                                    color: EDesign.textSecondary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'This media stream does not contain selectable audio tracks.',
+                                  textAlign: TextAlign.center,
+                                  style: EDesign.caption,
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                            itemCount: _audioTracks.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 4),
+                            itemBuilder: (context, index) {
+                              final track = _audioTracks[index];
+                              final isSelected = activeTrack.id == track.id ||
+                                  _selectedAudioTrack.id == track.id;
+
+                              // Compose Rich Metadata Subtitle
+                              final List<String> metaParts = [];
+                              if (track.language != null &&
+                                  track.language!.isNotEmpty &&
+                                  track.language != track.title) {
+                                metaParts.add(track.language!.toUpperCase());
+                              }
+                              if (track.codec != null && track.codec!.isNotEmpty) {
+                                metaParts.add(track.codec!.toUpperCase());
+                              }
+                              if (track.channels != null && track.channels!.isNotEmpty) {
+                                metaParts.add(track.channels!);
+                              } else if (track.channelscount != null && track.channelscount! > 0) {
+                                metaParts.add('${track.channelscount} ch');
+                              }
+                              if (track.samplerate != null && track.samplerate! > 0) {
+                                metaParts.add('${(track.samplerate! / 1000).toStringAsFixed(1)} kHz');
+                              }
+                              final subtitleText = metaParts.join(' • ');
+
+                              return Material(
+                                color: isSelected
+                                    ? EDesign.primary.withValues(alpha: 0.12)
+                                    : Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(EDesign.r12),
+                                  side: isSelected
+                                      ? BorderSide(
+                                          color: EDesign.primary.withValues(alpha: 0.4),
+                                          width: 1,
+                                        )
+                                      : BorderSide.none,
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: ListTile(
+                                  key: Key('audio_track_item_${track.id}'),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(EDesign.r12),
+                                    side: isSelected
+                                        ? BorderSide(
+                                            color: EDesign.primary.withValues(alpha: 0.4),
+                                            width: 1,
+                                          )
+                                        : BorderSide.none,
+                                  ),
+                                  leading: Icon(
+                                    Icons.audiotrack,
+                                    color: isSelected ? EDesign.primary : Colors.white60,
+                                    size: 20,
+                                  ),
+                                  title: Text(
+                                    track.title ?? track.language ?? track.id,
+                                    style: TextStyle(
+                                      color: isSelected ? EDesign.primary : EDesign.textPrimary,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  subtitle: subtitleText.isNotEmpty
+                                      ? Text(
+                                          subtitleText,
+                                          style: const TextStyle(
+                                            color: EDesign.textMuted,
+                                            fontSize: 11,
+                                          ),
+                                        )
+                                      : null,
+                                  trailing: isSelected
+                                      ? const Icon(
+                                          Icons.check,
+                                          color: EDesign.primary,
+                                          key: Key('active_track_check'),
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    _player.setAudioTrack(track);
+                                    setState(() => _selectedAudioTrack = track);
+                                    final label = track.title ?? track.language ?? track.id;
+                                    _showFeedbackMessage('Audio: $label', Icons.audiotrack);
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          );
+        },
+        );
+      },
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
+  }
+
+  void _cycleSubtitleTrack() {
+    if (_subtitleTracks.isEmpty) {
+      _showFeedbackMessage('No subtitles', Icons.subtitles_off);
+      return;
+    }
+    final allOptions = [SubtitleTrack.no(), ..._subtitleTracks];
+    final currentIndex = allOptions.indexOf(_selectedSubtitleTrack);
+    final nextIndex = (currentIndex + 1) % allOptions.length;
+    final nextTrack = allOptions[nextIndex];
+    _player.setSubtitleTrack(nextTrack);
+    setState(() => _selectedSubtitleTrack = nextTrack);
+    final label = nextTrack == SubtitleTrack.no()
+        ? 'Subtitles Off'
+        : (nextTrack.title ?? nextTrack.language ?? nextTrack.id);
+    _showFeedbackMessage('Subtitle: $label', Icons.subtitles);
+  }
+
+  void _nudgeSubtitleDelay(int offsetMs) {
+    _subtitleConfig.delay += (offsetMs / 1000.0);
+    try {
+      final platform = _player.platform as dynamic;
+      platform.setProperty('sub-delay', _subtitleConfig.delay.toStringAsFixed(2));
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to set sub-delay: $e');
+    }
+    final sign = _subtitleConfig.delay >= 0 ? '+' : '';
+    final ms = (_subtitleConfig.delay * 1000).round();
+    _showFeedbackMessage('Sub Delay: $sign${ms}ms', Icons.subtitles);
+  }
+
+  void _nudgeAudioDelay(int offsetMs) {
+    _audioDelayMs = (_audioDelayMs + offsetMs).clamp(-10000.0, 10000.0);
+    _audioConfig.audioDelay = _audioDelayMs;
+    try {
+      final platform = _player.platform as dynamic;
+      platform.setProperty('audio-delay', (_audioDelayMs / 1000.0).toStringAsFixed(3));
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to set audio-delay: $e');
+    }
+    final sign = _audioDelayMs >= 0 ? '+' : '';
+    _showFeedbackMessage('Audio Delay: $sign${_audioDelayMs.round()}ms', Icons.audiotrack);
   }
 
   void _showAspectRatioMenu() {
@@ -725,7 +1048,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   void _showSpeedMenu() {
@@ -794,7 +1119,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   void _showSubtitleMenu() {
@@ -839,7 +1166,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     player: _player,
                     config: _subtitleConfig,
                   ),
-                );
+                ).then((_) {
+                  if (mounted) _keyboardFocusNode.requestFocus();
+                });
               },
             ),
             ListTile(
@@ -861,7 +1190,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   BoxFit _getFit() {
@@ -996,7 +1327,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   void _showVideoRotationMenu() {
@@ -1033,7 +1366,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   void _showVideoEffectsSheet() {
@@ -1054,7 +1389,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ),
         );
       },
-    );
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   Future<void> _openCastSheet() async {
@@ -1068,6 +1405,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     } finally {
       if (mounted) {
         _startControlsTimer();
+        _keyboardFocusNode.requestFocus();
       }
     }
   }
@@ -1167,12 +1505,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         ),
       ),
-      body: MouseRegion(
-        cursor: _controlsVisible ? SystemMouseCursors.basic : SystemMouseCursors.none,
-        onHover: (_) => _showControls(),
-        onEnter: (_) => _showControls(),
-        child: GestureDetector(
-          onTap: _toggleControls,
+      onEndDrawerChanged: (isOpen) {
+        if (!isOpen && mounted) {
+          _keyboardFocusNode.requestFocus();
+        }
+      },
+      body: DesktopKeyboardHandler(
+        player: _player,
+        focusNode: _keyboardFocusNode,
+        onToggleFullscreen: _toggleFullscreen,
+        onCycleAspectRatio: _cycleAspectRatio,
+        onCycleAudioTrack: _cycleAudioTrack,
+        onCycleSubtitleTrack: _cycleSubtitleTrack,
+        onNudgeAudioDelay: _nudgeAudioDelay,
+        onNudgeSubtitleDelay: _nudgeSubtitleDelay,
+        onShowOsd: (msg, icon) => _showFeedbackMessage(msg, icon),
+        onUserActivity: _showControls,
+        onBeforeSeek: () {
+          _aiEngine.invalidateQueue();
+          _showControls();
+        },
+        child: MouseRegion(
+          cursor: _controlsVisible ? SystemMouseCursors.basic : SystemMouseCursors.none,
+          onHover: (_) => _showControls(),
+          onEnter: (_) => _showControls(),
+          child: GestureDetector(
+            onTap: () {
+              _toggleControls();
+              _keyboardFocusNode.requestFocus();
+            },
           onDoubleTapDown: _onDoubleTapDown,
           onScaleStart: _onScaleStart,
           onScaleUpdate: _onScaleUpdate,
@@ -1398,8 +1759,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               ).then((_) {
                                 setState(() {});
                                 _applyEnhancements();
+                                if (mounted) _keyboardFocusNode.requestFocus();
                               });
                             },
+                          ),
+                          IconButton(
+                            key: const Key('hud_audio_tracks_button'),
+                            icon: const Icon(Icons.audiotrack_outlined, color: Colors.white70, size: 20),
+                            tooltip: 'Audio Tracks',
+                            onPressed: _showAudioTrackMenu,
                           ),
                           IconButton(
                             icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
@@ -1413,7 +1781,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               MediaInfoSheet.show(
                                 context,
                                 mediaPath: widget.mediaPath,
-                              );
+                              ).then((_) {
+                                if (mounted) _keyboardFocusNode.requestFocus();
+                              });
                             },
                           ),
                           Builder(
@@ -1558,35 +1928,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                   );
                 },
-              ),
-
-            // Visual Feedback Overlay
-            if (_showFeedback)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: EDesign.surface.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: EDesign.border),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_feedbackIcon != null)
-                        Icon(_feedbackIcon, color: EDesign.primary, size: 48),
-                      if (_feedbackIcon != null) const SizedBox(height: 8),
-                      Text(
-                        _feedbackText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
 
             // Bottom Controls (Glassmorphic V3 container - Auto-Hiding)
@@ -1777,6 +2118,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     icon: const Icon(Icons.equalizer, color: Colors.white70, size: 20),
                                     tooltip: 'Audio Equalizer',
                                     onPressed: () {
+                                      _audioConfig.audioDelay = _audioDelayMs;
                                       showModalBottomSheet(
                                         context: context,
                                         backgroundColor: Colors.transparent,
@@ -1785,7 +2127,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                           player: _player,
                                           config: _audioConfig,
                                         ),
-                                      );
+                                      ).then((_) {
+                                        _audioDelayMs = _audioConfig.audioDelay;
+                                        if (mounted) _keyboardFocusNode.requestFocus();
+                                      });
                                     },
                                   ),
                                   IconButton(
@@ -1977,9 +2322,61 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
               ),
+
+            // Glassmorphic OSD Feedback Pill Overlay (Shortcuts & Player Feedback)
+            if (_showFeedback)
+              Positioned(
+                top: 90,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: _showFeedback ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: EDesign.surface.withValues(alpha: 0.90),
+                          borderRadius: BorderRadius.circular(EDesign.r18),
+                          border: Border.all(
+                            color: EDesign.primary.withValues(alpha: 0.6),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_feedbackIcon != null) ...[
+                              Icon(_feedbackIcon, color: EDesign.primary, size: 22),
+                              const SizedBox(width: 8),
+                            ],
+                            Text(
+                              _feedbackText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    ),
     ),
   );
   }
