@@ -73,6 +73,7 @@ void main() {
   late FakePlayer player;
   late List<String> osdMessages;
   late List<IconData> osdIcons;
+  late List<Color?> osdColors;
   int userActivityCount = 0;
   int toggleFullscreenCount = 0;
   int cycleAspectRatioCount = 0;
@@ -87,6 +88,7 @@ void main() {
     player = FakePlayer();
     osdMessages = [];
     osdIcons = [];
+    osdColors = [];
     userActivityCount = 0;
     toggleFullscreenCount = 0;
     cycleAspectRatioCount = 0;
@@ -115,9 +117,10 @@ void main() {
           onCycleSubtitleTrack: () => cycleSubtitleTrackCount++,
           onNudgeAudioDelay: (offset) => audioDelayOffset += offset,
           onNudgeSubtitleDelay: (offset) => subtitleDelayOffset += offset,
-          onShowOsd: (msg, icon) {
+          onShowOsd: (msg, icon, [color]) {
             osdMessages.add(msg);
             osdIcons.add(icon);
+            osdColors.add(color);
           },
           onUserActivity: () => userActivityCount++,
           onBeforeSeek: onBeforeSeek,
@@ -571,14 +574,14 @@ void main() {
       expect(osdMessages.last, 'Volume: 50%');
     });
 
-    testWidgets('Volume is clamped to 0.0 and 150.0', (tester) async {
-      player.updateState(volume: 148.0);
+    testWidgets('Volume is clamped to 0.0 and 300.0', (tester) async {
+      player.updateState(volume: 298.0);
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pump();
-      expect(player.state.volume, 150.0);
+      expect(player.state.volume, 300.0);
 
       player.updateState(volume: 2.0);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);

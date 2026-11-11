@@ -487,18 +487,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _buildDivider(),
                   _buildValueTile(
-                    title: 'Network Cache Buffer Size',
-                    subtitle: 'Pre-buffered media capacity in memory',
-                    icon: Icons.save_alt_rounded,
-                    value: provider.networkBufferSize,
+                    title: 'Network Caching Buffer',
+                    subtitle: 'Stream pre-roll buffering time (${provider.networkCachingMs} ms)',
+                    icon: Icons.timer_outlined,
+                    value: '${(provider.networkCachingMs / 1000.0).toStringAsFixed(1)}s',
                     onTap: () {
                       _showSelectionSheet(
                         context: context,
-                        title: 'Network Cache Buffer',
-                        icon: Icons.save_alt_rounded,
-                        options: ['16 MB', '32 MB', '64 MB', '128 MB'],
-                        currentValue: provider.networkBufferSize,
-                        onSelected: (val) => provider.setNetworkBufferSize(val),
+                        title: 'Network Caching Buffer',
+                        icon: Icons.timer_outlined,
+                        options: ['500 ms', '1000 ms (Default)', '2000 ms', '5000 ms', '10000 ms'],
+                        currentValue: '${provider.networkCachingMs} ms${provider.networkCachingMs == 1000 ? ' (Default)' : ''}',
+                        onSelected: (val) {
+                          final ms = int.tryParse(val.split(' ')[0]) ?? 1000;
+                          provider.setNetworkCachingMs(ms);
+                        },
+                      );
+                    },
+                  ),
+                  _buildDivider(),
+                  _buildValueTile(
+                    title: 'Demuxer Cache Size',
+                    subtitle: 'Max demuxer packet memory allocation',
+                    icon: Icons.memory_rounded,
+                    value: '${provider.demuxerCacheMb} MB',
+                    onTap: () {
+                      _showSelectionSheet(
+                        context: context,
+                        title: 'Demuxer Cache Size',
+                        icon: Icons.memory_rounded,
+                        options: ['16 MB', '32 MB (Default)', '64 MB', '128 MB'],
+                        currentValue: '${provider.demuxerCacheMb} MB${provider.demuxerCacheMb == 32 ? ' (Default)' : ''}',
+                        onSelected: (val) {
+                          final mb = int.tryParse(val.split(' ')[0]) ?? 32;
+                          provider.setDemuxerCacheMb(mb);
+                          provider.setNetworkBufferSize('$mb MB');
+                        },
                       );
                     },
                   ),

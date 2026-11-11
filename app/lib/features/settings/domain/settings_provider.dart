@@ -36,6 +36,8 @@ class SettingsProvider extends ChangeNotifier {
   // Network & Stream Defaults
   bool _lowLatencyRtsp = true;
   String _networkBufferSize = '32 MB';
+  int _networkCachingMs = 1000;
+  int _demuxerCacheMb = 32;
 
   // Vault & Security Defaults
   bool _decoyModeEnabled = true;
@@ -74,6 +76,8 @@ class SettingsProvider extends ChangeNotifier {
 
   bool get lowLatencyRtsp => _lowLatencyRtsp;
   String get networkBufferSize => _networkBufferSize;
+  int get networkCachingMs => _networkCachingMs;
+  int get demuxerCacheMb => _demuxerCacheMb;
 
   bool get decoyModeEnabled => _decoyModeEnabled;
   bool get autoLockVault => _autoLockVault;
@@ -116,6 +120,8 @@ class SettingsProvider extends ChangeNotifier {
 
     _lowLatencyRtsp = _prefs?.getBool('lowLatencyRtsp') ?? true;
     _networkBufferSize = _prefs?.getString('networkBufferSize') ?? '32 MB';
+    _networkCachingMs = _prefs?.getInt('networkCachingMs') ?? 1000;
+    _demuxerCacheMb = _prefs?.getInt('demuxerCacheMb') ?? 32;
 
     _decoyModeEnabled = _prefs?.getBool('decoyModeEnabled') ?? true;
     _autoLockVault = _prefs?.getBool('autoLockVault') ?? true;
@@ -263,6 +269,19 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setNetworkCachingMs(int val) async {
+    _networkCachingMs = val.clamp(500, 10000);
+    await _prefs?.setInt('networkCachingMs', _networkCachingMs);
+    notifyListeners();
+  }
+
+  Future<void> setDemuxerCacheMb(int val) async {
+    const valid = [16, 32, 64, 128];
+    _demuxerCacheMb = valid.contains(val) ? val : 32;
+    await _prefs?.setInt('demuxerCacheMb', _demuxerCacheMb);
+    notifyListeners();
+  }
+
   Future<void> setDecoyModeEnabled(bool val) async {
     _decoyModeEnabled = val;
     await _prefs?.setBool('decoyModeEnabled', val);
@@ -316,6 +335,8 @@ class SettingsProvider extends ChangeNotifier {
     _dualPassOutline = true;
     _lowLatencyRtsp = true;
     _networkBufferSize = '32 MB';
+    _networkCachingMs = 1000;
+    _demuxerCacheMb = 32;
     _decoyModeEnabled = true;
     _autoLockVault = true;
     _biometricsEnabled = true;

@@ -1,4 +1,31 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+/// 3-color dynamic volume safety indicator specification for E-Player.
+/// - Zone 1 (0% to 100%): Nominal Unity Gain (Green #22C55E)
+/// - Zone 2 (101% to 200%): Software Pre-Amp Boost (Amber #F59E0B)
+/// - Zone 3 (201% to 300%): High Over-Amplification Warning (Soft Red #EF4444)
+class VolumeSafetyColors {
+  /// Zone 1: Nominal Unity Gain (0% – 100%)
+  static const Color green = Color(0xFF22C55E);
+
+  /// Zone 2: Software Pre-Amp Boost (101% – 200%)
+  static const Color amber = Color(0xFFF59E0B);
+
+  /// Zone 3: High Over-Amplification Warning (201% – 300%)
+  static const Color softRed = Color(0xFFEF4444);
+
+  /// Resolves the exact safety color for any volume value in [0.0, 300.0].
+  static Color resolve(double volume) {
+    if (volume <= 100.0) return green;
+    if (volume <= 200.0) return amber;
+    return softRed;
+  }
+
+  /// Resolves the subtle border / glow tint for card backgrounds (alpha: 0.4).
+  static Color resolveGlow(double volume) {
+    return resolve(volume).withValues(alpha: 0.4);
+  }
+}
 
 /// Supported discrete gesture modes in the Cinematic Gesture Engine state machine.
 enum GestureMode {
@@ -38,7 +65,7 @@ class GestureFeedbackEvent {
 
   /// Normalized or scaled value:
   /// - Brightness: 0.0 to 1.0
-  /// - Volume: 0.0 to 100.0
+  /// - Volume: 0.0 to 300.0
   /// - Zoom: 1.0 to 4.0
   /// - Scrub: scrub progress fraction or position milliseconds
   /// - Wing Jump: delta in seconds (+10 or -10)

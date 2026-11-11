@@ -176,7 +176,7 @@ class CinematicGestureEngine {
     this.onSeek,
   })  : arbitrator = arbitrator ?? GestureArbitrator(),
         _brightness = initialBrightness.clamp(0.0, 1.0),
-        _volume = initialVolume.clamp(0.0, 100.0);
+        _volume = initialVolume.clamp(0.0, 300.0);
 
   // Streams matching PROJECT.md interface contract
   Stream<GestureFeedbackEvent> get feedbackEvents => _feedbackController.stream;
@@ -197,7 +197,7 @@ class CinematicGestureEngine {
   }
 
   void setExternalVolume(double value) {
-    _volume = value.clamp(0.0, 100.0);
+    _volume = value.clamp(0.0, 300.0);
   }
 
   /// Clamps panning translation offsets according to INV-GEST-004:
@@ -408,9 +408,10 @@ class CinematicGestureEngine {
     Size viewportSize,
   ) {
     final effectiveHeight = viewportSize.height > 0 ? viewportSize.height : 600.0;
-    // Dragging upwards (negative dy) increases volume
-    final delta = (-details.focalPointDelta.dy / (effectiveHeight * 0.7)) * 100.0;
-    _volume = (_volume + delta).clamp(0.0, 100.0);
+    // Dragging upwards (negative dy) increases volume smoothly across 0% to 300%
+    // Uniform extended gain K = 150.0 enables 2 full 70% viewport swipes to cover 0% to 300%
+    final delta = (-details.focalPointDelta.dy / (effectiveHeight * 0.7)) * 150.0;
+    _volume = (_volume + delta).clamp(0.0, 300.0);
     onVolumeChanged?.call(_volume);
 
     _feedbackController.add(GestureFeedbackEvent(

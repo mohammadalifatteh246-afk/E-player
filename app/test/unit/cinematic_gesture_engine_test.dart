@@ -755,7 +755,7 @@ void main() {
       engine.dispose();
     });
 
-    test('Right zone adjusts volume clamped to [0.0, 100.0]', () {
+    test('Right zone adjusts volume clamped to [0.0, 300.0]', () {
       double? reportedVolume;
       final engine = CinematicGestureEngine(
         initialVolume: 50.0,
@@ -798,6 +798,19 @@ void main() {
         Duration.zero,
       );
       expect(engine.volume, 0.0);
+
+      // Force clamp to max (300.0)
+      engine.handleScaleUpdate(
+        ScaleUpdateDetails(
+          localFocalPoint: const Offset(850, 50),
+          focalPointDelta: const Offset(0, -3000),
+          pointerCount: 1,
+        ),
+        standardViewport,
+        Duration.zero,
+        Duration.zero,
+      );
+      expect(engine.volume, 300.0);
 
       engine.dispose();
     });

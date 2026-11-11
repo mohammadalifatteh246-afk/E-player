@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
+import '../gesture_models.dart';
 
 /// Universal cross-platform desktop keyboard shortcut handler and
 /// 4-tier precision seek physics engine for E-Player.
@@ -13,10 +14,12 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback onCycleSubtitleTrack;
   final Function(int offsetMs) onNudgeAudioDelay;
   final Function(int offsetMs) onNudgeSubtitleDelay;
-  final Function(String message, IconData icon) onShowOsd;
+  final Function onShowOsd;
   final VoidCallback onUserActivity;
   final VoidCallback? onBeforeSeek;
   final void Function(Duration target)? onSeek;
+  final VoidCallback? onStepFrame;
+  final VoidCallback? onCycleCrop;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -34,6 +37,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
     required this.onUserActivity,
     this.onBeforeSeek,
     this.onSeek,
+    this.onStepFrame,
+    this.onCycleCrop,
     this.focusNode,
     this.autofocus = true,
   });
@@ -67,6 +72,20 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     super.dispose();
   }
 
+  void _triggerOsd(String message, IconData icon, [Color? color]) {
+    try {
+      if (color != null) {
+        (widget.onShowOsd as dynamic)(message, icon, color);
+      } else {
+        (widget.onShowOsd as dynamic)(message, icon);
+      }
+    } on NoSuchMethodError {
+      (widget.onShowOsd as dynamic)(message, icon);
+    } catch (_) {
+      (widget.onShowOsd as dynamic)(message, icon);
+    }
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) {
       return KeyEventResult.ignored;
@@ -82,7 +101,7 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
       widget.onUserActivity();
       final willPlay = !widget.player.state.playing;
       widget.player.playOrPause();
-      widget.onShowOsd(
+      _triggerOsd(
         willPlay ? 'Play' : 'Pause',
         willPlay ? Icons.play_arrow_rounded : Icons.pause_rounded,
       );
@@ -104,11 +123,11 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
       if (currentVol > 0.0) {
         _lastVolume = currentVol;
         widget.player.setVolume(0.0);
-        widget.onShowOsd('Mute', Icons.volume_off_rounded);
+        _triggerOsd('Mute', Icons.volume_off_rounded);
       } else {
         final restoreVol = _lastVolume > 0.0 ? _lastVolume : 100.0;
         widget.player.setVolume(restoreVol);
-        widget.onShowOsd(
+        _triggerOsd(
           'Volume: ${restoreVol.round()}%',
           Icons.volume_up_rounded,
         );
@@ -132,6 +151,20 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (event.logicalKey == LogicalKeyboardKey.keyA) {
       widget.onUserActivity();
       widget.onCycleAspectRatio();
+      return KeyEventResult.handled;
+    }
+
+    // 5b. Frame Step (e)
+    if (event.logicalKey == LogicalKeyboardKey.keyE && widget.onStepFrame != null) {
+      widget.onUserActivity();
+      widget.onStepFrame!();
+      return KeyEventResult.handled;
+    }
+
+    // 5c. Crop Preset Cycling (c)
+    if (event.logicalKey == LogicalKeyboardKey.keyC && widget.onCycleCrop != null) {
+      widget.onUserActivity();
+      widget.onCycleCrop!();
       return KeyEventResult.handled;
     }
 
@@ -164,7 +197,7 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (event.logicalKey == LogicalKeyboardKey.equal && !isShift) {
       widget.onUserActivity();
       widget.player.setRate(1.0);
-      widget.onShowOsd('Speed: 1.0x (Normal)', Icons.speed_rounded);
+      _triggerOsd('Speed: 1.0x (Normal)', Icons.speed_rounded);
       return KeyEventResult.handled;
     }
 
@@ -177,7 +210,7 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
           ((widget.player.state.rate + 0.25) * 100).round() / 100.0;
       final clampedRate = targetRate.clamp(0.25, 4.0);
       widget.player.setRate(clampedRate);
-      widget.onShowOsd(
+      _triggerOsd(
         'Speed: ${clampedRate.toStringAsFixed(2)}x',
         Icons.speed_rounded,
       );
@@ -192,7 +225,7 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
           ((widget.player.state.rate - 0.25) * 100).round() / 100.0;
       final clampedRate = targetRate.clamp(0.25, 4.0);
       widget.player.setRate(clampedRate);
-      widget.onShowOsd(
+      _triggerOsd(
         'Speed: ${clampedRate.toStringAsFixed(2)}x',
         Icons.speed_rounded,
       );
@@ -206,7 +239,7 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
           ((widget.player.state.rate + 0.1) * 100).round() / 100.0;
       final clampedRate = targetRate.clamp(0.25, 4.0);
       widget.player.setRate(clampedRate);
-      widget.onShowOsd(
+      _triggerOsd(
         'Speed: ${clampedRate.toStringAsFixed(2)}x',
         Icons.speed_rounded,
       );
@@ -220,31 +253,39 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
           ((widget.player.state.rate - 0.1) * 100).round() / 100.0;
       final clampedRate = targetRate.clamp(0.25, 4.0);
       widget.player.setRate(clampedRate);
-      widget.onShowOsd(
+      _triggerOsd(
         'Speed: ${clampedRate.toStringAsFixed(2)}x',
         Icons.speed_rounded,
       );
       return KeyEventResult.handled;
     }
 
-    // 9. Volume Adjustments (Arrow Up / Arrow Down in 5% steps)
+    // 9. Volume Adjustments (Arrow Up / Arrow Down in 5% steps across 0% to 300%)
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       widget.onUserActivity();
-      final vol = (widget.player.state.volume + 5.0).clamp(0.0, 150.0);
+      final currentVol = widget.player.state.volume;
+      final targetVol = ((currentVol + 5.0) / 5.0).round() * 5.0;
+      final vol = targetVol.clamp(0.0, 300.0);
       widget.player.setVolume(vol);
-      widget.onShowOsd(
+      final color = VolumeSafetyColors.resolve(vol);
+      _triggerOsd(
         'Volume: ${vol.round()}%',
-        vol > 100 ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+        vol > 200 ? Icons.warning_amber_rounded : Icons.volume_up_rounded,
+        color,
       );
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       widget.onUserActivity();
-      final vol = (widget.player.state.volume - 5.0).clamp(0.0, 150.0);
+      final currentVol = widget.player.state.volume;
+      final targetVol = ((currentVol - 5.0) / 5.0).round() * 5.0;
+      final vol = targetVol.clamp(0.0, 300.0);
       widget.player.setVolume(vol);
-      widget.onShowOsd(
+      final color = VolumeSafetyColors.resolve(vol);
+      _triggerOsd(
         vol == 0 ? 'Mute' : 'Volume: ${vol.round()}%',
         vol == 0 ? Icons.volume_off_rounded : Icons.volume_down_rounded,
+        color,
       );
       return KeyEventResult.handled;
     }
@@ -292,10 +333,24 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
         widget.player.seek(target);
       }
 
-      widget.onShowOsd(
+      _triggerOsd(
         '${isForward ? '+' : '-'}${jumpSeconds}s ($tierName)',
         isForward ? Icons.fast_forward_rounded : Icons.fast_rewind_rounded,
       );
+      return KeyEventResult.handled;
+    }
+
+    // 11. Frame-by-Frame Stepping ('e')
+    if (event.logicalKey == LogicalKeyboardKey.keyE) {
+      widget.onUserActivity();
+      widget.onStepFrame?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 12. Aspect Ratio Crop Cycling ('c')
+    if (event.logicalKey == LogicalKeyboardKey.keyC) {
+      widget.onUserActivity();
+      widget.onCycleCrop?.call();
       return KeyEventResult.handled;
     }
 

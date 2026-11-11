@@ -25,9 +25,14 @@ import '../domain/decoder_models.dart';
 import '../domain/decoder_pipeline_service.dart';
 import 'gesture_models.dart';
 import 'cinematic_gesture_engine.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../pip/domain/pip_models.dart';
 import '../../pip/domain/pip_service.dart';
 import 'widgets/desktop_keyboard_handler.dart';
+import 'playback_enhancements.dart';
+
+export 'gesture_models.dart' show VolumeSafetyColors;
+export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
 
 class PlayerScreen extends StatefulWidget {
   final String mediaPath;
@@ -42,6 +47,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final Player _player;
   late final VideoController _controller;
   late final NativeEngineOrchestrator _aiEngine;
+  late final ABRepeatController _abRepeatController;
+  late final AspectCropController _cropController;
+  late final BufferCachingSettingsController _bufferCachingController;
+  StreamSubscription<Duration>? _abRepeatPositionSubscription;
 
   bool _isPlaying = true;
   bool _isLocked = false;
@@ -102,6 +111,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // Visual feedback overlay
   String _feedbackText = '';
   IconData? _feedbackIcon;
+  Color? _feedbackColor;
   bool _showFeedback = false;
   Timer? _feedbackTimer;
 
@@ -220,7 +230,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _player = Player(
       configuration: const PlayerConfiguration(libass: true),
     );
+    try {
+      (_player.platform as dynamic).setProperty('volume-max', '300.0');
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to set volume-max: $e');
+    }
     _controller = VideoController(_player);
+    _abRepeatController = ABRepeatController();
+    _cropController = AspectCropController(_player);
+    _bufferCachingController = BufferCachingSettingsController();
+    SharedPreferences.getInstance().then((prefs) {
+      _bufferCachingController.loadFromPrefs(prefs).then((_) {
+        _bufferCachingController.applyToPlayer(_player);
+      });
+    }).catchError((e) {
+      debugPrint('[PlayerScreen] Failed to load buffer caching settings: $e');
+    });
     _aiEngine = NativeEngineOrchestrator();
     try {
       _aiEngine.initialize();
@@ -262,8 +287,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
       if (!playing) _persistProgress();
     });
-    _player.stream.position.listen((pos) {
+    _abRepeatPositionSubscription = _player.stream.position.listen((pos) {
       if (mounted) setState(() => _position = pos);
+      _abRepeatController.checkPosition(pos, onSeek: (target) async {
+        await _player.seek(target);
+      });
     });
     _player.stream.duration.listen((dur) {
       if (mounted) setState(() => _duration = dur);
@@ -420,6 +448,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _abRepeatPositionSubscription?.cancel();
     _gestureFeedbackSubscription?.cancel();
     _seekCommitSubscription?.cancel();
     _controlsInhibitedSubscription?.cancel();
@@ -449,10 +478,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return "${d.inHours > 0 ? '${d.inHours}:' : ''}$minutes:$seconds";
   }
 
-  void _showFeedbackMessage(String msg, IconData icon) {
+  void _showFeedbackMessage(String msg, IconData icon, [Color? color]) {
     setState(() {
       _feedbackText = msg;
       _feedbackIcon = icon;
+      _feedbackColor = color;
       _showFeedback = true;
     });
     _feedbackTimer?.cancel();
@@ -663,6 +693,38 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final nextRatio = ratios[nextIndex];
     _setAspectRatio(nextRatio);
     _showFeedbackMessage('Aspect: $nextRatio', Icons.aspect_ratio_rounded);
+  }
+
+  Future<void> _stepFrame() async {
+    if (_isPlaying) {
+      await _player.pause();
+    }
+    try {
+      final dynamic platform = _player.platform;
+      await platform.command(['frame-step']);
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to step frame: $e');
+    }
+    _showFeedbackMessage('Frame Step (+1)', Icons.skip_next_rounded, EDesign.primary);
+  }
+
+  Future<void> _cycleCropRatio() async {
+    await _cropController.cycleNext(onCropChanged: (preset) {
+      _showFeedbackMessage('Crop: ${preset.label}', Icons.crop_rounded, EDesign.primary);
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _cycleABRepeat() {
+    _abRepeatController.cycle(
+      _position,
+      onUpdate: () {
+        if (mounted) setState(() {});
+      },
+      onMessage: (msg) {
+        _showFeedbackMessage(msg, Icons.repeat_rounded, EDesign.primary);
+      },
+    );
   }
 
   void _cycleAudioTrack() {
@@ -1519,7 +1581,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onCycleSubtitleTrack: _cycleSubtitleTrack,
         onNudgeAudioDelay: _nudgeAudioDelay,
         onNudgeSubtitleDelay: _nudgeSubtitleDelay,
-        onShowOsd: (msg, icon) => _showFeedbackMessage(msg, icon),
+        onStepFrame: _stepFrame,
+        onCycleCrop: _cycleCropRatio,
+        onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
           _aiEngine.invalidateQueue();
@@ -2108,12 +2172,52 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       _showControls();
                                     },
                                   ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    key: const Key('hud_frame_step_button'),
+                                    icon: const Icon(Icons.skip_next_rounded, color: EDesign.primary, size: 22),
+                                    tooltip: 'Frame Step (e)',
+                                    onPressed: () {
+                                      _showControls();
+                                      _stepFrame();
+                                    },
+                                  ),
                                 ],
                               ),
                               // Right: Audio EQ, Aspect Ratio & Decoder
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    key: const Key('hud_ab_repeat_button'),
+                                    icon: Icon(
+                                      _abRepeatController.state == ABRepeatState.looping
+                                          ? Icons.repeat_on_rounded
+                                          : (_abRepeatController.state == ABRepeatState.pointA
+                                              ? Icons.repeat_one_rounded
+                                              : Icons.repeat_rounded),
+                                      color: _abRepeatController.state == ABRepeatState.looping
+                                          ? EDesign.primary
+                                          : (_abRepeatController.state == ABRepeatState.pointA
+                                              ? EDesign.warning
+                                              : Colors.white70),
+                                      size: 20,
+                                    ),
+                                    tooltip: 'A-B Loop (${_abRepeatController.state.name.toUpperCase()})',
+                                    onPressed: () {
+                                      _showControls();
+                                      _cycleABRepeat();
+                                    },
+                                  ),
+                                  IconButton(
+                                    key: const Key('hud_crop_button'),
+                                    icon: const Icon(Icons.crop_rounded, color: Colors.white70, size: 20),
+                                    tooltip: 'Crop: ${_cropController.current.label} (c)',
+                                    onPressed: () {
+                                      _showControls();
+                                      _cycleCropRatio();
+                                    },
+                                  ),
                                   IconButton(
                                     icon: const Icon(Icons.equalizer, color: Colors.white70, size: 20),
                                     tooltip: 'Audio Equalizer',
@@ -2305,12 +2409,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           color: EDesign.surface.withValues(alpha: 0.90),
                           borderRadius: BorderRadius.circular(EDesign.r18),
                           border: Border.all(
-                            color: EDesign.primary.withValues(alpha: 0.6),
+                            color: (_activeFeedbackEvent?.type == GestureFeedbackType.volume)
+                                ? VolumeSafetyColors.resolve(_activeFeedbackEvent!.value).withValues(alpha: 0.8)
+                                : EDesign.primary.withValues(alpha: 0.6),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.55),
+                              color: (_activeFeedbackEvent?.type == GestureFeedbackType.volume)
+                                  ? VolumeSafetyColors.resolveGlow(_activeFeedbackEvent!.value)
+                                  : Colors.black.withValues(alpha: 0.55),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
@@ -2340,12 +2448,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           color: EDesign.surface.withValues(alpha: 0.90),
                           borderRadius: BorderRadius.circular(EDesign.r18),
                           border: Border.all(
-                            color: EDesign.primary.withValues(alpha: 0.6),
+                            color: (_feedbackColor ?? EDesign.primary).withValues(alpha: 0.8),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.55),
+                              color: (_feedbackColor != null)
+                                  ? _feedbackColor!.withValues(alpha: 0.4)
+                                  : Colors.black.withValues(alpha: 0.55),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
@@ -2355,13 +2465,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (_feedbackIcon != null) ...[
-                              Icon(_feedbackIcon, color: EDesign.primary, size: 22),
+                              Icon(_feedbackIcon, color: _feedbackColor ?? EDesign.primary, size: 22),
                               const SizedBox(width: 8),
                             ],
                             Text(
                               _feedbackText,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: _feedbackColor ?? Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                               ),
@@ -2448,21 +2558,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
         );
       case GestureFeedbackType.volume:
+        final safetyColor = VolumeSafetyColors.resolve(event.value);
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               event.value == 0
-                  ? Icons.volume_off
-                  : (event.value < 50 ? Icons.volume_down : Icons.volume_up),
-              color: EDesign.primary,
+                  ? Icons.volume_off_rounded
+                  : (event.value <= 100
+                      ? (event.value < 50 ? Icons.volume_down_rounded : Icons.volume_up_rounded)
+                      : (event.value <= 200 ? Icons.volume_up_rounded : Icons.warning_amber_rounded)),
+              color: safetyColor,
               size: 22,
             ),
             const SizedBox(width: 8),
             Text(
               'Volume: ${event.label}',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: safetyColor,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -2473,9 +2586,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: (event.value / 100.0).clamp(0.0, 1.0),
+                  value: (event.value / 300.0).clamp(0.0, 1.0),
                   backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation<Color>(EDesign.primary),
+                  valueColor: AlwaysStoppedAnimation<Color>(safetyColor),
                   minHeight: 6,
                 ),
               ),
