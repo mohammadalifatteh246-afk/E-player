@@ -19,6 +19,7 @@ import '../../video_effects/models/video_effects_config.dart';
 import '../../video_effects/domain/video_effects_service.dart';
 import '../../video_effects/ui/video_effects_sheet.dart';
 import 'subtitle_settings_sheet.dart';
+import '../../subtitles/ui/online_subtitles_sheet.dart';
 import 'audio_studio_sheet.dart';
 import '../domain/video_rotation_service.dart';
 import '../domain/decoder_models.dart';
@@ -1228,6 +1229,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     player: _player,
                     config: _subtitleConfig,
                   ),
+                ).then((_) {
+                  if (mounted) _keyboardFocusNode.requestFocus();
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_download_outlined, color: EDesign.primary),
+              title: const Text('Search Online Subtitles (VLSub)...', style: EDesign.body),
+              onTap: () {
+                Navigator.pop(context);
+                final file = widget.mediaPath.startsWith('http') || widget.mediaPath.startsWith('smb')
+                    ? null
+                    : File(widget.mediaPath);
+                final title = p.basenameWithoutExtension(widget.mediaPath);
+                OnlineSubtitlesSheet.show(
+                  context,
+                  videoFile: file,
+                  videoTitle: title,
+                  onSubtitleLoaded: (downloadedFile, subtitle) {
+                    _player.setSubtitleTrack(
+                      SubtitleTrack.uri(downloadedFile.uri.toString()),
+                    );
+                    _showFeedbackMessage(
+                      'Subtitle loaded: ${subtitle.languageName.isNotEmpty ? subtitle.languageName : subtitle.language}',
+                      Icons.subtitles,
+                    );
+                  },
                 ).then((_) {
                   if (mounted) _keyboardFocusNode.requestFocus();
                 });
