@@ -22,6 +22,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onCycleCrop;
   final VoidCallback? onOpenBookmarks;
   final void Function(int bookmarkIndex)? onJumpToBookmark;
+  final VoidCallback? onTakeSnapshot;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -43,6 +44,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onCycleCrop,
     this.onOpenBookmarks,
     this.onJumpToBookmark,
+    this.onTakeSnapshot,
     this.focusNode,
     this.autofocus = true,
   });
@@ -382,6 +384,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (fIndex >= 0) {
       widget.onUserActivity();
       widget.onJumpToBookmark?.call(fIndex);
+      return KeyEventResult.handled;
+    }
+
+    // 15. Take Snapshot (Shift + S)
+    if (isShift && event.logicalKey == LogicalKeyboardKey.keyS) {
+      widget.onUserActivity();
+      widget.onTakeSnapshot?.call();
       return KeyEventResult.handled;
     }
 

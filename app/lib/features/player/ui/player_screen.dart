@@ -33,6 +33,7 @@ import 'widgets/desktop_keyboard_handler.dart';
 import 'playback_enhancements.dart';
 import '../../bookmarks/data/bookmark_service.dart';
 import '../../bookmarks/ui/bookmarks_sheet.dart';
+import '../services/video_snapshot_service.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -110,6 +111,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Timer? _wingRippleTimer;
 
   bool get _isSwiping => _gestureEngine.currentMode != GestureMode.idle;
+
+  // Video Snapshot Preview Overlay (VLC Frame Capture Parity)
+  SnapshotResult? _lastSnapshotResult;
+  Timer? _snapshotPreviewTimer;
 
   // Visual feedback overlay
   String _feedbackText = '';
@@ -465,6 +470,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _pipService.removeListener(_onPipServiceChanged);
     _pipService.dispose();
     BookmarkService.instance.removeListener(_onBookmarksChanged);
+    _snapshotPreviewTimer?.cancel();
     _persistProgress();
     _controlsTimer?.cancel();
     _feedbackTimer?.cancel();
@@ -527,6 +533,230 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _feedbackTimer = Timer(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _showFeedback = false);
     });
+  }
+
+  Future<void> _takeSnapshot() async {
+    _showFeedbackMessage('Capturing snapshot...', Icons.camera_alt_rounded, EDesign.aiAccent);
+    try {
+      final result = await VideoSnapshotService.instance.captureFromPlayer(
+        _player,
+        mediaTitle: widget.mediaPath,
+      );
+      if (!mounted) return;
+      if (result.success) {
+        setState(() {
+          _lastSnapshotResult = result;
+        });
+        _snapshotPreviewTimer?.cancel();
+        _snapshotPreviewTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _lastSnapshotResult = null);
+        });
+        _showFeedbackMessage(
+          'Saved: ${result.fileName}',
+          Icons.check_circle_outline_rounded,
+          Colors.greenAccent,
+        );
+      } else {
+        _showFeedbackMessage(
+          'Snapshot failed: ${result.errorMessage ?? "Unknown"}',
+          Icons.error_outline_rounded,
+          Colors.redAccent,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showFeedbackMessage(
+          'Snapshot error: $e',
+          Icons.error_outline_rounded,
+          Colors.redAccent,
+        );
+      }
+    }
+  }
+
+  void _showVideoContextMenu(Offset globalPosition) {
+    _showControls();
+    final overlay = Overlay.of(context).context.findRenderObject();
+    if (overlay is! RenderBox) return;
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & const Size(40, 40),
+        Offset.zero & overlay.size,
+      ),
+      color: EDesign.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(EDesign.r12),
+        side: BorderSide(
+          color: EDesign.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      items: [
+        PopupMenuItem(
+          onTap: _takeSnapshot,
+          child: const ListTile(
+            leading: Icon(Icons.camera_alt_outlined, color: EDesign.aiAccent),
+            title: Text('Take Snapshot (Shift+S)', style: TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: _showBookmarksSheet,
+          child: const ListTile(
+            leading: Icon(Icons.bookmark_outline_rounded, color: Colors.amber),
+            title: Text('Chapters & Bookmarks (Ctrl+B)', style: TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: _showAudioTrackMenu,
+          child: const ListTile(
+            leading: Icon(Icons.audiotrack_outlined, color: Colors.white70),
+            title: Text('Audio Tracks', style: TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: _showSubtitleMenu,
+          child: const ListTile(
+            leading: Icon(Icons.subtitles_outlined, color: Colors.white70),
+            title: Text('Subtitle Tracks', style: TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: _showAspectRatioMenu,
+          child: ListTile(
+            leading: const Icon(Icons.aspect_ratio_rounded, color: Colors.white70),
+            title: Text('Aspect Ratio ($_aspectRatio)', style: const TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) _showVideoEffectsSheet();
+            });
+          },
+          child: const ListTile(
+            leading: Icon(Icons.tune_rounded, color: Colors.white70),
+            title: Text('Video Effects Studio', style: TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: () {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) _showAudioStudioSheet();
+            });
+          },
+          child: const ListTile(
+            leading: Icon(Icons.equalizer, color: Colors.white70),
+            title: Text('Audio Equalizer & Visualizer', style: TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
+          onTap: _toggleFullscreen,
+          child: ListTile(
+            leading: Icon(_isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen, color: Colors.white70),
+            title: Text(_isFullscreen ? 'Exit Fullscreen' : 'Fullscreen (F)', style: const TextStyle(color: Colors.white, fontSize: 13)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSnapshotPreviewCard(SnapshotResult snapshot) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 240,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: EDesign.surface.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(EDesign.r12),
+          border: Border.all(
+            color: EDesign.aiAccent.withValues(alpha: 0.8),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.camera_alt_rounded, color: EDesign.aiAccent, size: 16),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Snapshot Captured',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() => _lastSnapshotResult = null);
+                  },
+                  child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.memory(
+                snapshot.previewBytes!,
+                height: 110,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              snapshot.fileName,
+              style: const TextStyle(
+                color: EDesign.textSecondary,
+                fontSize: 10,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              'Time: ${snapshot.formattedPosition}',
+              style: const TextStyle(
+                color: EDesign.aiAccent,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
@@ -1537,6 +1767,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  void _showAudioStudioSheet() {
+    _audioConfig.audioDelay = _audioDelayMs;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => AudioStudioSheet(
+        player: _player,
+        config: _audioConfig,
+      ),
+    ).then((_) {
+      _audioDelayMs = _audioConfig.audioDelay;
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final targetRatio = _getAspectRatio();
@@ -1650,6 +1896,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onCycleCrop: _cycleCropRatio,
         onOpenBookmarks: _showBookmarksSheet,
         onJumpToBookmark: _jumpToBookmark,
+        onTakeSnapshot: _takeSnapshot,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
@@ -1665,8 +1912,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
               _toggleControls();
               _keyboardFocusNode.requestFocus();
             },
-          onDoubleTapDown: _onDoubleTapDown,
-          onScaleStart: _onScaleStart,
+            onSecondaryTapUp: (details) {
+              _showVideoContextMenu(details.globalPosition);
+            },
+            onDoubleTapDown: _onDoubleTapDown,
+            onScaleStart: _onScaleStart,
           onScaleUpdate: _onScaleUpdate,
           onScaleEnd: _onScaleEnd,
           behavior: HitTestBehavior.opaque,
@@ -1905,6 +2155,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             icon: const Icon(Icons.bookmark_outline_rounded, color: Colors.white70, size: 20),
                             tooltip: 'Chapters & Bookmarks (Ctrl+B)',
                             onPressed: _showBookmarksSheet,
+                          ),
+                          IconButton(
+                            key: const Key('hud_snapshot_button'),
+                            icon: const Icon(Icons.camera_alt_outlined, color: Colors.white70, size: 20),
+                            tooltip: 'Take Snapshot (Shift+S)',
+                            onPressed: _takeSnapshot,
                           ),
                           IconButton(
                             icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
@@ -2340,22 +2596,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.equalizer, color: Colors.white70, size: 20),
-                                    tooltip: 'Audio Equalizer',
-                                    onPressed: () {
-                                      _audioConfig.audioDelay = _audioDelayMs;
-                                      showModalBottomSheet(
-                                        context: context,
-                                        backgroundColor: Colors.transparent,
-                                        isScrollControlled: true,
-                                        builder: (context) => AudioStudioSheet(
-                                          player: _player,
-                                          config: _audioConfig,
-                                        ),
-                                      ).then((_) {
-                                        _audioDelayMs = _audioConfig.audioDelay;
-                                        if (mounted) _keyboardFocusNode.requestFocus();
-                                      });
-                                    },
+                                    tooltip: 'Audio Equalizer & Visualizer',
+                                    onPressed: _showAudioStudioSheet,
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.aspect_ratio_rounded, color: Colors.white70, size: 20),
@@ -2602,6 +2844,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                   ),
                 ),
+              ),
+
+            // Video Snapshot Floating Preview Card (VLC Frame Capture Parity)
+            if (_lastSnapshotResult != null && _lastSnapshotResult!.previewBytes != null)
+              Positioned(
+                key: const Key('snapshot_preview_toast'),
+                bottom: _controlsVisible ? 110 : 30,
+                right: 24,
+                child: _buildSnapshotPreviewCard(_lastSnapshotResult!),
               ),
           ],
         ),
