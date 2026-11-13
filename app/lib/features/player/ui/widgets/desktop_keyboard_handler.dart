@@ -20,6 +20,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final void Function(Duration target)? onSeek;
   final VoidCallback? onStepFrame;
   final VoidCallback? onCycleCrop;
+  final VoidCallback? onOpenBookmarks;
+  final void Function(int bookmarkIndex)? onJumpToBookmark;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -39,6 +41,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onSeek,
     this.onStepFrame,
     this.onCycleCrop,
+    this.onOpenBookmarks,
+    this.onJumpToBookmark,
     this.focusNode,
     this.autofocus = true,
   });
@@ -351,6 +355,33 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (event.logicalKey == LogicalKeyboardKey.keyC) {
       widget.onUserActivity();
       widget.onCycleCrop?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 13. Open Bookmarks & Chapters Sheet (Ctrl+B)
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyB) {
+      widget.onUserActivity();
+      widget.onOpenBookmarks?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 14. Quick Jump to Bookmarks 1..10 (F1..F10)
+    const fKeys = [
+      LogicalKeyboardKey.f1,
+      LogicalKeyboardKey.f2,
+      LogicalKeyboardKey.f3,
+      LogicalKeyboardKey.f4,
+      LogicalKeyboardKey.f5,
+      LogicalKeyboardKey.f6,
+      LogicalKeyboardKey.f7,
+      LogicalKeyboardKey.f8,
+      LogicalKeyboardKey.f9,
+      LogicalKeyboardKey.f10,
+    ];
+    final fIndex = fKeys.indexOf(event.logicalKey);
+    if (fIndex >= 0) {
+      widget.onUserActivity();
+      widget.onJumpToBookmark?.call(fIndex);
       return KeyEventResult.handled;
     }
 

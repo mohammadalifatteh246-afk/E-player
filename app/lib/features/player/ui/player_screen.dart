@@ -31,6 +31,8 @@ import '../../pip/domain/pip_models.dart';
 import '../../pip/domain/pip_service.dart';
 import 'widgets/desktop_keyboard_handler.dart';
 import 'playback_enhancements.dart';
+import '../../bookmarks/data/bookmark_service.dart';
+import '../../bookmarks/ui/bookmarks_sheet.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -240,6 +242,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _abRepeatController = ABRepeatController();
     _cropController = AspectCropController(_player);
     _bufferCachingController = BufferCachingSettingsController();
+    BookmarkService.instance.addListener(_onBookmarksChanged);
     SharedPreferences.getInstance().then((prefs) {
       _bufferCachingController.loadFromPrefs(prefs).then((_) {
         _bufferCachingController.applyToPlayer(_player);
@@ -461,6 +464,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _pipActionSubscription?.cancel();
     _pipService.removeListener(_onPipServiceChanged);
     _pipService.dispose();
+    BookmarkService.instance.removeListener(_onBookmarksChanged);
     _persistProgress();
     _controlsTimer?.cancel();
     _feedbackTimer?.cancel();
@@ -477,6 +481,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final minutes = twoDigits(d.inMinutes.remainder(60));
     final seconds = twoDigits(d.inSeconds.remainder(60));
     return "${d.inHours > 0 ? '${d.inHours}:' : ''}$minutes:$seconds";
+  }
+
+  void _onBookmarksChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _showBookmarksSheet() {
+    BookmarksSheet.show(
+      context,
+      player: _player,
+      mediaId: widget.mediaPath,
+    ).then((_) {
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
+  }
+
+  void _jumpToBookmark(int index) {
+    final bookmarks = BookmarkService.instance.getBookmarks(widget.mediaPath);
+    if (index >= 0 && index < bookmarks.length) {
+      final target = bookmarks[index];
+      _player.seek(target.position);
+      _showFeedbackMessage(
+        'Jump to [${index + 1}]: ${target.label} (${target.formattedTime})',
+        Icons.bookmark_added_rounded,
+        Colors.amber,
+      );
+    } else {
+      _showFeedbackMessage(
+        'No bookmark at slot F${index + 1}',
+        Icons.bookmark_border_rounded,
+        EDesign.textSecondary,
+      );
+    }
   }
 
   void _showFeedbackMessage(String msg, IconData icon, [Color? color]) {
@@ -1611,6 +1648,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onNudgeSubtitleDelay: _nudgeSubtitleDelay,
         onStepFrame: _stepFrame,
         onCycleCrop: _cycleCropRatio,
+        onOpenBookmarks: _showBookmarksSheet,
+        onJumpToBookmark: _jumpToBookmark,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
@@ -1862,6 +1901,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             onPressed: _showAudioTrackMenu,
                           ),
                           IconButton(
+                            key: const Key('hud_bookmarks_button'),
+                            icon: const Icon(Icons.bookmark_outline_rounded, color: Colors.white70, size: 20),
+                            tooltip: 'Chapters & Bookmarks (Ctrl+B)',
+                            onPressed: _showBookmarksSheet,
+                          ),
+                          IconButton(
                             icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
                             tooltip: 'Subtitles',
                             onPressed: _showSubtitleMenu,
@@ -2064,34 +2109,81 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 ),
                               ),
                               Expanded(
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    activeTrackColor: EDesign.primary,
-                                    inactiveTrackColor: Colors.white24,
-                                    thumbColor: EDesign.primary,
-                                    overlayColor: EDesign.primary.withValues(alpha: 0.25),
-                                    trackHeight: 4.0,
-                                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
-                                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
-                                  ),
-                                  child: Slider(
-                                    value: _position.inMilliseconds.toDouble().clamp(
-                                      0.0,
-                                      _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        activeTrackColor: EDesign.primary,
+                                        inactiveTrackColor: Colors.white24,
+                                        thumbColor: EDesign.primary,
+                                        overlayColor: EDesign.primary.withValues(alpha: 0.25),
+                                        trackHeight: 4.0,
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
+                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
+                                      ),
+                                      child: Slider(
+                                        value: _position.inMilliseconds.toDouble().clamp(
+                                          0.0,
+                                          _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                                        ),
+                                        min: 0.0,
+                                        max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                                        onChangeStart: (_) {
+                                          _controlsTimer?.cancel();
+                                        },
+                                        onChangeEnd: (_) {
+                                          _startControlsTimer();
+                                        },
+                                        onChanged: (v) {
+                                          _aiEngine.invalidateQueue();
+                                          _player.seek(Duration(milliseconds: v.toInt()));
+                                        },
+                                      ),
                                     ),
-                                    min: 0.0,
-                                    max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
-                                    onChangeStart: (_) {
-                                      _controlsTimer?.cancel();
-                                    },
-                                    onChangeEnd: (_) {
-                                      _startControlsTimer();
-                                    },
-                                    onChanged: (v) {
-                                      _aiEngine.invalidateQueue();
-                                      _player.seek(Duration(milliseconds: v.toInt()));
-                                    },
-                                  ),
+                                    // Golden bookmark pips overlay along scrubber track
+                                    IgnorePointer(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 22.0),
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            final bookmarks = BookmarkService.instance.getBookmarks(widget.mediaPath);
+                                            final durationMs = _duration.inMilliseconds;
+                                            if (bookmarks.isEmpty || durationMs <= 0) return const SizedBox.shrink();
+
+                                            return SizedBox(
+                                              width: constraints.maxWidth,
+                                              height: 12,
+                                              child: Stack(
+                                                alignment: Alignment.centerLeft,
+                                                children: bookmarks.map((bm) {
+                                                  final fraction = (bm.timestampMs / durationMs).clamp(0.0, 1.0);
+                                                  final leftPos = fraction * constraints.maxWidth;
+                                                  return Positioned(
+                                                    left: leftPos.clamp(0.0, constraints.maxWidth - 3.5),
+                                                    child: Container(
+                                                      width: 3.5,
+                                                      height: 9,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.amber,
+                                                        borderRadius: BorderRadius.circular(1.5),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.amber.withValues(alpha: 0.8),
+                                                            blurRadius: 3,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               Text(
