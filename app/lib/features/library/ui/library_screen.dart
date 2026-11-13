@@ -17,6 +17,7 @@ import '../../media_info/ui/media_info_sheet.dart';
 import '../../vault/domain/vault_service.dart';
 import '../../trash/domain/trash_service.dart';
 import 'widgets/video_group_card.dart';
+import '../../network_stream/ui/network_browser_view.dart';
 
 /// Screen 8: Media Library (Cinematic Multi-Format Media Workstation)
 ///
@@ -36,8 +37,8 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
-  String _selectedTab = 'All';
-  final List<String> _tabs = ['All', 'Videos', 'Audio', 'Playlists', 'Folders'];
+  String _selectedTab = 'Videos';
+  final List<String> _tabs = ['Videos', 'Folders', 'Network', 'Audio', 'Playlists', 'All'];
   bool _isSearching = false;
   bool _isGridView = true;
   final TextEditingController _searchController = TextEditingController();
@@ -850,6 +851,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             count = 4; // Curated smart playlists
           } else if (tab == 'Folders') {
             count = provider.groupedFolders.keys.length;
+          } else if (tab == 'Network') {
+            count = 0;
           }
 
           IconData tabIcon;
@@ -857,14 +860,17 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             case 'Videos':
               tabIcon = Icons.movie_outlined;
               break;
+            case 'Folders':
+              tabIcon = Icons.folder_outlined;
+              break;
+            case 'Network':
+              tabIcon = Icons.cloud_outlined;
+              break;
             case 'Audio':
               tabIcon = Icons.headphones_outlined;
               break;
             case 'Playlists':
               tabIcon = Icons.playlist_play_rounded;
-              break;
-            case 'Folders':
-              tabIcon = Icons.folder_outlined;
               break;
             default:
               tabIcon = Icons.dashboard_outlined;
@@ -956,8 +962,21 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   Widget _buildMainContent(LibraryProvider provider) {
     Widget content;
 
-    // State 1: Scanning / Initial Loading Skeleton
-    if (provider.isScanning && provider.allFiles.isEmpty) {
+    // State 0: Dedicated Network Storage & Streaming Tab
+    if (_selectedTab == 'Network') {
+      content = NetworkBrowserView(
+        onPlayStream: (item, streamUrl) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlayerScreen(
+                mediaPath: streamUrl,
+              ),
+            ),
+          );
+        },
+      );
+    } else if (provider.isScanning && provider.allFiles.isEmpty) {
       content = _buildSkeletonGrid();
     } else if (provider.allFiles.isEmpty) {
       // State 2: Empty Library Hero State
