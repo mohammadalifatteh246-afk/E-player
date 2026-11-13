@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
+import '../../audio/domain/audio_visualizer_engine.dart';
+import '../../audio/ui/audio_spectrum_visualizer_widget.dart';
 
 class AudioConfig {
   bool enabled = true;
@@ -21,6 +23,8 @@ class AudioConfig {
   bool virtualizer = true;
   bool threeDAudio = true;
   bool nightMode = false;
+  bool visualizerEnabled = true;
+  VisualizerStyle visualizerStyle = VisualizerStyle.bars;
 
   static const Map<String, List<double>> presets = {
     'Flat': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -215,17 +219,34 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
   Timer? _debounce;
   Timer? _delayDebounce;
   int? _activeSliderIndex;
+  late final AudioVisualizerEngine _visualizerEngine;
 
   @override
   void initState() {
     super.initState();
     _config = widget.config;
+    _visualizerEngine = AudioVisualizerEngine(bandCount: 32);
+    _visualizerEngine.setActive(_config.visualizerEnabled);
+    if (widget.player != null) {
+      _visualizerEngine.updateAudioContext(
+        position: widget.player!.state.position,
+        volume: widget.player!.state.volume,
+        isPlaying: widget.player!.state.playing,
+      );
+    } else {
+      _visualizerEngine.updateAudioContext(
+        position: const Duration(seconds: 1),
+        volume: 100.0,
+        isPlaying: true,
+      );
+    }
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _delayDebounce?.cancel();
+    _visualizerEngine.dispose();
     super.dispose();
   }
 
@@ -460,6 +481,10 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
           ),
           const SizedBox(height: 16),
 
+          // Real-time FFT Audio Spectrum Visualizer
+          _buildSpectrumVisualizerCard(),
+          const SizedBox(height: 16),
+
           // Audio Synchronization Card
           _buildAudioDelaySyncCard(),
           const SizedBox(height: 16),
@@ -638,6 +663,94 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
         border: Border.all(color: EDesign.border),
       ),
       child: content,
+    );
+  }
+
+  Widget _buildSpectrumVisualizerCard() {
+    return Container(
+      key: const Key('audio_visualizer_card'),
+      decoration: BoxDecoration(
+        color: EDesign.surface,
+        borderRadius: BorderRadius.circular(EDesign.r16),
+        border: Border.all(color: EDesign.border),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.graphic_eq_rounded, color: EDesign.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Real-Time Spectrum Visualizer',
+                    style: TextStyle(
+                      color: EDesign.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Switch(
+                value: _config.visualizerEnabled,
+                activeThumbColor: EDesign.primary,
+                activeTrackColor: EDesign.primary.withValues(alpha: 0.35),
+                inactiveThumbColor: EDesign.disabled,
+                inactiveTrackColor: Colors.white12,
+                onChanged: (v) {
+                  _config.visualizerEnabled = v;
+                  _visualizerEngine.setActive(v);
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+          if (_config.visualizerEnabled) ...[
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: VisualizerStyle.values.map((style) {
+                  final isSelected = _config.visualizerStyle == style;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(style.label),
+                      selected: isSelected,
+                      selectedColor: EDesign.primary.withValues(alpha: 0.25),
+                      backgroundColor: EDesign.elevatedSurface,
+                      labelStyle: TextStyle(
+                        color: isSelected ? EDesign.primary : EDesign.textSecondary,
+                        fontSize: 11,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      side: BorderSide(
+                        color: isSelected ? EDesign.primary : EDesign.border,
+                      ),
+                      onSelected: (selected) {
+                        if (selected) {
+                          _config.visualizerStyle = style;
+                          setState(() {});
+                        }
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            AudioSpectrumVisualizerWidget(
+              engine: _visualizerEngine,
+              style: _config.visualizerStyle,
+              height: 110,
+            ),
+          ],
+        ],
+      ),
     );
   }
 
