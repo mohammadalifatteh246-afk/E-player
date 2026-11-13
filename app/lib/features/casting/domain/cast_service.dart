@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 
 import 'cast_models.dart';
 import 'local_streaming_daemon.dart';
+import '../../cast/data/cast_discovery_service.dart';
+import '../../cast/models/cast_device.dart' as mdns;
 
 export 'cast_models.dart';
 export 'local_streaming_daemon.dart';
@@ -13,6 +15,9 @@ export 'local_streaming_daemon.dart';
 /// Service managing network device discovery radar and remote casting session
 /// Parity with VLC's vlc_renderer_discovery and stream_out_chromecast modules
 class CastService extends ChangeNotifier {
+  final CastDiscoveryService? _discoveryService;
+  StreamSubscription<List<mdns.CastDevice>>? _discoverySubscription;
+
   bool _isScanning = false;
   Timer? _scanTimer;
   Timer? _telemetryTimer;
@@ -94,8 +99,56 @@ class CastService extends ChangeNotifier {
   bool get isRemotePlaying => _isRemotePlaying;
   String get audioRoute => _audioRoute;
 
-  CastService() {
+  CastService({CastDiscoveryService? discoveryService})
+      : _discoveryService = discoveryService ?? CastDiscoveryService() {
+    _initDiscovery();
     startScan();
+  }
+
+  void _initDiscovery() {
+    _discoverySubscription = _discoveryService?.devicesStream.listen((discoveredList) {
+      _mergeDiscoveredDevices(discoveredList);
+    });
+  }
+
+  void _mergeDiscoveredDevices(List<mdns.CastDevice> discoveredList) {
+    var changed = false;
+    for (final discovered in discoveredList) {
+      final protocol = _mapMdnsProtocol(discovered.protocol);
+      final index = _devices.indexWhere(
+        (d) => d.id == discovered.id || (d.ipAddress == discovered.host && d.name == discovered.name),
+      );
+      final mappedDevice = CastDevice(
+        id: discovered.id,
+        name: discovered.name,
+        protocol: protocol,
+        model: discovered.modelName ??
+            (protocol == CastProtocol.chromecast ? 'Google Chromecast' : 'Network Media Renderer'),
+        ipAddress: discovered.host,
+        signalPercentage: 92,
+        resolutionCapability: '1080p / 4K UHD',
+      );
+      if (index >= 0) {
+        _devices[index] = mappedDevice;
+      } else {
+        _devices.add(mappedDevice);
+      }
+      changed = true;
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  CastProtocol _mapMdnsProtocol(mdns.CastProtocol p) {
+    switch (p) {
+      case mdns.CastProtocol.chromecast:
+        return CastProtocol.chromecast;
+      case mdns.CastProtocol.dlnaRenderer:
+        return CastProtocol.dlna;
+      case mdns.CastProtocol.airplay:
+        return CastProtocol.airplay;
+    }
   }
 
   /// Attach the active player instance to enable bi-directional state synchronization
@@ -171,6 +224,12 @@ class CastService extends ChangeNotifier {
     _isScanning = true;
     notifyListeners();
 
+    try {
+      await _discoveryService?.startDiscovery();
+    } catch (e) {
+      debugPrint('CastService mDNS startDiscovery error: $e');
+    }
+
     _scanTimer?.cancel();
     _scanTimer = Timer(const Duration(seconds: 12), () {
       _isScanning = false;
@@ -178,9 +237,14 @@ class CastService extends ChangeNotifier {
     });
   }
 
-  void stopScan() {
+  Future<void> stopScan() async {
     _scanTimer?.cancel();
     _isScanning = false;
+    try {
+      await _discoveryService?.stopDiscovery();
+    } catch (e) {
+      debugPrint('CastService mDNS stopDiscovery error: $e');
+    }
     notifyListeners();
   }
 
@@ -378,6 +442,9 @@ class CastService extends ChangeNotifier {
     _detachPlayerListeners();
     _scanTimer?.cancel();
     _telemetryTimer?.cancel();
+    _discoverySubscription?.cancel();
+    _discoverySubscription = null;
+    _discoveryService?.dispose();
     _streamingDaemon?.dispose();
     _streamingDaemon = null;
     super.dispose();
