@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'puzzle_wall_models.dart';
 import 'video_overlay_models.dart';
 
+export 'puzzle_wall_models.dart';
 export 'video_overlay_models.dart';
 
 /// Video Effects Configuration for E-Player.
@@ -38,6 +40,21 @@ class VideoEffectsConfig {
   bool flipHorizontal;
   bool flipVertical;
   double rotationAngle; // 0 to 360 degrees
+
+  // --- Interactive Puzzle Game (VLC puzzle.c parity) ---
+  bool puzzleEnabled;
+  int puzzleRows; // 2 to 8 (default 3)
+  int puzzleCols; // 2 to 8 (default 3)
+  PuzzleGameMode puzzleMode; // swap or sliding
+  double puzzleBorder; // 0.0 to 10.0 (default 2.0)
+  bool puzzleShowPreview; // Floating mini original video preview (default false)
+  bool puzzleAllowRotation; // Tile rotation difficulty (default false)
+
+  // --- Video Wall Display Array (VLC wall.c parity) ---
+  bool wallEnabled;
+  int wallRows; // 1 to 6 (default 3)
+  int wallCols; // 1 to 6 (default 3)
+  double wallBezel; // 0.0 to 20.0 px (default 4.0)
 
   // --- Logo / Watermark Overlay (VLC logo.c parity) ---
   bool logoEnabled;
@@ -80,6 +97,17 @@ class VideoEffectsConfig {
     this.flipHorizontal = false,
     this.flipVertical = false,
     this.rotationAngle = 0.0,
+    this.puzzleEnabled = false,
+    this.puzzleRows = 3,
+    this.puzzleCols = 3,
+    this.puzzleMode = PuzzleGameMode.swap,
+    this.puzzleBorder = 2.0,
+    this.puzzleShowPreview = false,
+    this.puzzleAllowRotation = false,
+    this.wallEnabled = false,
+    this.wallRows = 3,
+    this.wallCols = 3,
+    this.wallBezel = 4.0,
     this.logoEnabled = false,
     this.logoPath,
     this.logoPosition = VideoOverlayPosition.topRight,
@@ -120,6 +148,17 @@ class VideoEffectsConfig {
     bool? flipHorizontal,
     bool? flipVertical,
     double? rotationAngle,
+    bool? puzzleEnabled,
+    int? puzzleRows,
+    int? puzzleCols,
+    PuzzleGameMode? puzzleMode,
+    double? puzzleBorder,
+    bool? puzzleShowPreview,
+    bool? puzzleAllowRotation,
+    bool? wallEnabled,
+    int? wallRows,
+    int? wallCols,
+    double? wallBezel,
     bool? logoEnabled,
     String? logoPath,
     VideoOverlayPosition? logoPosition,
@@ -158,6 +197,17 @@ class VideoEffectsConfig {
       flipHorizontal: flipHorizontal ?? this.flipHorizontal,
       flipVertical: flipVertical ?? this.flipVertical,
       rotationAngle: rotationAngle ?? this.rotationAngle,
+      puzzleEnabled: puzzleEnabled ?? this.puzzleEnabled,
+      puzzleRows: puzzleRows ?? this.puzzleRows,
+      puzzleCols: puzzleCols ?? this.puzzleCols,
+      puzzleMode: puzzleMode ?? this.puzzleMode,
+      puzzleBorder: puzzleBorder ?? this.puzzleBorder,
+      puzzleShowPreview: puzzleShowPreview ?? this.puzzleShowPreview,
+      puzzleAllowRotation: puzzleAllowRotation ?? this.puzzleAllowRotation,
+      wallEnabled: wallEnabled ?? this.wallEnabled,
+      wallRows: wallRows ?? this.wallRows,
+      wallCols: wallCols ?? this.wallCols,
+      wallBezel: wallBezel ?? this.wallBezel,
       logoEnabled: logoEnabled ?? this.logoEnabled,
       logoPath: logoPath ?? this.logoPath,
       logoPosition: logoPosition ?? this.logoPosition,
@@ -195,6 +245,8 @@ class VideoEffectsConfig {
         !flipHorizontal &&
         !flipVertical &&
         rotationAngle == 0.0 &&
+        !puzzleEnabled &&
+        !wallEnabled &&
         !logoEnabled &&
         !marqueeEnabled;
   }
@@ -221,6 +273,17 @@ class VideoEffectsConfig {
     flipHorizontal = false;
     flipVertical = false;
     rotationAngle = 0.0;
+    puzzleEnabled = false;
+    puzzleRows = 3;
+    puzzleCols = 3;
+    puzzleMode = PuzzleGameMode.swap;
+    puzzleBorder = 2.0;
+    puzzleShowPreview = false;
+    puzzleAllowRotation = false;
+    wallEnabled = false;
+    wallRows = 3;
+    wallCols = 3;
+    wallBezel = 4.0;
     logoEnabled = false;
     logoPath = null;
     logoPosition = VideoOverlayPosition.topRight;
@@ -268,6 +331,36 @@ class VideoEffectsConfig {
     flipHorizontal = false;
     flipVertical = false;
     rotationAngle = 0.0;
+    puzzleEnabled = false;
+    puzzleRows = 3;
+    puzzleCols = 3;
+    puzzleMode = PuzzleGameMode.swap;
+    puzzleBorder = 2.0;
+    puzzleShowPreview = false;
+    puzzleAllowRotation = false;
+    wallEnabled = false;
+    wallRows = 3;
+    wallCols = 3;
+    wallBezel = 4.0;
+  }
+
+  /// Reset only puzzle game settings (VLC puzzle.c parity)
+  void resetPuzzle() {
+    puzzleEnabled = false;
+    puzzleRows = 3;
+    puzzleCols = 3;
+    puzzleMode = PuzzleGameMode.swap;
+    puzzleBorder = 2.0;
+    puzzleShowPreview = false;
+    puzzleAllowRotation = false;
+  }
+
+  /// Reset only video wall settings (VLC wall.c parity)
+  void resetWall() {
+    wallEnabled = false;
+    wallRows = 3;
+    wallCols = 3;
+    wallBezel = 4.0;
   }
 
   /// Reset only logo and marquee overlays (VLC logo.c & marq.c parity)
@@ -572,6 +665,17 @@ class VideoEffectsConfig {
         'flipHorizontal': flipHorizontal,
         'flipVertical': flipVertical,
         'rotationAngle': rotationAngle,
+        'puzzleEnabled': puzzleEnabled,
+        'puzzleRows': puzzleRows,
+        'puzzleCols': puzzleCols,
+        'puzzleMode': puzzleMode.name,
+        'puzzleBorder': puzzleBorder,
+        'puzzleShowPreview': puzzleShowPreview,
+        'puzzleAllowRotation': puzzleAllowRotation,
+        'wallEnabled': wallEnabled,
+        'wallRows': wallRows,
+        'wallCols': wallCols,
+        'wallBezel': wallBezel,
         'logoEnabled': logoEnabled,
         'logoPath': logoPath,
         'logoPosition': logoPosition.name,
@@ -612,6 +716,19 @@ class VideoEffectsConfig {
       flipHorizontal: json['flipHorizontal'] as bool? ?? false,
       flipVertical: json['flipVertical'] as bool? ?? false,
       rotationAngle: (json['rotationAngle'] as num?)?.toDouble() ?? 0.0,
+      puzzleEnabled: json['puzzleEnabled'] as bool? ?? false,
+      puzzleRows: (json['puzzleRows'] as num?)?.toInt() ?? 3,
+      puzzleCols: (json['puzzleCols'] as num?)?.toInt() ?? 3,
+      puzzleMode: json['puzzleMode'] != null
+          ? (json['puzzleMode'] == 'sliding' ? PuzzleGameMode.sliding : PuzzleGameMode.swap)
+          : PuzzleGameMode.swap,
+      puzzleBorder: (json['puzzleBorder'] as num?)?.toDouble() ?? 2.0,
+      puzzleShowPreview: json['puzzleShowPreview'] as bool? ?? false,
+      puzzleAllowRotation: json['puzzleAllowRotation'] as bool? ?? false,
+      wallEnabled: json['wallEnabled'] as bool? ?? false,
+      wallRows: (json['wallRows'] as num?)?.toInt() ?? 3,
+      wallCols: (json['wallCols'] as num?)?.toInt() ?? 3,
+      wallBezel: (json['wallBezel'] as num?)?.toDouble() ?? 4.0,
       logoEnabled: json['logoEnabled'] as bool? ?? false,
       logoPath: json['logoPath'] as String?,
       logoPosition: json['logoPosition'] != null

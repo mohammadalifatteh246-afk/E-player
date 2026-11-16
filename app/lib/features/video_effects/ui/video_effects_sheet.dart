@@ -4,6 +4,7 @@ import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../models/video_effects_config.dart';
 import '../domain/video_effects_service.dart';
+import '../domain/puzzle_wall_controller.dart';
 import '../../player/services/interactive_zoom_controller.dart';
 
 /// Interactive Video Effects Studio Sheet for E-Player.
@@ -15,6 +16,7 @@ class VideoEffectsSheet extends StatefulWidget {
   final VideoEffectsService service;
   final VoidCallback onConfigChanged;
   final InteractiveZoomController? zoomController;
+  final PuzzleWallController? puzzleWallController;
 
   const VideoEffectsSheet({
     super.key,
@@ -23,6 +25,7 @@ class VideoEffectsSheet extends StatefulWidget {
     required this.service,
     required this.onConfigChanged,
     this.zoomController,
+    this.puzzleWallController,
   });
 
   @override
@@ -574,6 +577,263 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
                 },
               ),
             ],
+          ),
+        ],
+
+        const Divider(color: EDesign.border, height: 24),
+
+        // --- Interactive Puzzle Game (VLC puzzle.c parity) ---
+        _buildSectionHeader('Interactive Puzzle Game (VLC puzzle.c)', () {
+          _config.resetPuzzle();
+          widget.puzzleWallController?.syncWithConfig(_config);
+          _notifyChange();
+        }),
+
+        SwitchListTile(
+          title: const Text('Enable Puzzle Game', style: TextStyle(color: EDesign.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+          subtitle: const Text('Slices real-time video into interactive puzzle pieces', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          value: _config.puzzleEnabled,
+          activeThumbColor: EDesign.primaryCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            _config.puzzleEnabled = val;
+            if (val) _config.wallEnabled = false; // Mutually exclusive
+            widget.puzzleWallController?.syncWithConfig(_config);
+            _notifyChange();
+          },
+        ),
+
+        if (_config.puzzleEnabled) ...[
+          const SizedBox(height: 8),
+          const Text('Game Mode', style: TextStyle(color: EDesign.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              ChoiceChip(
+                label: const Text('Swap Pieces'),
+                selected: _config.puzzleMode == PuzzleGameMode.swap,
+                selectedColor: EDesign.primaryCyan.withValues(alpha: 0.3),
+                onSelected: (selected) {
+                  if (selected) {
+                    _config.puzzleMode = PuzzleGameMode.swap;
+                    widget.puzzleWallController?.syncWithConfig(_config);
+                    _notifyChange();
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: const Text('15-Sliding Tile'),
+                selected: _config.puzzleMode == PuzzleGameMode.sliding,
+                selectedColor: EDesign.primaryCyan.withValues(alpha: 0.3),
+                onSelected: (selected) {
+                  if (selected) {
+                    _config.puzzleMode = PuzzleGameMode.sliding;
+                    widget.puzzleWallController?.syncWithConfig(_config);
+                    _notifyChange();
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Grid Size', style: TextStyle(color: EDesign.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final size in [2, 3, 4, 5])
+                ChoiceChip(
+                  label: Text('${size}x$size ${size == 2 ? "(Easy)" : size == 3 ? "(Classic)" : size == 4 ? "(Hard)" : "(Master)"}'),
+                  selected: _config.puzzleRows == size && _config.puzzleCols == size,
+                  selectedColor: EDesign.primaryCyan.withValues(alpha: 0.3),
+                  onSelected: (selected) {
+                    if (selected) {
+                      _config.puzzleRows = size;
+                      _config.puzzleCols = size;
+                      widget.puzzleWallController?.syncWithConfig(_config);
+                      _notifyChange();
+                    }
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            title: const Text('Target Mini Preview', style: TextStyle(color: EDesign.textPrimary, fontSize: 13)),
+            subtitle: const Text('Shows un-scrambled video thumbnail in corner', style: TextStyle(color: EDesign.textMuted, fontSize: 11)),
+            value: _config.puzzleShowPreview,
+            activeThumbColor: EDesign.primaryCyan,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) {
+              _config.puzzleShowPreview = val;
+              _notifyChange();
+            },
+          ),
+          SwitchListTile(
+            title: const Text('Tile Rotation Difficulty', style: TextStyle(color: EDesign.textPrimary, fontSize: 13)),
+            subtitle: const Text('Pieces can be rotated; right-click / double-tap to rotate', style: TextStyle(color: EDesign.textMuted, fontSize: 11)),
+            value: _config.puzzleAllowRotation,
+            activeThumbColor: EDesign.primaryCyan,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) {
+              _config.puzzleAllowRotation = val;
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Tile Border Spacing',
+            value: _config.puzzleBorder,
+            min: 0.0,
+            max: 10.0,
+            unit: 'px',
+            decimals: 1,
+            onChanged: (val) {
+              _config.puzzleBorder = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.puzzleBorder = 2.0;
+              _notifyChange();
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EDesign.primaryCyan,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () {
+                    widget.puzzleWallController?.shufflePuzzle();
+                    _notifyChange();
+                  },
+                  icon: const Icon(Icons.shuffle, size: 18),
+                  label: const Text('Shuffle Puzzle', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () {
+                    widget.puzzleWallController?.solvePuzzle();
+                    _notifyChange();
+                  },
+                  icon: const Icon(Icons.auto_fix_high, size: 18, color: Colors.amber),
+                  label: const Text('Solve / Reset'),
+                ),
+              ),
+            ],
+          ),
+        ],
+
+        const Divider(color: EDesign.border, height: 24),
+
+        // --- Video Wall Display Array (VLC wall.c parity) ---
+        _buildSectionHeader('Video Wall Display Array (VLC wall.c)', () {
+          _config.resetWall();
+          widget.puzzleWallController?.syncWithConfig(_config);
+          _notifyChange();
+        }),
+
+        SwitchListTile(
+          title: const Text('Enable Video Wall', style: TextStyle(color: EDesign.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+          subtitle: const Text('Splits live video across multi-display matrix with monitor bezels', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          value: _config.wallEnabled,
+          activeThumbColor: EDesign.primaryCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            _config.wallEnabled = val;
+            if (val) _config.puzzleEnabled = false; // Mutually exclusive
+            widget.puzzleWallController?.syncWithConfig(_config);
+            _notifyChange();
+          },
+        ),
+
+        if (_config.wallEnabled) ...[
+          _buildSliderTile(
+            title: 'Wall Grid Rows',
+            value: _config.wallRows.toDouble(),
+            min: 1.0,
+            max: 6.0,
+            unit: ' rows',
+            decimals: 0,
+            onChanged: (val) {
+              _config.wallRows = val.round();
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+            onReset: () {
+              _config.wallRows = 3;
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Wall Grid Columns',
+            value: _config.wallCols.toDouble(),
+            min: 1.0,
+            max: 6.0,
+            unit: ' cols',
+            decimals: 0,
+            onChanged: (val) {
+              _config.wallCols = val.round();
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+            onReset: () {
+              _config.wallCols = 3;
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Monitor Bezel Thickness',
+            value: _config.wallBezel,
+            min: 0.0,
+            max: 20.0,
+            unit: 'px',
+            decimals: 0,
+            onChanged: (val) {
+              _config.wallBezel = val;
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+            onReset: () {
+              _config.wallBezel = 4.0;
+              widget.puzzleWallController?.syncWithConfig(_config);
+              _notifyChange();
+            },
+          ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: const Color(0x3300E5FF),
+              borderRadius: BorderRadius.circular(EDesign.r8),
+              border: Border.all(color: EDesign.primaryCyan.withValues(alpha: 0.4)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.touch_app, color: EDesign.primaryCyan, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Tip: Tap any monitor display during playback to solo-zoom that screen (VLC wall-active parity). Tap again to return to full wall.',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ],

@@ -38,6 +38,8 @@ import '../services/video_snapshot_service.dart';
 import '../services/desktop_tray_audio_service.dart';
 import '../services/interactive_zoom_controller.dart';
 import 'widgets/interactive_zoom_viewfinder.dart';
+import '../../video_effects/domain/puzzle_wall_controller.dart';
+import '../../video_effects/ui/puzzle_wall_surface_widget.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -59,6 +61,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final AspectCropController _cropController;
   late final BufferCachingSettingsController _bufferCachingController;
   late final InteractiveZoomController _interactiveZoomController;
+  late final PuzzleWallController _puzzleWallController;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -415,10 +418,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
 
     _videoEffectsService = VideoEffectsService();
+    _puzzleWallController = PuzzleWallController(
+      puzzleRows: _videoEffectsConfig.puzzleRows,
+      puzzleCols: _videoEffectsConfig.puzzleCols,
+      puzzleMode: _videoEffectsConfig.puzzleMode,
+      puzzleAllowRotation: _videoEffectsConfig.puzzleAllowRotation,
+      wallRows: _videoEffectsConfig.wallRows,
+      wallCols: _videoEffectsConfig.wallCols,
+      wallBezel: _videoEffectsConfig.wallBezel,
+    );
+    _puzzleWallController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _videoEffectsService.loadFromPreferences().then((cfg) {
       if (mounted) {
         setState(() => _videoEffectsConfig = cfg);
         _videoEffectsService.apply(_player, cfg);
+        _puzzleWallController.syncWithConfig(cfg);
       }
     });
 
@@ -541,6 +557,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _keyboardFocusNode.dispose();
     VideoRotationService.resetOrientation();
     _interactiveZoomController.dispose();
+    _puzzleWallController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
     _player.dispose();
@@ -1864,7 +1881,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             config: _videoEffectsConfig,
             service: _videoEffectsService,
             zoomController: _interactiveZoomController,
+            puzzleWallController: _puzzleWallController,
             onConfigChanged: () {
+              _puzzleWallController.syncWithConfig(_videoEffectsConfig);
               setState(() {});
             },
           ),
@@ -2258,6 +2277,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ],
     );
+
+    // Interactive Puzzle Game & Video Wall (VLC puzzle.c & wall.c parity)
+    if (_videoEffectsConfig.puzzleEnabled || _videoEffectsConfig.wallEnabled) {
+      videoWidget = PuzzleWallSurfaceWidget(
+        config: _videoEffectsConfig,
+        controller: _puzzleWallController,
+        child: videoWidget,
+      );
+    }
 
     if (_pipService.isInPip) {
       return Scaffold(
