@@ -4,7 +4,7 @@ import '../../../ui/theme/e_design_tokens.dart';
 import '../domain/audio_visualizer_engine.dart';
 
 /// Real-time animated canvas widget rendering dynamic audio spectrum visualization.
-/// Mirrors VLC's glspectrum and 3D visualizer display filters.
+/// Mirrors VLC's visualizer modules: `visual.c` (Spectrum, Scope, Spectrogram, VU-meter) and `glspectrum.c`.
 class AudioSpectrumVisualizerWidget extends StatefulWidget {
   final AudioVisualizerEngine engine;
   final VisualizerStyle style;
@@ -74,8 +74,7 @@ class _AudioSpectrumVisualizerWidgetState extends State<AudioSpectrumVisualizerW
             ),
             child: CustomPaint(
               painter: _VisualizerPainter(
-                magnitudes: widget.engine.magnitudes,
-                peaks: widget.engine.peaks,
+                engine: widget.engine,
                 style: widget.style,
               ),
             ),
@@ -87,23 +86,28 @@ class _AudioSpectrumVisualizerWidgetState extends State<AudioSpectrumVisualizerW
 }
 
 class _VisualizerPainter extends CustomPainter {
-  final List<double> magnitudes;
-  final List<double> peaks;
+  final AudioVisualizerEngine engine;
   final VisualizerStyle style;
 
   _VisualizerPainter({
-    required this.magnitudes,
-    required this.peaks,
+    required this.engine,
     required this.style,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (magnitudes.isEmpty) return;
-
     switch (style) {
       case VisualizerStyle.bars:
         _paintBars(canvas, size);
+        break;
+      case VisualizerStyle.scope:
+        _paintScope(canvas, size);
+        break;
+      case VisualizerStyle.spectrogram:
+        _paintSpectrogram(canvas, size);
+        break;
+      case VisualizerStyle.vuMeter:
+        _paintVuMeter(canvas, size);
         break;
       case VisualizerStyle.mirrorWave:
         _paintMirrorWave(canvas, size);
@@ -114,14 +118,19 @@ class _VisualizerPainter extends CustomPainter {
     }
   }
 
+  // --- 1. Spectrum Analyzer with Segmented Bars & Peak Caps (VLC visual.c spectrum) ---
   void _paintBars(Canvas canvas, Size size) {
+    final magnitudes = engine.magnitudes;
+    final peaks = engine.peaks;
     final count = magnitudes.length;
-    final totalSpacing = (count - 1) * 3.0;
+    if (count == 0) return;
+
+    final totalSpacing = (count - 1) * 2.5;
     final barWidth = math.max(2.0, (size.width - 24.0 - totalSpacing) / count);
     const startX = 12.0;
 
     for (var i = 0; i < count; i++) {
-      final x = startX + i * (barWidth + 3.0);
+      final x = startX + i * (barWidth + 2.5);
       final mag = magnitudes[i].clamp(0.02, 1.0);
       final barHeight = mag * (size.height - 24.0);
       final y = size.height - 12.0 - barHeight;
@@ -139,20 +148,220 @@ class _VisualizerPainter extends CustomPainter {
           ],
         ).createShader(rect);
 
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2.5));
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2.0));
       canvas.drawRRect(rrect, paint);
 
-      // Peak Indicator Pip
-      final peak = peaks[i].clamp(0.02, 1.0);
-      final peakY = size.height - 12.0 - peak * (size.height - 24.0);
-      final peakRect = Rect.fromLTWH(x, peakY - 3.0, barWidth, 2.5);
-      final peakPaint = Paint()..color = Colors.amberAccent;
-      canvas.drawRRect(RRect.fromRectAndRadius(peakRect, const Radius.circular(1.0)), peakPaint);
+      // Peak Indicator Pip (VLC spect-show-peaks parity)
+      if (engine.showPeaks) {
+        final peak = peaks[i].clamp(0.02, 1.0);
+        final peakY = size.height - 12.0 - peak * (size.height - 24.0);
+        final peakRect = Rect.fromLTWH(x, peakY - 3.0, barWidth, 2.0);
+        final peakPaint = Paint()..color = Colors.amberAccent;
+        canvas.drawRRect(RRect.fromRectAndRadius(peakRect, const Radius.circular(1.0)), peakPaint);
+      }
     }
   }
 
+  // --- 2. Analog Cathode-Ray Oscilloscope with Phosphor Glow (VLC scope.c) ---
+  void _paintScope(Canvas canvas, Size size) {
+    // 1. Draw CRT dark background & reticle graticule grid
+    final gridPaint = Paint()
+      ..color = const Color(0xFF00382E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+
+    const divisionsX = 8;
+    const divisionsY = 6;
+    for (var i = 1; i < divisionsX; i++) {
+      final gx = (size.width / divisionsX) * i;
+      canvas.drawLine(Offset(gx, 0), Offset(gx, size.height), gridPaint);
+    }
+    for (var j = 1; j < divisionsY; j++) {
+      final gy = (size.height / divisionsY) * j;
+      canvas.drawLine(Offset(0, gy), Offset(size.width, gy), gridPaint);
+    }
+
+    // 2. Draw CRT center graticule crosshair ticks
+    final centerCrosshair = Paint()
+      ..color = const Color(0xFF00695C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), centerCrosshair);
+    canvas.drawLine(Offset(size.width / 2, 0), Offset(size.width / 2, size.height), centerCrosshair);
+
+    // 3. Trace analog green phosphor waveform
+    final waveform = engine.waveform;
+    if (waveform.isEmpty) return;
+
+    final centerY = size.height / 2.0;
+    final stepX = size.width / (waveform.length - 1);
+
+    final wavePath = Path();
+    wavePath.moveTo(0, centerY + waveform[0] * (size.height * 0.42));
+
+    for (var i = 1; i < waveform.length; i++) {
+      final x = i * stepX;
+      final y = centerY + waveform[i] * (size.height * 0.42);
+      wavePath.lineTo(x, y);
+    }
+
+    // Dual-pass beam rendering: Outer Phosphor Halo Glow + Sharp Core Beam
+    final glowPaint = Paint()
+      ..color = const Color(0x5500FFCC)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    canvas.drawPath(wavePath, glowPaint);
+
+    final beamPaint = Paint()
+      ..color = const Color(0xFF00FFCC)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(wavePath, beamPaint);
+
+    // Scope HUD Legend
+    const textStyle = TextStyle(color: Color(0xFF00897B), fontSize: 9, fontWeight: FontWeight.bold);
+    const span1 = TextSpan(text: 'CH1: 50mV/DIV  TIME: 5ms', style: textStyle);
+    final tp1 = TextPainter(text: span1, textDirection: TextDirection.ltr)..layout();
+    tp1.paint(canvas, const Offset(8, 6));
+  }
+
+  // --- 3. 3D Spectrogram Waterfall with Depth Heatmap (VLC glspectrum.c) ---
+  void _paintSpectrogram(Canvas canvas, Size size) {
+    final history = engine.spectrogramHistory;
+    if (history.isEmpty) return;
+
+    final rows = history.length;
+    final rowHeight = size.height / rows;
+
+    for (var r = 0; r < rows; r++) {
+      final slice = history[r];
+      final count = slice.length;
+      if (count == 0) continue;
+
+      final colWidth = size.width / count;
+      final y = size.height - (r + 1) * rowHeight;
+
+      // Depth perspective fade
+      final depthFactor = 1.0 - (r / rows) * 0.65;
+
+      for (var c = 0; c < count; c++) {
+        final mag = slice[c];
+        final x = c * colWidth;
+
+        // Thermal color map: Low=Dark Violet -> Mid=Cyan/Green -> High=Yellow/Red
+        Color cellColor;
+        if (mag < 0.25) {
+          cellColor = Color.lerp(const Color(0xFF0D0B24), const Color(0xFF1E3C72), mag / 0.25)!;
+        } else if (mag < 0.65) {
+          cellColor = Color.lerp(const Color(0xFF1E3C72), const Color(0xFF00E5FF), (mag - 0.25) / 0.40)!;
+        } else if (mag < 0.85) {
+          cellColor = Color.lerp(const Color(0xFF00E5FF), const Color(0xFFFFD600), (mag - 0.65) / 0.20)!;
+        } else {
+          cellColor = Color.lerp(const Color(0xFFFFD600), const Color(0xFFFF2A6D), (mag - 0.85) / 0.15)!;
+        }
+
+        cellColor = cellColor.withValues(alpha: depthFactor);
+
+        final cellRect = Rect.fromLTWH(x, y, colWidth + 0.5, rowHeight + 0.5);
+        canvas.drawRect(cellRect, Paint()..color = cellColor);
+      }
+    }
+  }
+
+  // --- 4. Dual Channel Stereo Peak VU-Meter (VLC visual vu-meter) ---
+  void _paintVuMeter(Canvas canvas, Size size) {
+    const meterHeight = 18.0;
+    final centerY = size.height / 2.0;
+    final meterWidth = size.width - 56.0;
+
+    _paintChannelVu(
+      canvas: canvas,
+      label: 'L',
+      y: centerY - meterHeight - 8.0,
+      width: meterWidth,
+      height: meterHeight,
+      db: engine.leftVuDb,
+      peakDb: engine.leftVuPeak,
+    );
+
+    _paintChannelVu(
+      canvas: canvas,
+      label: 'R',
+      y: centerY + 8.0,
+      width: meterWidth,
+      height: meterHeight,
+      db: engine.rightVuDb,
+      peakDb: engine.rightVuPeak,
+    );
+  }
+
+  void _paintChannelVu({
+    required Canvas canvas,
+    required String label,
+    required double y,
+    required double width,
+    required double height,
+    required double db,
+    required double peakDb,
+  }) {
+    // Channel Label
+    final labelStyle = const TextStyle(color: EDesign.textSecondary, fontSize: 12, fontWeight: FontWeight.bold);
+    final tp = TextPainter(text: TextSpan(text: label, style: labelStyle), textDirection: TextDirection.ltr)..layout();
+    tp.paint(canvas, Offset(12, y + (height - tp.height) / 2));
+
+    const startX = 36.0;
+    const segmentCount = 28;
+    final segmentWidth = (width - (segmentCount - 1) * 2.0) / segmentCount;
+
+    // Normalised dB from -40dB (0.0) to +3dB (1.0)
+    final normLevel = ((db + 40.0) / 43.0).clamp(0.0, 1.0);
+    final normPeak = ((peakDb + 40.0) / 43.0).clamp(0.0, 1.0);
+    final activeSegments = (normLevel * segmentCount).round();
+    final peakIndex = (normPeak * (segmentCount - 1)).round();
+
+    for (var s = 0; s < segmentCount; s++) {
+      final sx = startX + s * (segmentWidth + 2.0);
+      final normSeg = s / segmentCount;
+
+      Color segColor;
+      if (normSeg < 0.65) {
+        segColor = const Color(0xFF00E676); // Normal Green
+      } else if (normSeg < 0.88) {
+        segColor = const Color(0xFFFFD600); // Warning Amber
+      } else {
+        segColor = const Color(0xFFFF1744); // Overload Red
+      }
+
+      final isLit = s < activeSegments;
+      final paint = Paint()
+        ..color = isLit ? segColor : segColor.withValues(alpha: 0.12);
+
+      final rrect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(sx, y, segmentWidth, height),
+        const Radius.circular(2),
+      );
+      canvas.drawRRect(rrect, paint);
+
+      // Peak Hold Pip
+      if (s == peakIndex && normPeak > 0.05) {
+        final peakPaint = Paint()..color = Colors.white;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTWH(sx, y, segmentWidth, height), const Radius.circular(2)),
+          peakPaint,
+        );
+      }
+    }
+  }
+
+  // --- 5. Mirrored Stereo Waveform ---
   void _paintMirrorWave(Canvas canvas, Size size) {
+    final magnitudes = engine.magnitudes;
     final count = magnitudes.length;
+    if (count == 0) return;
+
     final centerY = size.height / 2.0;
     final stepX = (size.width - 24.0) / (count - 1);
 
@@ -179,10 +388,14 @@ class _VisualizerPainter extends CustomPainter {
     canvas.drawPath(pathBottom, paint);
   }
 
+  // --- 6. Radial Pulsing Orb ---
   void _paintCircular(Canvas canvas, Size size) {
+    final magnitudes = engine.magnitudes;
+    final count = magnitudes.length;
+    if (count == 0) return;
+
     final center = Offset(size.width / 2.0, size.height / 2.0);
     final baseRadius = math.min(size.width, size.height) * 0.24;
-    final count = magnitudes.length;
 
     final paint = Paint()
       ..shader = RadialGradient(

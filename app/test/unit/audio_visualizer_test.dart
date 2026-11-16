@@ -96,5 +96,64 @@ void main() {
 
       expect(boostedSum, greaterThanOrEqualTo(normalSum));
     });
+
+    test('Oscilloscope time-domain waveform synthesizes valid normalized signal (scope.c parity)', () {
+      final engine = AudioVisualizerEngine(bandCount: 32);
+      expect(engine.waveform.every((w) => w == 0.0), isTrue);
+
+      engine.setActive(true);
+      engine.updateAudioContext(position: const Duration(seconds: 4), volume: 100.0, isPlaying: true);
+      engine.tick(const Duration(milliseconds: 20));
+
+      expect(engine.waveform.length, equals(64));
+      expect(engine.waveform.any((w) => w.abs() > 0.0), isTrue);
+      for (final sample in engine.waveform) {
+        expect(sample, inInclusiveRange(-1.0, 1.0));
+      }
+
+      // Reset on deactivation
+      engine.setActive(false);
+      expect(engine.waveform.every((w) => w == 0.0), isTrue);
+    });
+
+    test('3D Spectrogram history buffer maintains rolling temporal window (glspectrum.c parity)', () {
+      final engine = AudioVisualizerEngine(bandCount: 16);
+      engine.setActive(true);
+      engine.updateAudioContext(position: const Duration(seconds: 2), volume: 100.0, isPlaying: true);
+
+      // Tick multiple frames
+      for (var i = 0; i < 20; i++) {
+        engine.tick(const Duration(milliseconds: 16));
+      }
+
+      expect(engine.spectrogramHistory.length, equals(16));
+      for (final slice in engine.spectrogramHistory) {
+        expect(slice.length, equals(16));
+      }
+    });
+
+    test('Stereo VU decibel meter ballistics and peak hold calculation', () {
+      final engine = AudioVisualizerEngine(bandCount: 32);
+      engine.setActive(true);
+      engine.updateAudioContext(position: const Duration(seconds: 8), volume: 100.0, isPlaying: true);
+      engine.tick(const Duration(milliseconds: 33));
+
+      expect(engine.leftVuDb, inInclusiveRange(-60.0, 3.0));
+      expect(engine.rightVuDb, inInclusiveRange(-60.0, 3.0));
+      expect(engine.leftVuPeak, greaterThanOrEqualTo(engine.leftVuDb));
+      expect(engine.rightVuPeak, greaterThanOrEqualTo(engine.rightVuDb));
+    });
+
+    test('setShowPeaks toggles peak caps and notifies listeners', () {
+      final engine = AudioVisualizerEngine(bandCount: 16);
+      expect(engine.showPeaks, isTrue);
+
+      int notifies = 0;
+      engine.addListener(() => notifies++);
+
+      engine.setShowPeaks(false);
+      expect(engine.showPeaks, isFalse);
+      expect(notifies, equals(1));
+    });
   });
 }

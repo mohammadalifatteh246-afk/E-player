@@ -28,6 +28,9 @@ class AudioConfig {
   bool nightMode = false;
   bool visualizerEnabled = false;
   VisualizerStyle visualizerStyle = VisualizerStyle.bars;
+  int visualizerBandCount = 32;
+  double visualizerSensitivity = 1.0;
+  bool visualizerShowPeaks = true;
   SpatialAudioConfig spatialAudio = SpatialAudioConfig();
   AudioPitchConfig pitch = AudioPitchConfig();
   AudioCompressorConfig compressor = AudioCompressorConfig();
@@ -254,7 +257,11 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
   void initState() {
     super.initState();
     _config = widget.config;
-    _visualizerEngine = AudioVisualizerEngine(bandCount: 32);
+    _visualizerEngine = AudioVisualizerEngine(
+      bandCount: _config.visualizerBandCount,
+      sensitivity: _config.visualizerSensitivity,
+      showPeaks: _config.visualizerShowPeaks,
+    );
     _visualizerEngine.setActive(_config.visualizerEnabled);
     if (widget.player != null) {
       try {
@@ -796,6 +803,99 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
               engine: _visualizerEngine,
               style: _config.visualizerStyle,
               height: 110,
+            ),
+            const SizedBox(height: 12),
+            // Band Count selection (VLC spect-80-bands parity)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Frequency Bands (spect-nbbands)',
+                  style: TextStyle(color: EDesign.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                Wrap(
+                  spacing: 6,
+                  children: [16, 32, 64, 80].map((bands) {
+                    final isSel = _config.visualizerBandCount == bands;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(EDesign.r6),
+                      onTap: () {
+                        _config.visualizerBandCount = bands;
+                        _visualizerEngine.setBandCount(bands);
+                        setState(() {});
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isSel ? EDesign.primary.withValues(alpha: 0.2) : EDesign.elevatedSurface,
+                          borderRadius: BorderRadius.circular(EDesign.r6),
+                          border: Border.all(color: isSel ? EDesign.primary : EDesign.border, width: isSel ? 1.5 : 1.0),
+                        ),
+                        child: Text(
+                          '$bands',
+                          style: TextStyle(
+                            color: isSel ? EDesign.primary : EDesign.textMuted,
+                            fontSize: 11,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Peak Indicators & Sensitivity Sliders
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Peak Caps',
+                        style: TextStyle(color: EDesign.textSecondary, fontSize: 12),
+                      ),
+                      const Spacer(),
+                      Switch(
+                        value: _config.visualizerShowPeaks,
+                        activeThumbColor: EDesign.primary,
+                        onChanged: (val) {
+                          _config.visualizerShowPeaks = val;
+                          _visualizerEngine.setShowPeaks(val);
+                          setState(() {});
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        'Amp: ${_config.visualizerSensitivity.toStringAsFixed(1)}x',
+                        style: const TextStyle(color: EDesign.textSecondary, fontSize: 12),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: _config.visualizerSensitivity,
+                          min: 0.5,
+                          max: 3.0,
+                          divisions: 10,
+                          activeColor: EDesign.primary,
+                          onChanged: (val) {
+                            _config.visualizerSensitivity = val;
+                            _visualizerEngine.setSensitivity(val);
+                            setState(() {});
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ],

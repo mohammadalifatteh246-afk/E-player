@@ -62,5 +62,44 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       expect(find.byType(AudioSpectrumVisualizerWidget), findsNWidgets(2));
     });
+
+    testWidgets('Renders scope, spectrogram, and vuMeter visualizer modes cleanly (visual.c / glspectrum.c)', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  AudioSpectrumVisualizerWidget(
+                    engine: engine,
+                    style: VisualizerStyle.scope,
+                    height: 100,
+                  ),
+                  AudioSpectrumVisualizerWidget(
+                    engine: engine,
+                    style: VisualizerStyle.spectrogram,
+                    height: 100,
+                  ),
+                  AudioSpectrumVisualizerWidget(
+                    engine: engine,
+                    style: VisualizerStyle.vuMeter,
+                    height: 100,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Tick multiple frames so scope, waterfall, and VU meters compute paints
+      for (var i = 0; i < 5; i++) {
+        engine.tick(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      expect(find.byType(AudioSpectrumVisualizerWidget), findsNWidgets(3));
+      expect(find.byType(CustomPaint), findsWidgets);
+    });
   });
 }
