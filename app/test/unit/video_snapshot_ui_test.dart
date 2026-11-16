@@ -26,7 +26,7 @@ void main() {
               onCycleSubtitleTrack: () {},
               onNudgeAudioDelay: (_) {},
               onNudgeSubtitleDelay: (_) {},
-              onShowOsd: (p1, p2, [p3]) {},
+              onShowOsd: (msg, icon, [color]) {},
               onUserActivity: () {},
               onTakeSnapshot: () {
                 snapshotTriggered = true;
