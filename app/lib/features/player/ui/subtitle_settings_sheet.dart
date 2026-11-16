@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
+import '../../subtitles/ui/subtitle_auto_sync_sheet.dart';
 
 /// Configuration model managing live subtitle rendering and sync properties in libmpv.
 class SubtitleConfig {
   double delay; // -30.0s to +30.0s sync offset
+  double speed; // 0.5x to 2.0x playback stretch factor (1.0 default)
   double fontSize; // 18.0 to 72.0
   Color fontColor;
   Color outlineColor;
@@ -20,6 +22,7 @@ class SubtitleConfig {
 
   SubtitleConfig({
     this.delay = 0.0,
+    this.speed = 1.0,
     this.fontSize = 36.0,
     this.fontColor = Colors.white,
     this.outlineColor = Colors.black,
@@ -45,6 +48,7 @@ class SubtitleConfig {
     try {
       final platform = player.platform as dynamic;
       platform.setProperty('sub-delay', delay.toStringAsFixed(2));
+      platform.setProperty('sub-speed', speed.toStringAsFixed(4));
       platform.setProperty('sub-font-size', fontSize.round().toString());
       platform.setProperty('sub-color', _colorToHex(fontColor));
       platform.setProperty('sub-border-color', _colorToHex(outlineColor));
@@ -63,6 +67,7 @@ class SubtitleConfig {
 
   void reset(Player? player) {
     delay = 0.0;
+    speed = 1.0;
     fontSize = 36.0;
     fontColor = Colors.white;
     outlineColor = Colors.black;
@@ -198,6 +203,42 @@ class _SubtitleSettingsSheetState extends State<SubtitleSettingsSheet> {
       _config.delay = (_config.delay + delta).clamp(-30.0, 30.0);
     });
     _debouncedApply();
+  }
+
+  void _openAutoSyncSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SubtitleAutoSyncSheet(
+        player: widget.player,
+        currentDelay: _config.delay,
+        currentSpeed: _config.speed,
+        onApply: (delay, speed) {
+          setState(() {
+            _config.delay = delay;
+            _config.speed = speed;
+          });
+          _config.apply(widget.player);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Subtitles synced: ${delay >= 0 ? '+' : ''}${delay.toStringAsFixed(2)}s (Speed: ${speed.toStringAsFixed(4)}x)',
+              ),
+              backgroundColor: EDesign.elevatedSurface,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+        onReset: () {
+          setState(() {
+            _config.delay = 0.0;
+            _config.speed = 1.0;
+          });
+          _config.apply(widget.player);
+        },
+      ),
+    );
   }
 
   @override
@@ -546,6 +587,69 @@ class _SubtitleSettingsSheetState extends State<SubtitleSettingsSheet> {
               _buildNudgeButton('+0.1s', () => _nudgeDelay(0.1)),
               _buildNudgeButton('+0.5s', () => _nudgeDelay(0.5)),
             ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: EDesign.border, height: 1),
+          const SizedBox(height: 12),
+
+          // 2-Point Subtitle Auto-Sync Wizard Entrypoint
+          InkWell(
+            onTap: _openAutoSyncSheet,
+            borderRadius: BorderRadius.circular(EDesign.r10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: EDesign.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(EDesign.r10),
+                border: Border.all(
+                  color: EDesign.primary.withValues(alpha: 0.3),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_fix_high, color: EDesign.primary, size: 16),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '2-Point Auto-Sync Wizard',
+                          style: TextStyle(
+                            color: EDesign.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Auto-align dialogue & fix PAL/film framerate drift',
+                          style: TextStyle(color: EDesign.textMuted, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_config.speed != 1.0)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: EDesign.success.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${_config.speed.toStringAsFixed(3)}x',
+                        style: const TextStyle(
+                          color: EDesign.success,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  const Icon(Icons.chevron_right, color: EDesign.primary, size: 18),
+                ],
+              ),
+            ),
           ),
         ],
       ),
