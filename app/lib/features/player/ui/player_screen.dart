@@ -40,6 +40,9 @@ import '../services/interactive_zoom_controller.dart';
 import 'widgets/interactive_zoom_viewfinder.dart';
 import '../../video_effects/domain/puzzle_wall_controller.dart';
 import '../../video_effects/ui/puzzle_wall_surface_widget.dart';
+import '../../subtitles/data/teletext_closed_caption_controller.dart';
+import '../../subtitles/ui/teletext_osd_overlay_widget.dart';
+import '../../subtitles/ui/teletext_closed_captions_sheet.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -62,6 +65,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final BufferCachingSettingsController _bufferCachingController;
   late final InteractiveZoomController _interactiveZoomController;
   late final PuzzleWallController _puzzleWallController;
+  late final TeletextClosedCaptionController _teletextCcController;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -430,6 +434,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _puzzleWallController.addListener(() {
       if (mounted) setState(() {});
     });
+    _teletextCcController = TeletextClosedCaptionController(player: _player);
+    _teletextCcController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _videoEffectsService.loadFromPreferences().then((cfg) {
       if (mounted) {
         setState(() => _videoEffectsConfig = cfg);
@@ -558,6 +566,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     VideoRotationService.resetOrientation();
     _interactiveZoomController.dispose();
     _puzzleWallController.dispose();
+    _teletextCcController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
     _player.dispose();
@@ -1624,6 +1633,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             const Divider(color: EDesign.border),
             ListTile(
+              leading: const Icon(Icons.closed_caption, color: EDesign.primaryCyan),
+              title: const Text('Teletext & Closed-Captions (CC)...', style: EDesign.body),
+              subtitle: const Text('EIA-608 / CEA-708 & VBI Teletext (zvbi.c)', style: EDesign.caption),
+              onTap: () {
+                Navigator.pop(context);
+                TeletextClosedCaptionsSheet.show(
+                  context,
+                  controller: _teletextCcController,
+                ).then((_) {
+                  if (mounted) _keyboardFocusNode.requestFocus();
+                });
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.tune, color: EDesign.textPrimary),
               title: const Text('Styles & Delay...', style: EDesign.body),
               onTap: () {
@@ -2411,6 +2434,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Icons.zoom_in,
           );
         },
+        onToggleTeletext: () {
+          _teletextCcController.toggleTeletext();
+          _showFeedbackMessage(
+            _teletextCcController.teletextConfig.enabled
+                ? 'Teletext: Page ${_teletextCcController.teletextConfig.page}'
+                : 'Teletext: Off',
+            Icons.tv,
+          );
+        },
+        onCycleClosedCaptions: () {
+          _teletextCcController.cycleClosedCaptionChannel();
+          _showFeedbackMessage(
+            'Closed Captions: ${_teletextCcController.captionConfig.channel.shortCode}',
+            Icons.closed_caption,
+          );
+        },
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
@@ -3136,6 +3175,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   },
                 ),
               ),
+
+            // VLC Teletext (zvbi.c) & Closed Captions (cc.c) OSD Overlay
+            TeletextOsdOverlayWidget(
+              controller: _teletextCcController,
+              onOpenSettings: () {
+                TeletextClosedCaptionsSheet.show(
+                  context,
+                  controller: _teletextCcController,
+                );
+              },
+            ),
           ],
         ),
       ),

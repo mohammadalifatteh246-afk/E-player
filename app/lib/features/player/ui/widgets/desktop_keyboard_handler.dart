@@ -24,6 +24,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final void Function(int bookmarkIndex)? onJumpToBookmark;
   final VoidCallback? onTakeSnapshot;
   final VoidCallback? onToggleZoom;
+  final VoidCallback? onToggleTeletext;
+  final VoidCallback? onCycleClosedCaptions;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -47,6 +49,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onJumpToBookmark,
     this.onTakeSnapshot,
     this.onToggleZoom,
+    this.onToggleTeletext,
+    this.onCycleClosedCaptions,
     this.focusNode,
     this.autofocus = true,
   });
@@ -400,6 +404,20 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (event.logicalKey == LogicalKeyboardKey.keyZ && !isCtrl && !isAlt && widget.onToggleZoom != null) {
       widget.onUserActivity();
       widget.onToggleZoom!();
+      return KeyEventResult.handled;
+    }
+
+    // 17. Teletext Toggle ('t') (VLC zvbi.c parity)
+    if (event.logicalKey == LogicalKeyboardKey.keyT && !isCtrl && !isAlt && widget.onToggleTeletext != null) {
+      widget.onUserActivity();
+      widget.onToggleTeletext!();
+      return KeyEventResult.handled;
+    }
+
+    // 18. Cycle Closed Captions (Shift + C) (VLC cc.c parity)
+    if (isShift && event.logicalKey == LogicalKeyboardKey.keyC && widget.onCycleClosedCaptions != null) {
+      widget.onUserActivity();
+      widget.onCycleClosedCaptions!();
       return KeyEventResult.handled;
     }
 
