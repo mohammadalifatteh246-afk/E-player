@@ -34,6 +34,7 @@ import 'playback_enhancements.dart';
 import '../../bookmarks/data/bookmark_service.dart';
 import '../../bookmarks/ui/bookmarks_sheet.dart';
 import '../services/video_snapshot_service.dart';
+import '../services/desktop_tray_audio_service.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -55,6 +56,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final AspectCropController _cropController;
   late final BufferCachingSettingsController _bufferCachingController;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
+  StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
+  StreamSubscription<bool>? _trayPlayingSubscription;
+  StreamSubscription<Duration>? _trayPositionSubscription;
+  StreamSubscription<Duration>? _trayDurationSubscription;
+  StreamSubscription<double>? _trayVolumeSubscription;
 
   bool _isPlaying = true;
   bool _isLocked = false;
@@ -334,6 +340,49 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted && !_isSwiping) _volume = vol;
     });
 
+    // VLC Parity: Background Audio Daemon & Desktop System Tray Sync
+    _trayPlayingSubscription = _player.stream.playing.listen((playing) {
+      DesktopTrayAudioService.instance.updatePlaybackState(
+        isPlaying: playing,
+        mediaTitle: p.basename(widget.mediaPath),
+      );
+    });
+    _trayPositionSubscription = _player.stream.position.listen((pos) {
+      DesktopTrayAudioService.instance.updatePlaybackState(position: pos);
+    });
+    _trayDurationSubscription = _player.stream.duration.listen((dur) {
+      DesktopTrayAudioService.instance.updatePlaybackState(duration: dur);
+    });
+    _trayVolumeSubscription = _player.stream.volume.listen((vol) {
+      DesktopTrayAudioService.instance.updatePlaybackState(volume: vol);
+    });
+    _trayCommandSubscription =
+        DesktopTrayAudioService.instance.commandStream.listen((cmd) {
+      if (!mounted) return;
+      switch (cmd) {
+        case TrayPlaybackCommand.playPause:
+          _player.playOrPause();
+          break;
+        case TrayPlaybackCommand.volumeUp:
+          final currentVol = _player.state.volume;
+          final targetVol = (currentVol + 5.0).clamp(0.0, 300.0);
+          _player.setVolume(targetVol);
+          break;
+        case TrayPlaybackCommand.volumeDown:
+          final currentVol = _player.state.volume;
+          final targetVol = (currentVol - 5.0).clamp(0.0, 300.0);
+          _player.setVolume(targetVol);
+          break;
+        case TrayPlaybackCommand.stop:
+          _player.stop();
+          break;
+        case TrayPlaybackCommand.next:
+        case TrayPlaybackCommand.previous:
+        case TrayPlaybackCommand.toggleWindow:
+          break;
+      }
+    });
+
     // Auto-orient listener (VLC parity: detects video aspect ratio upon header load)
     _player.stream.width.listen((w) {
       if (mounted) {
@@ -471,6 +520,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _pipService.dispose();
     BookmarkService.instance.removeListener(_onBookmarksChanged);
     _snapshotPreviewTimer?.cancel();
+    _trayPlayingSubscription?.cancel();
+    _trayPositionSubscription?.cancel();
+    _trayDurationSubscription?.cancel();
+    _trayVolumeSubscription?.cancel();
+    _trayCommandSubscription?.cancel();
+    DesktopTrayAudioService.instance.updatePlaybackState(isPlaying: false);
     _persistProgress();
     _controlsTimer?.cancel();
     _feedbackTimer?.cancel();
@@ -1874,6 +1929,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
               value: _showTelemetry,
               activeThumbColor: EDesign.primary,
               onChanged: (v) => setState(() => _showTelemetry = v),
+            ),
+            SwitchListTile(
+              title: const Text('Minimize to System Tray', style: EDesign.body),
+              subtitle: const Text('Keeps audio playing in background when minimized', style: EDesign.caption),
+              value: DesktopTrayAudioService.instance.minimizeToTrayEnabled,
+              activeThumbColor: EDesign.primary,
+              onChanged: (v) {
+                setState(() {
+                  DesktopTrayAudioService.instance.setMinimizeToTray(v);
+                });
+              },
             ),
           ],
         ),
