@@ -23,6 +23,10 @@ void main() {
       expect(config.flipHorizontal, isFalse);
       expect(config.flipVertical, isFalse);
       expect(config.rotationAngle, equals(0.0));
+      expect(config.logoEnabled, isFalse);
+      expect(config.logoPosition, equals(VideoOverlayPosition.topRight));
+      expect(config.marqueeEnabled, isFalse);
+      expect(config.marqueePosition, equals(VideoOverlayPosition.topLeft));
       expect(config.isNeutral, isTrue);
     });
 
@@ -41,6 +45,10 @@ void main() {
 
       config.sharpen = false;
       config.colorThreshold = true;
+      expect(config.isNeutral, isFalse);
+
+      config.colorThreshold = false;
+      config.marqueeEnabled = true;
       expect(config.isNeutral, isFalse);
     });
 
@@ -109,6 +117,25 @@ void main() {
       expect(config.flipVertical, isFalse);
       expect(config.rotationAngle, equals(0.0));
       expect(config.contrast, equals(10.0));
+    });
+
+    test('resetOverlay restores only logo and marquee overlay settings', () {
+      final config = VideoEffectsConfig(
+        contrast: 15.0,
+        logoEnabled: true,
+        logoPath: '/path/to/logo.png',
+        logoPosition: VideoOverlayPosition.bottomRight,
+        marqueeEnabled: true,
+        marqueeText: 'Custom Watermark',
+      );
+
+      config.resetOverlay();
+
+      expect(config.logoEnabled, isFalse);
+      expect(config.logoPath, isNull);
+      expect(config.logoPosition, equals(VideoOverlayPosition.topRight));
+      expect(config.marqueeEnabled, isFalse);
+      expect(config.contrast, equals(15.0)); // Essential adjustment preserved
     });
 
     test('buildMpvVfString generates correct ffmpeg/mpv filter chains', () {
@@ -228,6 +255,17 @@ void main() {
         flipHorizontal: true,
         flipVertical: false,
         rotationAngle: 45.0,
+        logoEnabled: true,
+        logoPath: 'C:/assets/watermark.png',
+        logoPosition: VideoOverlayPosition.bottomRight,
+        logoOpacity: 0.75,
+        logoScale: 1.2,
+        marqueeEnabled: true,
+        marqueeText: '%t • %p / %l',
+        marqueePosition: VideoOverlayPosition.topCenter,
+        marqueeFontSize: 20.0,
+        marqueeColor: 0x00FFCC,
+        marqueeShowBackground: true,
       );
 
       final json = original.toJson();
@@ -252,6 +290,17 @@ void main() {
       expect(restored.flipHorizontal, isTrue);
       expect(restored.flipVertical, isFalse);
       expect(restored.rotationAngle, equals(45.0));
+      expect(restored.logoEnabled, isTrue);
+      expect(restored.logoPath, equals('C:/assets/watermark.png'));
+      expect(restored.logoPosition, equals(VideoOverlayPosition.bottomRight));
+      expect(restored.logoOpacity, equals(0.75));
+      expect(restored.logoScale, equals(1.2));
+      expect(restored.marqueeEnabled, isTrue);
+      expect(restored.marqueeText, equals('%t • %p / %l'));
+      expect(restored.marqueePosition, equals(VideoOverlayPosition.topCenter));
+      expect(restored.marqueeFontSize, equals(20.0));
+      expect(restored.marqueeColor, equals(0x00FFCC));
+      expect(restored.marqueeShowBackground, isTrue);
     });
   });
 }

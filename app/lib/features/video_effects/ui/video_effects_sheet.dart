@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../models/video_effects_config.dart';
@@ -36,7 +37,7 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _config = widget.config;
   }
 
@@ -136,6 +137,7 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
                 Tab(icon: Icon(Icons.tune, size: 18), text: 'Essential'),
                 Tab(icon: Icon(Icons.palette_outlined, size: 18), text: 'Colors'),
                 Tab(icon: Icon(Icons.crop_rotate, size: 18), text: 'Geometry'),
+                Tab(icon: Icon(Icons.layers_outlined, size: 18), text: 'Overlay'),
                 Tab(icon: Icon(Icons.auto_awesome, size: 18), text: 'Presets'),
               ],
             ),
@@ -155,6 +157,7 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
                     _buildEssentialTab(),
                     _buildColorsTab(),
                     _buildGeometryTab(),
+                    _buildOverlayTab(),
                     _buildPresetsTab(),
                   ],
                 ),
@@ -577,7 +580,320 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
     );
   }
 
-  // --- TAB 4: PRESETS (VLC & Cinematic Grading Parity) ---
+  // --- TAB 4: OVERLAY (VLC logo.c & marq.c parity) ---
+  Widget _buildOverlayTab() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: EDesign.s16, vertical: EDesign.s8),
+      children: [
+        _buildSectionHeader('Video Logo & Watermark (VLC logo.c)', () {
+          _config.resetOverlay();
+          _notifyChange();
+        }),
+
+        // 1. Watermark Switch
+        SwitchListTile(
+          title: const Text('Enable Watermark / Logo', style: TextStyle(color: EDesign.textPrimary, fontSize: 14)),
+          subtitle: const Text('Overlays a PNG/JPG graphic watermark on the video stream', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          value: _config.logoEnabled,
+          activeThumbColor: EDesign.primaryCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            _config.logoEnabled = val;
+            _notifyChange();
+          },
+        ),
+
+        if (_config.logoEnabled) ...[
+          const SizedBox(height: 8),
+          // Logo File Picker Container
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: EDesign.elevatedBackground,
+              borderRadius: BorderRadius.circular(EDesign.r10),
+              border: Border.all(color: EDesign.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.image_outlined, color: EDesign.primaryCyan, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _config.logoPath != null && _config.logoPath!.isNotEmpty
+                        ? _config.logoPath!
+                        : 'No watermark image selected',
+                    style: TextStyle(
+                      color: _config.logoPath != null ? EDesign.textPrimary : EDesign.textMuted,
+                      fontSize: 12,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: EDesign.elevatedSurface,
+                    foregroundColor: EDesign.primaryCyan,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.folder_open, size: 16),
+                  label: const Text('Browse', style: TextStyle(fontSize: 12)),
+                  onPressed: () async {
+                    try {
+                      final result = await FilePicker.pickFile(
+                        type: FileType.image,
+                      );
+                      if (result != null && result.path != null) {
+                        setState(() {
+                          _config.logoPath = result.path!;
+                        });
+                        _notifyChange();
+                      }
+                    } catch (e) {
+                      debugPrint('FilePicker error: $e');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Logo Position Selector
+          const Text(
+            'Logo Position',
+            style: TextStyle(color: EDesign.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: VideoOverlayPosition.values.map((pos) {
+              final isSelected = _config.logoPosition == pos;
+              return InkWell(
+                borderRadius: BorderRadius.circular(EDesign.r8),
+                onTap: () {
+                  _config.logoPosition = pos;
+                  _notifyChange();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? EDesign.primaryCyan.withValues(alpha: 0.15)
+                        : EDesign.elevatedBackground,
+                    borderRadius: BorderRadius.circular(EDesign.r8),
+                    border: Border.all(
+                      color: isSelected ? EDesign.primaryCyan : EDesign.border,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Text(
+                    pos.label,
+                    style: TextStyle(
+                      color: isSelected ? EDesign.primaryCyan : EDesign.textPrimary,
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 12),
+          _buildSliderTile(
+            title: 'Logo Opacity',
+            value: _config.logoOpacity,
+            min: 0.1,
+            max: 1.0,
+            decimals: 2,
+            onChanged: (val) {
+              _config.logoOpacity = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.logoOpacity = 0.85;
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Logo Scale',
+            value: _config.logoScale,
+            min: 0.2,
+            max: 2.5,
+            decimals: 2,
+            onChanged: (val) {
+              _config.logoScale = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.logoScale = 1.0;
+              _notifyChange();
+            },
+          ),
+        ],
+
+        const Divider(color: EDesign.border, height: 24),
+
+        // 2. Marquee / Text OSD Section
+        _buildSectionHeader('Text Marquee & Dynamic OSD (VLC marq.c)'),
+
+        SwitchListTile(
+          title: const Text('Enable Text Marquee OSD', style: TextStyle(color: EDesign.textPrimary, fontSize: 14)),
+          subtitle: const Text('Live on-screen text with dynamic format tokens (%t, %p, %l, %H:%M:%S)', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          value: _config.marqueeEnabled,
+          activeThumbColor: EDesign.primaryCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            _config.marqueeEnabled = val;
+            _notifyChange();
+          },
+        ),
+
+        if (_config.marqueeEnabled) ...[
+          const SizedBox(height: 8),
+          // Marquee Text Input
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: EDesign.elevatedBackground,
+              borderRadius: BorderRadius.circular(EDesign.r10),
+              border: Border.all(color: EDesign.border),
+            ),
+            child: TextField(
+              controller: TextEditingController(text: _config.marqueeText)
+                ..selection = TextSelection.collapsed(offset: _config.marqueeText.length),
+              style: const TextStyle(color: EDesign.textPrimary, fontSize: 13),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Enter marquee format (e.g. %t • %p / %l)',
+                hintStyle: TextStyle(color: EDesign.textMuted, fontSize: 12),
+              ),
+              onChanged: (val) {
+                _config.marqueeText = val;
+                _notifyChange();
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Preset Format Quick Chips
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildTokenChip('Title & Time', 'E-Player • %t • %p / %l'),
+              _buildTokenChip('Clock Time', '%Y-%m-%d %H:%M:%S'),
+              _buildTokenChip('Watermark Only', 'CONFIDENTIAL • %t'),
+              _buildTokenChip('Time Remaining', 'Time: %p of %l'),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Marquee Position Selector
+          const Text(
+            'Marquee Position',
+            style: TextStyle(color: EDesign.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: VideoOverlayPosition.values.map((pos) {
+              final isSelected = _config.marqueePosition == pos;
+              return InkWell(
+                borderRadius: BorderRadius.circular(EDesign.r8),
+                onTap: () {
+                  _config.marqueePosition = pos;
+                  _notifyChange();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? EDesign.primaryCyan.withValues(alpha: 0.15)
+                        : EDesign.elevatedBackground,
+                    borderRadius: BorderRadius.circular(EDesign.r8),
+                    border: Border.all(
+                      color: isSelected ? EDesign.primaryCyan : EDesign.border,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Text(
+                    pos.label,
+                    style: TextStyle(
+                      color: isSelected ? EDesign.primaryCyan : EDesign.textPrimary,
+                      fontSize: 12,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 12),
+          _buildSliderTile(
+            title: 'Font Size',
+            value: _config.marqueeFontSize,
+            min: 10.0,
+            max: 36.0,
+            decimals: 0,
+            unit: 'px',
+            onChanged: (val) {
+              _config.marqueeFontSize = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.marqueeFontSize = 16.0;
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Text Opacity',
+            value: _config.marqueeOpacity,
+            min: 0.1,
+            max: 1.0,
+            decimals: 2,
+            onChanged: (val) {
+              _config.marqueeOpacity = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.marqueeOpacity = 0.90;
+              _notifyChange();
+            },
+          ),
+          SwitchListTile(
+            title: const Text('Contrast Background Badge', style: TextStyle(color: EDesign.textPrimary, fontSize: 13)),
+            subtitle: const Text('Draws semi-transparent dark pill behind text for high legibility', style: TextStyle(color: EDesign.textMuted, fontSize: 11)),
+            value: _config.marqueeShowBackground,
+            activeThumbColor: EDesign.primaryCyan,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) {
+              _config.marqueeShowBackground = val;
+              _notifyChange();
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTokenChip(String label, String template) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 11, color: EDesign.primaryCyan)),
+      backgroundColor: EDesign.elevatedBackground,
+      side: const BorderSide(color: EDesign.border, width: 0.5),
+      onPressed: () {
+        _config.marqueeText = template;
+        _notifyChange();
+      },
+    );
+  }
+
+  // --- TAB 5: PRESETS (VLC & Cinematic Grading Parity) ---
   Widget _buildPresetsTab() {
     final presets = [
       _PresetItem(

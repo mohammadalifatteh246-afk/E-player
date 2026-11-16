@@ -1,8 +1,12 @@
 import 'dart:math' as math;
+import 'video_overlay_models.dart';
+
+export 'video_overlay_models.dart';
 
 /// Video Effects Configuration for E-Player.
 /// Reverse engineered from VLC media player's `adjust.c`, `sharpen.c`,
-/// `transform.c`, `rotate.c`, `sepia.c`, `gradfun.c`, and `extended_panels.cpp`.
+/// `transform.c`, `rotate.c`, `sepia.c`, `gradfun.c`, `colorthres.c`,
+/// `logo.c`, `marq.c`, and `extended_panels.cpp`.
 class VideoEffectsConfig {
   bool masterEnabled;
 
@@ -35,6 +39,26 @@ class VideoEffectsConfig {
   bool flipVertical;
   double rotationAngle; // 0 to 360 degrees
 
+  // --- Logo / Watermark Overlay (VLC logo.c parity) ---
+  bool logoEnabled;
+  String? logoPath;
+  VideoOverlayPosition logoPosition;
+  double logoOpacity; // 0.0 to 1.0 (VLC 0-255 mapped)
+  double logoScale; // 0.2 to 2.0 (default 1.0)
+  int logoOffsetX; // Pixel offset X
+  int logoOffsetY; // Pixel offset Y
+
+  // --- Marquee / Text OSD Overlay (VLC marq.c parity) ---
+  bool marqueeEnabled;
+  String marqueeText; // e.g. "E-Player • %t • %p / %l"
+  VideoOverlayPosition marqueePosition;
+  double marqueeOpacity; // 0.0 to 1.0
+  double marqueeFontSize; // 10.0 to 48.0 (default 16.0)
+  int marqueeColor; // RGB Hex (default 0xFFFFFF)
+  int marqueeOffsetX; // Pixel offset X
+  int marqueeOffsetY; // Pixel offset Y
+  bool marqueeShowBackground; // Semi-transparent badge background
+
   VideoEffectsConfig({
     this.masterEnabled = true,
     this.brightness = 0.0,
@@ -56,6 +80,22 @@ class VideoEffectsConfig {
     this.flipHorizontal = false,
     this.flipVertical = false,
     this.rotationAngle = 0.0,
+    this.logoEnabled = false,
+    this.logoPath,
+    this.logoPosition = VideoOverlayPosition.topRight,
+    this.logoOpacity = 0.85,
+    this.logoScale = 1.0,
+    this.logoOffsetX = 16,
+    this.logoOffsetY = 16,
+    this.marqueeEnabled = false,
+    this.marqueeText = 'E-Player • %t • %p / %l',
+    this.marqueePosition = VideoOverlayPosition.topLeft,
+    this.marqueeOpacity = 0.90,
+    this.marqueeFontSize = 16.0,
+    this.marqueeColor = 0xFFFFFF,
+    this.marqueeOffsetX = 16,
+    this.marqueeOffsetY = 16,
+    this.marqueeShowBackground = true,
   });
 
   /// Deep copy of configuration
@@ -80,6 +120,22 @@ class VideoEffectsConfig {
     bool? flipHorizontal,
     bool? flipVertical,
     double? rotationAngle,
+    bool? logoEnabled,
+    String? logoPath,
+    VideoOverlayPosition? logoPosition,
+    double? logoOpacity,
+    double? logoScale,
+    int? logoOffsetX,
+    int? logoOffsetY,
+    bool? marqueeEnabled,
+    String? marqueeText,
+    VideoOverlayPosition? marqueePosition,
+    double? marqueeOpacity,
+    double? marqueeFontSize,
+    int? marqueeColor,
+    int? marqueeOffsetX,
+    int? marqueeOffsetY,
+    bool? marqueeShowBackground,
   }) {
     return VideoEffectsConfig(
       masterEnabled: masterEnabled ?? this.masterEnabled,
@@ -102,6 +158,22 @@ class VideoEffectsConfig {
       flipHorizontal: flipHorizontal ?? this.flipHorizontal,
       flipVertical: flipVertical ?? this.flipVertical,
       rotationAngle: rotationAngle ?? this.rotationAngle,
+      logoEnabled: logoEnabled ?? this.logoEnabled,
+      logoPath: logoPath ?? this.logoPath,
+      logoPosition: logoPosition ?? this.logoPosition,
+      logoOpacity: logoOpacity ?? this.logoOpacity,
+      logoScale: logoScale ?? this.logoScale,
+      logoOffsetX: logoOffsetX ?? this.logoOffsetX,
+      logoOffsetY: logoOffsetY ?? this.logoOffsetY,
+      marqueeEnabled: marqueeEnabled ?? this.marqueeEnabled,
+      marqueeText: marqueeText ?? this.marqueeText,
+      marqueePosition: marqueePosition ?? this.marqueePosition,
+      marqueeOpacity: marqueeOpacity ?? this.marqueeOpacity,
+      marqueeFontSize: marqueeFontSize ?? this.marqueeFontSize,
+      marqueeColor: marqueeColor ?? this.marqueeColor,
+      marqueeOffsetX: marqueeOffsetX ?? this.marqueeOffsetX,
+      marqueeOffsetY: marqueeOffsetY ?? this.marqueeOffsetY,
+      marqueeShowBackground: marqueeShowBackground ?? this.marqueeShowBackground,
     );
   }
 
@@ -122,7 +194,9 @@ class VideoEffectsConfig {
         !colorThreshold &&
         !flipHorizontal &&
         !flipVertical &&
-        rotationAngle == 0.0;
+        rotationAngle == 0.0 &&
+        !logoEnabled &&
+        !marqueeEnabled;
   }
 
   /// Reset all effects to defaults
@@ -147,6 +221,22 @@ class VideoEffectsConfig {
     flipHorizontal = false;
     flipVertical = false;
     rotationAngle = 0.0;
+    logoEnabled = false;
+    logoPath = null;
+    logoPosition = VideoOverlayPosition.topRight;
+    logoOpacity = 0.85;
+    logoScale = 1.0;
+    logoOffsetX = 16;
+    logoOffsetY = 16;
+    marqueeEnabled = false;
+    marqueeText = 'E-Player • %t • %p / %l';
+    marqueePosition = VideoOverlayPosition.topLeft;
+    marqueeOpacity = 0.90;
+    marqueeFontSize = 16.0;
+    marqueeColor = 0xFFFFFF;
+    marqueeOffsetX = 16;
+    marqueeOffsetY = 16;
+    marqueeShowBackground = true;
   }
 
   /// Reset only essential adjustments
@@ -178,6 +268,26 @@ class VideoEffectsConfig {
     flipHorizontal = false;
     flipVertical = false;
     rotationAngle = 0.0;
+  }
+
+  /// Reset only logo and marquee overlays (VLC logo.c & marq.c parity)
+  void resetOverlay() {
+    logoEnabled = false;
+    logoPath = null;
+    logoPosition = VideoOverlayPosition.topRight;
+    logoOpacity = 0.85;
+    logoScale = 1.0;
+    logoOffsetX = 16;
+    logoOffsetY = 16;
+    marqueeEnabled = false;
+    marqueeText = 'E-Player • %t • %p / %l';
+    marqueePosition = VideoOverlayPosition.topLeft;
+    marqueeOpacity = 0.90;
+    marqueeFontSize = 16.0;
+    marqueeColor = 0xFFFFFF;
+    marqueeOffsetX = 16;
+    marqueeOffsetY = 16;
+    marqueeShowBackground = true;
   }
 
   // --- Presets (VLC & Cinema Grading Parity) ---
@@ -462,6 +572,22 @@ class VideoEffectsConfig {
         'flipHorizontal': flipHorizontal,
         'flipVertical': flipVertical,
         'rotationAngle': rotationAngle,
+        'logoEnabled': logoEnabled,
+        'logoPath': logoPath,
+        'logoPosition': logoPosition.name,
+        'logoOpacity': logoOpacity,
+        'logoScale': logoScale,
+        'logoOffsetX': logoOffsetX,
+        'logoOffsetY': logoOffsetY,
+        'marqueeEnabled': marqueeEnabled,
+        'marqueeText': marqueeText,
+        'marqueePosition': marqueePosition.name,
+        'marqueeOpacity': marqueeOpacity,
+        'marqueeFontSize': marqueeFontSize,
+        'marqueeColor': marqueeColor,
+        'marqueeOffsetX': marqueeOffsetX,
+        'marqueeOffsetY': marqueeOffsetY,
+        'marqueeShowBackground': marqueeShowBackground,
       };
 
   factory VideoEffectsConfig.fromJson(Map<String, dynamic> json) {
@@ -486,6 +612,26 @@ class VideoEffectsConfig {
       flipHorizontal: json['flipHorizontal'] as bool? ?? false,
       flipVertical: json['flipVertical'] as bool? ?? false,
       rotationAngle: (json['rotationAngle'] as num?)?.toDouble() ?? 0.0,
+      logoEnabled: json['logoEnabled'] as bool? ?? false,
+      logoPath: json['logoPath'] as String?,
+      logoPosition: json['logoPosition'] != null
+          ? VideoOverlayPosition.fromString(json['logoPosition'] as String)
+          : VideoOverlayPosition.topRight,
+      logoOpacity: (json['logoOpacity'] as num?)?.toDouble() ?? 0.85,
+      logoScale: (json['logoScale'] as num?)?.toDouble() ?? 1.0,
+      logoOffsetX: (json['logoOffsetX'] as num?)?.toInt() ?? 16,
+      logoOffsetY: (json['logoOffsetY'] as num?)?.toInt() ?? 16,
+      marqueeEnabled: json['marqueeEnabled'] as bool? ?? false,
+      marqueeText: json['marqueeText'] as String? ?? 'E-Player • %t • %p / %l',
+      marqueePosition: json['marqueePosition'] != null
+          ? VideoOverlayPosition.fromString(json['marqueePosition'] as String)
+          : VideoOverlayPosition.topLeft,
+      marqueeOpacity: (json['marqueeOpacity'] as num?)?.toDouble() ?? 0.90,
+      marqueeFontSize: (json['marqueeFontSize'] as num?)?.toDouble() ?? 16.0,
+      marqueeColor: (json['marqueeColor'] as num?)?.toInt() ?? 0xFFFFFF,
+      marqueeOffsetX: (json['marqueeOffsetX'] as num?)?.toInt() ?? 16,
+      marqueeOffsetY: (json['marqueeOffsetY'] as num?)?.toInt() ?? 16,
+      marqueeShowBackground: json['marqueeShowBackground'] as bool? ?? true,
     );
   }
 }

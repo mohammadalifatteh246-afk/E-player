@@ -18,6 +18,7 @@ import '../../library/domain/library_provider.dart';
 import '../../video_effects/models/video_effects_config.dart';
 import '../../video_effects/domain/video_effects_service.dart';
 import '../../video_effects/ui/video_effects_sheet.dart';
+import '../../video_effects/ui/video_overlay_widget.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/ui/online_subtitles_sheet.dart';
 import 'audio_studio_sheet.dart';
@@ -2243,6 +2244,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: videoWidget,
       );
     }
+
+    // Video Overlay Layer (VLC SPU logo.c & marq.c parity)
+    videoWidget = Stack(
+      fit: StackFit.passthrough,
+      children: [
+        videoWidget,
+        VideoOverlayWidget(
+          config: _videoEffectsConfig,
+          mediaTitle: p.basename(widget.mediaPath),
+          position: _position,
+          duration: _duration,
+        ),
+      ],
+    );
 
     if (_pipService.isInPip) {
       return Scaffold(
