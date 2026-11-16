@@ -26,6 +26,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onToggleZoom;
   final VoidCallback? onToggleTeletext;
   final VoidCallback? onCycleClosedCaptions;
+  final VoidCallback? onToggleRecord;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -51,6 +52,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onToggleZoom,
     this.onToggleTeletext,
     this.onCycleClosedCaptions,
+    this.onToggleRecord,
     this.focusNode,
     this.autofocus = true,
   });
@@ -418,6 +420,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isShift && event.logicalKey == LogicalKeyboardKey.keyC && widget.onCycleClosedCaptions != null) {
       widget.onUserActivity();
       widget.onCycleClosedCaptions!();
+      return KeyEventResult.handled;
+    }
+
+    // 19. Toggle Stream Recording (Shift + R) (VLC record.c parity)
+    if (isShift && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {
+      widget.onUserActivity();
+      widget.onToggleRecord!();
       return KeyEventResult.handled;
     }
 

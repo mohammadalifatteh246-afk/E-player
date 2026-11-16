@@ -43,6 +43,9 @@ import '../../video_effects/ui/puzzle_wall_surface_widget.dart';
 import '../../subtitles/data/teletext_closed_caption_controller.dart';
 import '../../subtitles/ui/teletext_osd_overlay_widget.dart';
 import '../../subtitles/ui/teletext_closed_captions_sheet.dart';
+import '../../stream_recorder/data/stream_recorder_controller.dart';
+import '../../stream_recorder/ui/stream_recorder_badge_widget.dart';
+import '../../stream_recorder/ui/stream_recorder_sheet.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -66,6 +69,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final InteractiveZoomController _interactiveZoomController;
   late final PuzzleWallController _puzzleWallController;
   late final TeletextClosedCaptionController _teletextCcController;
+  late final StreamRecorderController _streamRecorderController;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -438,6 +442,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _teletextCcController.addListener(() {
       if (mounted) setState(() {});
     });
+    _streamRecorderController = StreamRecorderController(player: _player);
+    _streamRecorderController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _videoEffectsService.loadFromPreferences().then((cfg) {
       if (mounted) {
         setState(() => _videoEffectsConfig = cfg);
@@ -567,6 +575,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _interactiveZoomController.dispose();
     _puzzleWallController.dispose();
     _teletextCcController.dispose();
+    _streamRecorderController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
     _player.dispose();
@@ -2141,6 +2150,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           },
                         ),
                         _buildQuickOptionTile(
+                          key: const Key('hud_stream_recorder_button'),
+                          icon: Icons.fiber_manual_record,
+                          title: 'Record Stream',
+                          subtitle: _streamRecorderController.isRecording
+                              ? 'Recording (${_streamRecorderController.activeFormattedDuration})'
+                              : 'Dump Stream (Shift+R)',
+                          accentColor: _streamRecorderController.isRecording ? Colors.redAccent : EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => StreamRecorderSheet(
+                                controller: _streamRecorderController,
+                                mediaTitle: p.basename(widget.mediaPath),
+                                sourceUrl: widget.mediaPath,
+                              ),
+                            );
+                          },
+                        ),
+                        _buildQuickOptionTile(
                           icon: Icons.picture_in_picture_alt_rounded,
                           title: 'PiP Window',
                           subtitle: 'Background Float',
@@ -2448,6 +2479,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _showFeedbackMessage(
             'Closed Captions: ${_teletextCcController.captionConfig.channel.shortCode}',
             Icons.closed_caption,
+          );
+        },
+        onToggleRecord: () async {
+          await _streamRecorderController.toggleRecording(
+            mediaTitle: p.basename(widget.mediaPath),
+            sourceUrl: widget.mediaPath,
+          );
+          _showFeedbackMessage(
+            _streamRecorderController.isRecording
+                ? 'Recording Started (Shift+R)'
+                : 'Recording Stopped (Shift+R)',
+            Icons.fiber_manual_record,
+            _streamRecorderController.isRecording ? Colors.redAccent : EDesign.primaryCyan,
           );
         },
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
@@ -3185,6 +3229,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   controller: _teletextCcController,
                 );
               },
+            ),
+
+            // VLC Network Stream Recorder (record.c) Live HUD Badge
+            StreamRecorderBadgeWidget(
+              controller: _streamRecorderController,
             ),
           ],
         ),
