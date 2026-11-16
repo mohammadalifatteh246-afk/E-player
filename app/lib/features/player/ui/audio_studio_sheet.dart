@@ -5,6 +5,7 @@ import '../../../ui/theme/e_design_tokens.dart';
 import '../../audio/domain/audio_visualizer_engine.dart';
 import '../../audio/domain/spatial_audio_models.dart';
 import '../../audio/domain/audio_pitch_models.dart';
+import '../../audio/domain/audio_compressor_models.dart';
 import '../../audio/ui/audio_spectrum_visualizer_widget.dart';
 
 class AudioConfig {
@@ -29,6 +30,7 @@ class AudioConfig {
   VisualizerStyle visualizerStyle = VisualizerStyle.bars;
   SpatialAudioConfig spatialAudio = SpatialAudioConfig();
   AudioPitchConfig pitch = AudioPitchConfig();
+  AudioCompressorConfig compressor = AudioCompressorConfig();
 
   static const Map<String, List<double>> presets = {
     'Flat': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -128,6 +130,12 @@ class AudioConfig {
       filters.add(pitchFilter);
     }
 
+    // Dynamic Range Compressor (VLC compressor.c parity)
+    final compressorFilter = compressor.buildMpvAfString();
+    if (compressorFilter.isNotEmpty) {
+      filters.add(compressorFilter);
+    }
+
     // 10-Band Graphic Equalizer
     for (int i = 0; i < freqs.length; i++) {
       if (eq[i].abs() > 0.05) {
@@ -175,6 +183,7 @@ class AudioConfig {
     nightMode = false;
     spatialAudio.reset();
     pitch.reset();
+    compressor.reset();
     apply(player);
   }
 }
@@ -654,6 +663,10 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
 
           // Audio Pitch Shifter & Scaler (VLC scaletempo.c Parity)
           _buildPitchShifterCard(),
+          const SizedBox(height: 12),
+
+          // Dynamic Range Compressor (VLC compressor.c Parity)
+          _buildCompressorCard(),
           const SizedBox(height: 12),
 
           _buildBoostSwitchTile(
@@ -1161,6 +1174,298 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
       onSelected: (val) {
         if (val) {
           setState(() => _config.pitch.applyPreset(preset));
+          _debouncedApply();
+        }
+      },
+    );
+  }
+
+  Widget _buildCompressorCard() {
+    final comp = _config.compressor;
+
+    return Container(
+      key: const Key('audio_compressor_card'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: EDesign.elevatedBackground,
+        borderRadius: BorderRadius.circular(EDesign.r16),
+        border: Border.all(
+          color: comp.enabled ? EDesign.warning.withValues(alpha: 0.4) : EDesign.border,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: EDesign.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(EDesign.r8),
+                ),
+                child: const Icon(Icons.compress_rounded, color: EDesign.warning, size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dynamic Range Compressor (DRC)',
+                      style: TextStyle(
+                        color: EDesign.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Tame loud peaks & boost quiet whispers (VLC compressor.c)',
+                      style: TextStyle(color: EDesign.textMuted, fontSize: 10.5),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                key: const Key('compressor_toggle'),
+                value: comp.enabled,
+                activeThumbColor: EDesign.warning,
+                activeTrackColor: EDesign.warning.withValues(alpha: 0.5),
+                onChanged: (val) {
+                  setState(() => comp.enabled = val);
+                  _debouncedApply();
+                },
+              ),
+            ],
+          ),
+          if (comp.enabled) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Acoustic Compression Profiles',
+              style: TextStyle(color: EDesign.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildCompressorPresetChip('Balanced (Default)', AudioCompressorPreset.balancedDefault),
+                _buildCompressorPresetChip('Night Cinema', AudioCompressorPreset.nightCinema),
+                _buildCompressorPresetChip('Speech / Podcast', AudioCompressorPreset.speechBroadcast),
+                _buildCompressorPresetChip('Hard Limiter', AudioCompressorPreset.hardLimiter),
+                _buildCompressorPresetChip('Subtle Acoustic', AudioCompressorPreset.subtleAcoustic),
+                _buildCompressorPresetChip('Heavy Squeeze', AudioCompressorPreset.heavySqueeze),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Threshold Slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Threshold (Trigger Level)', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text('${comp.threshold.toStringAsFixed(1)} dB', style: const TextStyle(color: EDesign.warning, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Slider(
+              key: const Key('compressor_threshold_slider'),
+              value: comp.threshold,
+              min: -30.0,
+              max: 0.0,
+              divisions: 30,
+              activeColor: EDesign.warning,
+              inactiveColor: EDesign.surface,
+              onChanged: (v) {
+                setState(() => comp.setThreshold(v));
+                _debouncedApply();
+              },
+            ),
+
+            // Ratio Slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Ratio (Compression Slope)', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text('${comp.ratio.toStringAsFixed(1)}:1', style: const TextStyle(color: EDesign.warning, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Slider(
+              key: const Key('compressor_ratio_slider'),
+              value: comp.ratio,
+              min: 1.0,
+              max: 20.0,
+              divisions: 38,
+              activeColor: EDesign.warning,
+              inactiveColor: EDesign.surface,
+              onChanged: (v) {
+                setState(() => comp.setRatio(v));
+                _debouncedApply();
+              },
+            ),
+
+            // Makeup Gain Slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Makeup Gain', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text('+${comp.makeupGain.toStringAsFixed(1)} dB', style: const TextStyle(color: EDesign.warning, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Slider(
+              key: const Key('compressor_makeup_slider'),
+              value: comp.makeupGain,
+              min: 0.0,
+              max: 24.0,
+              divisions: 48,
+              activeColor: EDesign.warning,
+              inactiveColor: EDesign.surface,
+              onChanged: (v) {
+                setState(() => comp.setMakeupGain(v));
+                _debouncedApply();
+              },
+            ),
+
+            // Knee Radius Slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Knee Radius (Soft/Hard Curve)', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text('${comp.knee.toStringAsFixed(1)} dB', style: const TextStyle(color: EDesign.warning, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Slider(
+              key: const Key('compressor_knee_slider'),
+              value: comp.knee,
+              min: 1.0,
+              max: 10.0,
+              divisions: 18,
+              activeColor: EDesign.warning,
+              inactiveColor: EDesign.surface,
+              onChanged: (v) {
+                setState(() => comp.setKnee(v));
+                _debouncedApply();
+              },
+            ),
+
+            // Attack & Release row
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Attack', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                          Text('${comp.attack.round()} ms', style: const TextStyle(color: EDesign.warning, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Slider(
+                        key: const Key('compressor_attack_slider'),
+                        value: comp.attack,
+                        min: 1.5,
+                        max: 400.0,
+                        activeColor: EDesign.warning,
+                        inactiveColor: EDesign.surface,
+                        onChanged: (v) {
+                          setState(() => comp.setAttack(v));
+                          _debouncedApply();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Release', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                          Text('${comp.release.round()} ms', style: const TextStyle(color: EDesign.warning, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Slider(
+                        key: const Key('compressor_release_slider'),
+                        value: comp.release,
+                        min: 2.0,
+                        max: 800.0,
+                        activeColor: EDesign.warning,
+                        inactiveColor: EDesign.surface,
+                        onChanged: (v) {
+                          setState(() => comp.setRelease(v));
+                          _debouncedApply();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Detection Type & Reset
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('RMS Detection', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                    const SizedBox(width: 4),
+                    Switch.adaptive(
+                      key: const Key('compressor_rms_toggle'),
+                      value: comp.rmsDetection,
+                      activeThumbColor: EDesign.warning,
+                      activeTrackColor: EDesign.warning.withValues(alpha: 0.5),
+                      onChanged: (v) {
+                        setState(() => comp.setRmsDetection(v));
+                        _debouncedApply();
+                      },
+                    ),
+                  ],
+                ),
+                TextButton.icon(
+                  key: const Key('compressor_reset_button'),
+                  icon: const Icon(Icons.refresh, size: 14, color: EDesign.textSecondary),
+                  label: const Text('Reset DRC', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                  onPressed: () {
+                    setState(() => comp.reset());
+                    _debouncedApply();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompressorPresetChip(String label, AudioCompressorPreset preset) {
+    final isSelected = _config.compressor.preset == preset;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: isSelected ? Colors.black : EDesign.textSecondary,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: EDesign.warning,
+      backgroundColor: EDesign.surface,
+      side: BorderSide(
+        color: isSelected ? EDesign.warning : EDesign.border,
+        width: 0.8,
+      ),
+      onSelected: (val) {
+        if (val) {
+          setState(() => _config.compressor.applyPreset(preset));
           _debouncedApply();
         }
       },
