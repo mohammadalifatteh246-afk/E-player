@@ -23,6 +23,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onOpenBookmarks;
   final void Function(int bookmarkIndex)? onJumpToBookmark;
   final VoidCallback? onTakeSnapshot;
+  final VoidCallback? onToggleZoom;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -45,6 +46,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onOpenBookmarks,
     this.onJumpToBookmark,
     this.onTakeSnapshot,
+    this.onToggleZoom,
     this.focusNode,
     this.autofocus = true,
   });
@@ -391,6 +393,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isShift && event.logicalKey == LogicalKeyboardKey.keyS) {
       widget.onUserActivity();
       widget.onTakeSnapshot?.call();
+      return KeyEventResult.handled;
+    }
+
+    // 16. Interactive Zoom / Magnifier Toggle ('z') (VLC magnify.c parity)
+    if (event.logicalKey == LogicalKeyboardKey.keyZ && !isCtrl && !isAlt && widget.onToggleZoom != null) {
+      widget.onUserActivity();
+      widget.onToggleZoom!();
       return KeyEventResult.handled;
     }
 

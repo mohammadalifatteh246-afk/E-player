@@ -35,6 +35,8 @@ import '../../bookmarks/data/bookmark_service.dart';
 import '../../bookmarks/ui/bookmarks_sheet.dart';
 import '../services/video_snapshot_service.dart';
 import '../services/desktop_tray_audio_service.dart';
+import '../services/interactive_zoom_controller.dart';
+import 'widgets/interactive_zoom_viewfinder.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -55,6 +57,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final ABRepeatController _abRepeatController;
   late final AspectCropController _cropController;
   late final BufferCachingSettingsController _bufferCachingController;
+  late final InteractiveZoomController _interactiveZoomController;
+  bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
   StreamSubscription<bool>? _trayPlayingSubscription;
@@ -253,6 +257,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _abRepeatController = ABRepeatController();
     _cropController = AspectCropController(_player);
     _bufferCachingController = BufferCachingSettingsController();
+    _interactiveZoomController = InteractiveZoomController(player: _player);
+    _interactiveZoomController.addListener(() {
+      if (mounted) setState(() {});
+    });
     BookmarkService.instance.addListener(_onBookmarksChanged);
     SharedPreferences.getInstance().then((prefs) {
       _bufferCachingController.loadFromPrefs(prefs).then((_) {
@@ -531,6 +539,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _feedbackTimer?.cancel();
     _keyboardFocusNode.dispose();
     VideoRotationService.resetOrientation();
+    _interactiveZoomController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
     _player.dispose();
@@ -542,6 +551,64 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final minutes = twoDigits(d.inMinutes.remainder(60));
     final seconds = twoDigits(d.inSeconds.remainder(60));
     return "${d.inHours > 0 ? '${d.inHours}:' : ''}$minutes:$seconds";
+  }
+
+  String _formatPosition(Duration d) {
+    if (d < Duration.zero) d = Duration.zero;
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (d.inHours > 0) {
+      final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+      return '${d.inHours}:$minutes:$seconds';
+    } else {
+      final minutes = d.inMinutes.remainder(60).toString();
+      return '$minutes:$seconds';
+    }
+  }
+
+  String _formatRemainingDuration(Duration pos, Duration dur) {
+    if (dur <= Duration.zero || dur < pos) return '- 0:00';
+    final remaining = dur - pos;
+    final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (remaining.inHours > 0) {
+      final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+      return '- ${remaining.inHours}:$minutes:$seconds';
+    } else {
+      final minutes = remaining.inMinutes.remainder(60).toString();
+      return '- $minutes:$seconds';
+    }
+  }
+
+  void _setSpeed(double speed) {
+    setState(() => _playbackSpeed = speed);
+    _player.setRate(speed);
+    _showFeedbackMessage('Speed: ${speed}x', Icons.speed);
+    _showControls();
+  }
+
+  void _openAiStudio() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.70,
+          child: EnhancementStudioSheet(
+            aiEngine: _aiEngine,
+            mediaPath: widget.mediaPath,
+            config: _enhancementConfig,
+            onConfigChanged: () {
+              setState(() {});
+              _applyEnhancements();
+            },
+          ),
+        );
+      },
+    ).then((_) {
+      setState(() {});
+      _applyEnhancements();
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
   }
 
   void _onBookmarksChanged() {
@@ -1795,6 +1862,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             player: _player,
             config: _videoEffectsConfig,
             service: _videoEffectsService,
+            zoomController: _interactiveZoomController,
             onConfigChanged: () {
               setState(() {});
             },
@@ -1836,6 +1904,329 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _audioDelayMs = _audioConfig.audioDelay;
       if (mounted) _keyboardFocusNode.requestFocus();
     });
+  }
+
+  void _showMorePlayerOptionsSheet() {
+    _controlsTimer?.cancel();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: EDesign.elevatedBackground,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.tune_rounded, color: EDesign.primary, size: 20),
+                            SizedBox(width: 8),
+                            Text('Playback & Controls', style: EDesign.h3),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: EDesign.textSecondary),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Playback Speed', style: TextStyle(color: EDesign.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                        InkWell(
+                          onTap: () {
+                            _cyclePlaybackSpeed();
+                            setSheetState(() {});
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            child: Text(
+                              'Cycle Speed (${_playbackSpeed.toStringAsFixed(2)}x)',
+                              style: const TextStyle(color: EDesign.primary, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 36,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) {
+                          final isSelected = (_playbackSpeed - speed).abs() < 0.05;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text('${speed}x'),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFFFF5722),
+                              backgroundColor: EDesign.surface,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : EDesign.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                              onSelected: (_) {
+                                Navigator.pop(ctx);
+                                _setSpeed(speed);
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: EDesign.border, height: 1),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 2.3,
+                      children: [
+                        _buildQuickOptionTile(
+                          key: const Key('hud_audio_tracks_button'),
+                          icon: Icons.audiotrack_outlined,
+                          title: 'Audio Tracks',
+                          subtitle: _selectedAudioTrack.title ?? 'Default',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showAudioTrackMenu();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_audio_equalizer_button'),
+                          icon: Icons.equalizer,
+                          title: 'Equalizer',
+                          subtitle: '10-Band EQ & FX',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showAudioStudioSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.auto_awesome,
+                          title: 'AI Studio',
+                          subtitle: _enhancementConfig.masterToggle ? 'Active' : 'Off',
+                          accentColor: EDesign.aiAccent,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openAiStudio();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.tune,
+                          title: 'Video Effects',
+                          subtitle: 'Colors & Contrast',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showVideoEffectsSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_ab_repeat_button'),
+                          icon: Icons.repeat_rounded,
+                          title: 'A-B Loop',
+                          subtitle: _abRepeatController.state.name.toUpperCase(),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _cycleABRepeat();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_frame_step_button'),
+                          icon: Icons.skip_next_rounded,
+                          title: 'Frame Step',
+                          subtitle: 'Step Forward (e)',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _stepFrame();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_interactive_zoom_button'),
+                          icon: Icons.zoom_in_rounded,
+                          title: 'Interactive Zoom',
+                          subtitle: _interactiveZoomController.state.isActive
+                              ? '${_interactiveZoomController.state.zoomFactor.toStringAsFixed(1)}x Active'
+                              : 'VLC Magnifier HUD',
+                          accentColor: _interactiveZoomController.state.isActive ? EDesign.primaryCyan : EDesign.primary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            setState(() {
+                              _showZoomViewfinder = !_showZoomViewfinder;
+                              if (_showZoomViewfinder && !_interactiveZoomController.state.isActive) {
+                                _interactiveZoomController.setZoom(2.0);
+                              }
+                            });
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_bookmarks_button'),
+                          icon: Icons.bookmark_outline_rounded,
+                          title: 'Bookmarks',
+                          subtitle: 'Chapters & Tags',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showBookmarksSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_snapshot_button'),
+                          icon: Icons.camera_alt_outlined,
+                          title: 'Snapshot',
+                          subtitle: 'PNG Frame (Shift+S)',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _takeSnapshot();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.picture_in_picture_alt_rounded,
+                          title: 'PiP Window',
+                          subtitle: 'Background Float',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _triggerPip();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.cast_rounded,
+                          title: 'Cast Media',
+                          subtitle: 'Wireless Display',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openCastSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.memory_rounded,
+                          title: 'Decoder',
+                          subtitle: _decoderMode,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showDecoderMenu();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.speed_rounded,
+                          title: 'Custom Speed',
+                          subtitle: 'Precision Slider',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showSpeedMenu();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.info_outline_rounded,
+                          title: 'Technical Info',
+                          subtitle: 'Codec & Stream Specs',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            MediaInfoSheet.show(context, mediaPath: widget.mediaPath);
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          icon: Icons.settings_outlined,
+                          title: 'Full Settings',
+                          subtitle: 'Drawer Config',
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Scaffold.of(context).openEndDrawer();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      _startControlsTimer();
+      if (mounted) _keyboardFocusNode.requestFocus();
+    });
+  }
+
+  Widget _buildQuickOptionTile({
+    Key? key,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    Color accentColor = EDesign.primary,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      key: key,
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: EDesign.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: EDesign.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: accentColor, size: 18),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: EDesign.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: EDesign.textMuted,
+                      fontSize: 10,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -1963,6 +2354,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onOpenBookmarks: _showBookmarksSheet,
         onJumpToBookmark: _jumpToBookmark,
         onTakeSnapshot: _takeSnapshot,
+        onToggleZoom: () {
+          setState(() {
+            _showZoomViewfinder = !_showZoomViewfinder;
+            if (_showZoomViewfinder && !_interactiveZoomController.state.isActive) {
+              _interactiveZoomController.setZoom(2.0);
+            }
+          });
+          _showFeedbackMessage(
+            _interactiveZoomController.state.isActive
+                ? 'Interactive Zoom: ${_interactiveZoomController.state.zoomFactor.toStringAsFixed(1)}x'
+                : 'Interactive Zoom: Normal',
+            Icons.zoom_in,
+          );
+        },
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
@@ -2030,9 +2435,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ),
               ),
 
-              // Top Bar Controls (Floating Glassmorphic V3 Overlay - Auto-Hiding)
+              // Top Bar Controls (Cinematic Minimalist Overlay - Exact Reference Match)
               Positioned(
-                top: 24,
+                top: 20,
                 left: 16,
                 right: 16,
                 child: AnimatedOpacity(
@@ -2041,219 +2446,78 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   curve: Curves.easeInOut,
                   child: IgnorePointer(
                     ignoring: !_controlsVisible,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: EDesign.surface.withValues(alpha: 0.82),
-                        borderRadius: BorderRadius.circular(EDesign.r18),
-                        border: Border.all(color: EDesign.border, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
-                            tooltip: 'Back',
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  widget.mediaPath.isNotEmpty
-                                      ? p.basename(widget.mediaPath)
-                                      : 'The Last Horizon.mkv',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                      decoration: BoxDecoration(
-                                        color: EDesign.primary.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: EDesign.primary.withValues(alpha: 0.7), width: 0.8),
-                                      ),
-                                      child: Text(
-                                        _player.state.width != null && _player.state.width! >= 3840
-                                            ? '4K'
-                                            : (_player.state.width != null && _player.state.width! >= 1920 ? '1080P' : '4K'),
-                                        style: const TextStyle(
-                                          color: EDesign.primary,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    GestureDetector(
-                                      onTap: _showDecoderMenu,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black45,
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: Colors.white24, width: 0.8),
-                                        ),
-                                        child: Text(
-                                          _decoderMode,
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Left: Back button & Screen Orientation Lock
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                              tooltip: 'Back',
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              key: const Key('hud_orientation_lock_button'),
+                              icon: const EVectorIcon(
+                                name: 'screen_orientation_lock',
+                                size: 22,
+                                color: Colors.white,
+                              ),
+                              tooltip: 'Orientation Lock: ${VideoRotationService.getModeLabel(_orientationMode)}',
+                              onPressed: () {
+                                _showControls();
+                                _cycleOrientationMode();
+                              },
+                            ),
+                          ],
+                        ),
+
+                        // Center: Clean Centered Title with subtle shadow
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              widget.mediaPath.isNotEmpty
+                                  ? p.basename(widget.mediaPath)
+                                  : 'The Last Horizon.mkv',
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                letterSpacing: 0.15,
+                                shadows: [
+                                  Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+                                ],
+                              ),
                             ),
                           ),
-                          Consumer<CastService>(
-                            builder: (context, castService, _) {
-                              final isCasting = castService.connectedDevice != null;
-                              return IconButton(
-                                icon: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    EVectorIcon(
-                                      name: 'cast',
-                                      size: 19,
-                                      color: isCasting ? EDesign.primaryCyan : Colors.white,
-                                    ),
-                                    if (isCasting)
-                                      Positioned(
-                                        right: -2,
-                                        top: -2,
-                                        child: Container(
-                                          width: 7,
-                                          height: 7,
-                                          decoration: const BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: EDesign.primaryCyan,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: EDesign.primaryCyan,
-                                                blurRadius: 4,
-                                                spreadRadius: 1,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                tooltip: isCasting
-                                    ? 'Casting to ${castService.connectedDevice!.name}'
-                                    : 'Cast Media (Wireless Display)',
-                                onPressed: _openCastSheet,
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: const EVectorIcon(
-                              name: 'pip',
-                              size: 19,
-                              color: Colors.white,
-                            ),
-                            tooltip: 'Picture-in-Picture',
-                            onPressed: _triggerPip,
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.auto_awesome,
-                              size: 20,
-                              color: _enhancementConfig.masterToggle ? EDesign.aiAccent : Colors.white70,
-                            ),
-                            tooltip: 'AI Enhancement Studio',
-                            onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                isScrollControlled: true,
-                                builder: (context) {
-                                  return SizedBox(
-                                    height: MediaQuery.of(context).size.height * 0.70,
-                                    child: EnhancementStudioSheet(
-                                      aiEngine: _aiEngine,
-                                      mediaPath: widget.mediaPath,
-                                      config: _enhancementConfig,
-                                      onConfigChanged: () {
-                                        setState(() {});
-                                        _applyEnhancements();
-                                      },
-                                    ),
-                                  );
-                                },
-                              ).then((_) {
-                                setState(() {});
-                                _applyEnhancements();
-                                if (mounted) _keyboardFocusNode.requestFocus();
-                              });
-                            },
-                          ),
-                          IconButton(
-                            key: const Key('hud_audio_tracks_button'),
-                            icon: const Icon(Icons.audiotrack_outlined, color: Colors.white70, size: 20),
-                            tooltip: 'Audio Tracks',
-                            onPressed: _showAudioTrackMenu,
-                          ),
-                          IconButton(
-                            key: const Key('hud_bookmarks_button'),
-                            icon: const Icon(Icons.bookmark_outline_rounded, color: Colors.white70, size: 20),
-                            tooltip: 'Chapters & Bookmarks (Ctrl+B)',
-                            onPressed: _showBookmarksSheet,
-                          ),
-                          IconButton(
-                            key: const Key('hud_snapshot_button'),
-                            icon: const Icon(Icons.camera_alt_outlined, color: Colors.white70, size: 20),
-                            tooltip: 'Take Snapshot (Shift+S)',
-                            onPressed: _takeSnapshot,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.subtitles_outlined, color: Colors.white70, size: 20),
-                            tooltip: 'Subtitles',
-                            onPressed: _showSubtitleMenu,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 20),
-                            tooltip: 'Technical Media Inspector',
-                            onPressed: () {
-                              MediaInfoSheet.show(
-                                context,
-                                mediaPath: widget.mediaPath,
-                              ).then((_) {
-                                if (mounted) _keyboardFocusNode.requestFocus();
-                              });
-                            },
-                          ),
-                          Builder(
-                            builder: (ctx) => IconButton(
-                              icon: const Icon(Icons.more_vert, color: Colors.white70, size: 20),
-                              tooltip: 'Settings',
-                              onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+                        ),
+
+                        // Right: Minimal Spacer / Active Cast Pill
+                        SizedBox(
+                          width: 80,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Consumer<CastService>(
+                              builder: (context, castService, _) {
+                                final isCasting = castService.connectedDevice != null;
+                                if (!isCasting) return const SizedBox.shrink();
+                                return IconButton(
+                                  icon: const EVectorIcon(name: 'cast', size: 19, color: EDesign.primaryCyan),
+                                  tooltip: 'Casting to ${castService.connectedDevice!.name}',
+                                  onPressed: _openCastSheet,
+                                );
+                              },
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -2389,184 +2653,119 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 },
               ),
 
-            // Bottom Controls (Glassmorphic V3 container - Auto-Hiding)
+            // Bottom Controls (Cinematic Minimalist Overlay - Exact Reference Match)
             if (!_isLocked)
               Positioned(
-                bottom: 24,
-                left: 20,
-                right: 20,
+                bottom: 16,
+                left: 16,
+                right: 16,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
                   child: IgnorePointer(
                     ignoring: !_controlsVisible,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: EDesign.surface.withValues(alpha: 0.85),
-                        borderRadius: BorderRadius.circular(EDesign.r24),
-                        border: Border.all(color: EDesign.border, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Scrubber and Timestamps (Reference Screen 3)
-                          Row(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Scrubber and Timestamps (Exact Reference Match)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                _formatDuration(_position),
+                                _formatPosition(_position),
                                 style: const TextStyle(
-                                  color: EDesign.textPrimary,
+                                  color: Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   fontFamily: 'Inter',
-                                ),
-                              ),
-                              Expanded(
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor: EDesign.primary,
-                                        inactiveTrackColor: Colors.white24,
-                                        thumbColor: EDesign.primary,
-                                        overlayColor: EDesign.primary.withValues(alpha: 0.25),
-                                        trackHeight: 4.0,
-                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
-                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
-                                      ),
-                                      child: Slider(
-                                        value: _position.inMilliseconds.toDouble().clamp(
-                                          0.0,
-                                          _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
-                                        ),
-                                        min: 0.0,
-                                        max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
-                                        onChangeStart: (_) {
-                                          _controlsTimer?.cancel();
-                                        },
-                                        onChangeEnd: (_) {
-                                          _startControlsTimer();
-                                        },
-                                        onChanged: (v) {
-                                          _aiEngine.invalidateQueue();
-                                          _player.seek(Duration(milliseconds: v.toInt()));
-                                        },
-                                      ),
-                                    ),
-                                    // Golden bookmark pips overlay along scrubber track
-                                    IgnorePointer(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 22.0),
-                                        child: LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            final bookmarks = BookmarkService.instance.getBookmarks(widget.mediaPath);
-                                            final durationMs = _duration.inMilliseconds;
-                                            if (bookmarks.isEmpty || durationMs <= 0) return const SizedBox.shrink();
-
-                                            return SizedBox(
-                                              width: constraints.maxWidth,
-                                              height: 12,
-                                              child: Stack(
-                                                alignment: Alignment.centerLeft,
-                                                children: bookmarks.map((bm) {
-                                                  final fraction = (bm.timestampMs / durationMs).clamp(0.0, 1.0);
-                                                  final leftPos = fraction * constraints.maxWidth;
-                                                  return Positioned(
-                                                    left: leftPos.clamp(0.0, constraints.maxWidth - 3.5),
-                                                    child: Container(
-                                                      width: 3.5,
-                                                      height: 9,
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.amber,
-                                                        borderRadius: BorderRadius.circular(1.5),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.amber.withValues(alpha: 0.8),
-                                                            blurRadius: 3,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  );
-                                                }).toList(),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
+                                  shadows: [
+                                    Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
                                   ],
                                 ),
                               ),
                               Text(
-                                _formatDuration(_duration),
+                                _formatRemainingDuration(_position, _duration),
                                 style: const TextStyle(
-                                  color: EDesign.textSecondary,
+                                  color: Colors.white,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   fontFamily: 'Inter',
+                                  shadows: [
+                                    Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          // Controls Row
-                          Row(
+                        ),
+                        // Sleek Slider with Hotstar Orange Accent
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: const Color(0xFFFF5722),
+                            inactiveTrackColor: Colors.white24,
+                            thumbColor: const Color(0xFFFF5722),
+                            overlayColor: const Color(0xFFFF5722).withValues(alpha: 0.25),
+                            trackHeight: 3.0,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                          ),
+                          child: Slider(
+                            value: _position.inMilliseconds.toDouble().clamp(
+                              0.0,
+                              _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                            ),
+                            min: 0.0,
+                            max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
+                            onChangeStart: (_) {
+                              _controlsTimer?.cancel();
+                            },
+                            onChangeEnd: (_) {
+                              _startControlsTimer();
+                            },
+                            onChanged: (v) {
+                              _aiEngine.invalidateQueue();
+                              _player.seek(Duration(milliseconds: v.toInt()));
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // Controls Row
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // Left: Screen Lock & Speed Pill
+                              // Left: Subtitles & Screen Rotate / Aspect Loop
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.lock_open_outlined, color: EDesign.textSecondary, size: 20),
-                                    tooltip: 'Lock Controls',
-                                    onPressed: () {
-                                      setState(() => _isLocked = true);
-                                      _showFeedbackMessage('Controls Locked', Icons.lock);
-                                      _showControls();
-                                    },
+                                    key: const Key('hud_subtitles_button'),
+                                    icon: const EVectorIcon(name: 'subtitles', size: 22, color: Colors.white),
+                                    tooltip: 'Subtitles',
+                                    onPressed: _showSubtitleMenu,
                                   ),
-                                  const SizedBox(width: 4),
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: _cyclePlaybackSpeed,
-                                    onLongPress: _showSpeedMenu,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: EDesign.primary.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: EDesign.primary.withValues(alpha: 0.5)),
-                                      ),
-                                      child: Text(
-                                        '${_playbackSpeed.toStringAsFixed(1)}x',
-                                        style: const TextStyle(
-                                          color: EDesign.primary,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    key: const Key('hud_crop_button'),
+                                    icon: const EVectorIcon(name: 'cycle_rotate', size: 21, color: Colors.white),
+                                    tooltip: 'Cycle Aspect & Rotation',
+                                    onPressed: () {
+                                      _showControls();
+                                      _cycleOrientationMode();
+                                    },
                                   ),
                                 ],
                               ),
-                              // Center: Replay, Glowing Play/Pause, Forward
+                              // Center: Replay 10, Ring Play/Pause, Forward 10
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 24),
+                                    icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28),
                                     tooltip: '-10s',
                                     onPressed: () {
                                       final newPos = _position - const Duration(seconds: 10);
@@ -2575,37 +2774,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       _showControls();
                                     },
                                   ),
-                                  const SizedBox(width: 4),
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: EDesign.primary,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: EDesign.primary.withValues(alpha: 0.65),
-                                          blurRadius: 16,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                    child: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      icon: Icon(
-                                        _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                                        color: Colors.black,
-                                        size: 28,
+                                  const SizedBox(width: 14),
+                                  GestureDetector(
+                                    key: const Key('hud_play_pause_button'),
+                                    onTap: () {
+                                      _showControls();
+                                      _isPlaying ? _player.pause() : _player.play();
+                                    },
+                                    child: Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2.2),
+                                        color: Colors.black.withValues(alpha: 0.25),
                                       ),
-                                      onPressed: () {
-                                        _showControls();
-                                        _isPlaying ? _player.pause() : _player.play();
-                                      },
+                                      child: Center(
+                                        child: Icon(
+                                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 14),
                                   IconButton(
-                                    icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 24),
+                                    icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28),
                                     tooltip: '+10s',
                                     onPressed: () {
                                       final newPos = _position + const Duration(seconds: 10);
@@ -2614,68 +2809,29 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       _showControls();
                                     },
                                   ),
-                                  const SizedBox(width: 4),
-                                  IconButton(
-                                    key: const Key('hud_frame_step_button'),
-                                    icon: const Icon(Icons.skip_next_rounded, color: EDesign.primary, size: 22),
-                                    tooltip: 'Frame Step (e)',
-                                    onPressed: () {
-                                      _showControls();
-                                      _stepFrame();
-                                    },
-                                  ),
                                 ],
                               ),
-                              // Right: Audio EQ, Aspect Ratio & Decoder
+                              // Right: Fit / Fullscreen & More options
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    key: const Key('hud_ab_repeat_button'),
-                                    icon: Icon(
-                                      _abRepeatController.state == ABRepeatState.looping
-                                          ? Icons.repeat_on_rounded
-                                          : (_abRepeatController.state == ABRepeatState.pointA
-                                              ? Icons.repeat_one_rounded
-                                              : Icons.repeat_rounded),
-                                      color: _abRepeatController.state == ABRepeatState.looping
-                                          ? EDesign.primary
-                                          : (_abRepeatController.state == ABRepeatState.pointA
-                                              ? EDesign.warning
-                                              : Colors.white70),
-                                      size: 20,
-                                    ),
-                                    tooltip: 'A-B Loop (${_abRepeatController.state.name.toUpperCase()})',
-                                    onPressed: () {
-                                      _showControls();
-                                      _cycleABRepeat();
-                                    },
-                                  ),
-                                  IconButton(
-                                    key: const Key('hud_crop_button'),
-                                    icon: const Icon(Icons.crop_rounded, color: Colors.white70, size: 20),
-                                    tooltip: 'Crop: ${_cropController.current.label} (c)',
-                                    onPressed: () {
-                                      _showControls();
-                                      _cycleCropRatio();
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.equalizer, color: Colors.white70, size: 20),
-                                    tooltip: 'Audio Equalizer & Visualizer',
-                                    onPressed: _showAudioStudioSheet,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.aspect_ratio_rounded, color: Colors.white70, size: 20),
-                                    tooltip: 'Aspect Ratio ($_aspectRatio)',
+                                    icon: const Icon(Icons.fit_screen_rounded, color: Colors.white, size: 22),
+                                    tooltip: 'Aspect Ratio & Scaling ($_aspectRatio)',
                                     onPressed: _showAspectRatioMenu,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 26),
+                                    tooltip: 'More Options',
+                                    onPressed: _showMorePlayerOptionsSheet,
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -2919,6 +3075,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 bottom: _controlsVisible ? 110 : 30,
                 right: 24,
                 child: _buildSnapshotPreviewCard(_lastSnapshotResult!),
+              ),
+
+            // VLC Interactive Zoom & Magnifier Viewfinder HUD (magnify.c parity)
+            if (_showZoomViewfinder || _interactiveZoomController.state.isActive)
+              Positioned(
+                key: const Key('interactive_zoom_viewfinder'),
+                top: 80,
+                left: 20,
+                child: InteractiveZoomViewfinder(
+                  controller: _interactiveZoomController,
+                  onClose: () {
+                    setState(() {
+                      _showZoomViewfinder = false;
+                      _interactiveZoomController.reset();
+                    });
+                  },
+                ),
               ),
           ],
         ),

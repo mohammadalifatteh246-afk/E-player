@@ -31,10 +31,22 @@ class ThrowingPlatformPlayer extends Fake implements PlatformPlayer {
   }
 }
 
+class FakePlayerState extends Fake implements PlayerState {
+  @override
+  Duration get position => Duration.zero;
+  @override
+  double get volume => 100.0;
+  @override
+  bool get playing => false;
+}
+
 /// Lightweight mock Player satisfying Player interface via Fake.
 class FakePlayer extends Fake implements Player {
   @override
   final PlatformPlayer? platform;
+
+  @override
+  final PlayerState state = FakePlayerState();
 
   FakePlayer([PlatformPlayer? platform]) : platform = platform ?? FakePlayerPlatform();
 

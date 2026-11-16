@@ -3,6 +3,7 @@ import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../models/video_effects_config.dart';
 import '../domain/video_effects_service.dart';
+import '../../player/services/interactive_zoom_controller.dart';
 
 /// Interactive Video Effects Studio Sheet for E-Player.
 /// Matches VLC Media Player's Extended Video Effects dialog:
@@ -12,6 +13,7 @@ class VideoEffectsSheet extends StatefulWidget {
   final VideoEffectsConfig config;
   final VideoEffectsService service;
   final VoidCallback onConfigChanged;
+  final InteractiveZoomController? zoomController;
 
   const VideoEffectsSheet({
     super.key,
@@ -19,6 +21,7 @@ class VideoEffectsSheet extends StatefulWidget {
     required this.config,
     required this.service,
     required this.onConfigChanged,
+    this.zoomController,
   });
 
   @override
@@ -439,6 +442,63 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
             _notifyChange();
           },
         ),
+
+        if (widget.zoomController != null) ...[
+          const Divider(color: EDesign.border, height: 16),
+          _buildSectionHeader('Interactive Zoom & Magnifier (VLC magnify.c)', () {
+            widget.zoomController!.reset();
+            setState(() {});
+          }),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Magnification Scale',
+                  style: TextStyle(color: EDesign.textPrimary, fontSize: 14),
+                ),
+                Text(
+                  '${widget.zoomController!.state.zoomFactor.toStringAsFixed(1)}x',
+                  style: const TextStyle(
+                    color: EDesign.primaryCyan,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Slider(
+            value: widget.zoomController!.state.zoomFactor,
+            min: 1.0,
+            max: 8.0,
+            divisions: 28,
+            activeColor: EDesign.primaryCyan,
+            inactiveColor: EDesign.surface,
+            label: '${widget.zoomController!.state.zoomFactor.toStringAsFixed(1)}x',
+            onChanged: (val) {
+              widget.zoomController!.setZoom(val);
+              setState(() {});
+            },
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.refresh, size: 16, color: EDesign.textSecondary),
+                label: const Text(
+                  'Reset Magnifier',
+                  style: TextStyle(color: EDesign.textSecondary, fontSize: 12),
+                ),
+                onPressed: () {
+                  widget.zoomController!.reset();
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

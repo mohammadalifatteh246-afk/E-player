@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../../audio/domain/audio_visualizer_engine.dart';
+import '../../audio/domain/spatial_audio_models.dart';
 import '../../audio/ui/audio_spectrum_visualizer_widget.dart';
 
 class AudioConfig {
@@ -23,8 +24,9 @@ class AudioConfig {
   bool virtualizer = true;
   bool threeDAudio = true;
   bool nightMode = false;
-  bool visualizerEnabled = true;
+  bool visualizerEnabled = false;
   VisualizerStyle visualizerStyle = VisualizerStyle.bars;
+  SpatialAudioConfig spatialAudio = SpatialAudioConfig();
 
   static const Map<String, List<double>> presets = {
     'Flat': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -112,6 +114,12 @@ class AudioConfig {
       filters.add('stereowiden=level=0.7');
     }
 
+    // Spatial Audio & Headphone Crossfeed (VLC parity)
+    final spatialFilters = spatialAudio.buildAfFilterString();
+    if (spatialFilters.isNotEmpty) {
+      filters.add(spatialFilters);
+    }
+
     // 10-Band Graphic Equalizer
     for (int i = 0; i < freqs.length; i++) {
       if (eq[i].abs() > 0.05) {
@@ -127,6 +135,7 @@ class AudioConfig {
     if (player == null) return;
     try {
       final dynamic platform = player.platform;
+      if (platform == null) return;
       platform.setProperty('audio-delay', (audioDelay / 1000.0).toStringAsFixed(3));
     } catch (e) {
       debugPrint('[Audio Studio] mpv audio-delay error: $e');
@@ -137,6 +146,7 @@ class AudioConfig {
     if (player == null) return;
     try {
       final dynamic platform = player.platform;
+      if (platform == null) return;
       platform.setProperty('af', buildMpvAfString());
     } catch (e) {
       debugPrint('[Audio Studio] mpv af error: $e');
@@ -228,11 +238,19 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
     _visualizerEngine = AudioVisualizerEngine(bandCount: 32);
     _visualizerEngine.setActive(_config.visualizerEnabled);
     if (widget.player != null) {
-      _visualizerEngine.updateAudioContext(
-        position: widget.player!.state.position,
-        volume: widget.player!.state.volume,
-        isPlaying: widget.player!.state.playing,
-      );
+      try {
+        _visualizerEngine.updateAudioContext(
+          position: widget.player!.state.position,
+          volume: widget.player!.state.volume,
+          isPlaying: widget.player!.state.playing,
+        );
+      } catch (_) {
+        _visualizerEngine.updateAudioContext(
+          position: const Duration(seconds: 1),
+          volume: 100.0,
+          isPlaying: true,
+        );
+      }
     } else {
       _visualizerEngine.updateAudioContext(
         position: const Duration(seconds: 1),
@@ -620,6 +638,10 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
           ),
           const SizedBox(height: 12),
 
+          // Spatial Audio & Headphone Crossfeed Studio Card (VLC Parity)
+          _buildSpatialAudioCard(),
+          const SizedBox(height: 12),
+
           _buildBoostSwitchTile(
             title: 'Night Mode',
             subtitle: 'Loudness normalization / DRC',
@@ -751,6 +773,170 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSpatialAudioCard() {
+    final spatial = _config.spatialAudio;
+    return Container(
+      key: const Key('spatial_audio_crossfeed_card'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: EDesign.elevatedBackground,
+        borderRadius: BorderRadius.circular(EDesign.r16),
+        border: Border.all(
+          color: spatial.enabled ? EDesign.primary.withValues(alpha: 0.4) : EDesign.border,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: EDesign.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(EDesign.r8),
+                ),
+                child: const Icon(Icons.headphones_outlined, color: EDesign.primary, size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spatial Audio & Crossfeed',
+                      style: TextStyle(
+                        color: EDesign.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Binaural headphone crossfeed & room acoustics (VLC parity)',
+                      style: TextStyle(color: EDesign.textMuted, fontSize: 10.5),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                key: const Key('spatial_audio_toggle'),
+                value: spatial.enabled,
+                activeThumbColor: EDesign.primary,
+                activeTrackColor: EDesign.primary.withValues(alpha: 0.5),
+                onChanged: (val) {
+                  setState(() => spatial.enabled = val);
+                  _debouncedApply();
+                },
+              ),
+            ],
+          ),
+          if (spatial.enabled) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Binaural Crossfeed Preset (Anti-Fatigue)',
+              style: TextStyle(color: EDesign.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildCrossfeedChip('Bauer Std (700Hz/4.5dB)', CrossfeedPreset.bauerDefault),
+                _buildCrossfeedChip('Chu Moy (700Hz/6dB)', CrossfeedPreset.chuMoy),
+                _buildCrossfeedChip('Jan Meier (650Hz/9.5dB)', CrossfeedPreset.janMeier),
+                _buildCrossfeedChip('Off', CrossfeedPreset.off),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Room Acoustic Size', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text('${(spatial.roomSize * 100).round()}%', style: const TextStyle(color: EDesign.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Slider(
+              value: spatial.roomSize,
+              min: 0.0,
+              max: 1.0,
+              activeColor: EDesign.primary,
+              onChanged: (v) {
+                setState(() => spatial.roomSize = v);
+                _debouncedApply();
+              },
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Stereo Soundstage Width', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text('${spatial.stereoWidth.toStringAsFixed(1)}x', style: const TextStyle(color: EDesign.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Slider(
+              value: spatial.stereoWidth,
+              min: 0.5,
+              max: 2.5,
+              activeColor: EDesign.primary,
+              onChanged: (v) {
+                setState(() => spatial.stereoWidth = v);
+                _debouncedApply();
+              },
+            ),
+            Row(
+              children: [
+                const Icon(Icons.surround_sound, color: EDesign.textMuted, size: 16),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Virtual Multichannel Surround',
+                    style: TextStyle(color: EDesign.textPrimary, fontSize: 11.5),
+                  ),
+                ),
+                Switch.adaptive(
+                  value: spatial.virtualSurround,
+                  activeThumbColor: EDesign.primary,
+                  activeTrackColor: EDesign.primary.withValues(alpha: 0.5),
+                  onChanged: (val) {
+                    setState(() => spatial.virtualSurround = val);
+                    _debouncedApply();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCrossfeedChip(String label, CrossfeedPreset preset) {
+    final isSelected = _config.spatialAudio.crossfeedMode == preset;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: isSelected ? Colors.white : EDesign.textSecondary,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: EDesign.primary,
+      backgroundColor: EDesign.surface,
+      side: BorderSide(
+        color: isSelected ? EDesign.primary : EDesign.border,
+        width: 0.8,
+      ),
+      onSelected: (val) {
+        if (val) {
+          setState(() => _config.spatialAudio.crossfeedMode = preset);
+          _debouncedApply();
+        }
+      },
     );
   }
 
