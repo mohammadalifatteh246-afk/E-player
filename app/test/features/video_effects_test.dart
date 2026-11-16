@@ -16,6 +16,10 @@ void main() {
       expect(config.bandingRemoval, isFalse);
       expect(config.invert, isFalse);
       expect(config.sepia, isFalse);
+      expect(config.colorThreshold, isFalse);
+      expect(config.colorThresholdColor, equals(0xFF0000));
+      expect(config.colorThresholdSimilarity, equals(0.30));
+      expect(config.colorThresholdSaturation, equals(0.20));
       expect(config.flipHorizontal, isFalse);
       expect(config.flipVertical, isFalse);
       expect(config.rotationAngle, equals(0.0));
@@ -33,6 +37,10 @@ void main() {
       expect(config.isNeutral, isTrue);
 
       config.sharpen = true;
+      expect(config.isNeutral, isFalse);
+
+      config.sharpen = false;
+      config.colorThreshold = true;
       expect(config.isNeutral, isFalse);
     });
 
@@ -68,6 +76,10 @@ void main() {
         contrast: 25.0,
         invert: true,
         sepia: true,
+        colorThreshold: true,
+        colorThresholdColor: 0x00FF00,
+        colorThresholdSimilarity: 0.50,
+        colorThresholdSaturation: 0.40,
         flipVertical: true,
       );
 
@@ -75,6 +87,10 @@ void main() {
 
       expect(config.invert, isFalse);
       expect(config.sepia, isFalse);
+      expect(config.colorThreshold, isFalse);
+      expect(config.colorThresholdColor, equals(0xFF0000));
+      expect(config.colorThresholdSimilarity, equals(0.30));
+      expect(config.colorThresholdSaturation, equals(0.20));
       expect(config.contrast, equals(25.0));
       expect(config.flipVertical, isTrue);
     });
@@ -105,6 +121,10 @@ void main() {
         flipVertical: true,
         invert: true,
         sepia: true,
+        colorThreshold: true,
+        colorThresholdColor: 0x00FF00,
+        colorThresholdSimilarity: 0.35,
+        colorThresholdSaturation: 0.20,
       );
 
       final vf = config.buildMpvVfString();
@@ -114,6 +134,7 @@ void main() {
       expect(vf, contains('hflip'));
       expect(vf, contains('vflip'));
       expect(vf, contains('negate'));
+      expect(vf, contains('colorhold=color=0x00FF00:similarity=0.35:blend=0.05'));
       expect(vf, contains('colorchannelmixer='));
     });
 
@@ -151,6 +172,20 @@ void main() {
       expect(matrix[14], closeTo(255.0, 0.001));
     });
 
+    test('toColorFilterMatrix handles Color Threshold Selective Color preview', () {
+      final config = VideoEffectsConfig(
+        colorThreshold: true,
+        colorThresholdColor: 0xFF0000,
+        colorThresholdSimilarity: 0.30,
+      );
+      final matrix = config.toColorFilterMatrix();
+
+      expect(matrix.length, equals(20));
+      for (final val in matrix) {
+        expect(val.isFinite, isTrue);
+      }
+    });
+
     test('Presets produce expected creative grading values', () {
       final vibrant = VideoEffectsConfig.presetVibrant();
       expect(vibrant.contrast, equals(18.0));
@@ -186,6 +221,10 @@ void main() {
         invert: true,
         sepia: true,
         sepiaIntensity: 0.65,
+        colorThreshold: true,
+        colorThresholdColor: 0x00FF00,
+        colorThresholdSimilarity: 0.42,
+        colorThresholdSaturation: 0.18,
         flipHorizontal: true,
         flipVertical: false,
         rotationAngle: 45.0,
@@ -206,6 +245,10 @@ void main() {
       expect(restored.invert, isTrue);
       expect(restored.sepia, isTrue);
       expect(restored.sepiaIntensity, equals(0.65));
+      expect(restored.colorThreshold, isTrue);
+      expect(restored.colorThresholdColor, equals(0x00FF00));
+      expect(restored.colorThresholdSimilarity, equals(0.42));
+      expect(restored.colorThresholdSaturation, equals(0.18));
       expect(restored.flipHorizontal, isTrue);
       expect(restored.flipVertical, isFalse);
       expect(restored.rotationAngle, equals(45.0));

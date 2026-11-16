@@ -25,6 +25,10 @@ class VideoEffectsConfig {
   bool invert; // Negate colors
   bool sepia;
   double sepiaIntensity; // 0.0 to 1.0 (default 0.8)
+  bool colorThreshold; // VLC colorthres.c (selective color isolation / Sin City)
+  int colorThresholdColor; // Target hex color (default 0xFF0000 - Red)
+  double colorThresholdSimilarity; // Similarity tolerance 0.01 to 1.0 (default 0.30)
+  double colorThresholdSaturation; // Saturation threshold 0.0 to 1.0 (default 0.20)
 
   // --- Geometry / Transform (VLC Geometry tab parity) ---
   bool flipHorizontal;
@@ -45,6 +49,10 @@ class VideoEffectsConfig {
     this.invert = false,
     this.sepia = false,
     this.sepiaIntensity = 0.8,
+    this.colorThreshold = false,
+    this.colorThresholdColor = 0xFF0000,
+    this.colorThresholdSimilarity = 0.30,
+    this.colorThresholdSaturation = 0.20,
     this.flipHorizontal = false,
     this.flipVertical = false,
     this.rotationAngle = 0.0,
@@ -65,6 +73,10 @@ class VideoEffectsConfig {
     bool? invert,
     bool? sepia,
     double? sepiaIntensity,
+    bool? colorThreshold,
+    int? colorThresholdColor,
+    double? colorThresholdSimilarity,
+    double? colorThresholdSaturation,
     bool? flipHorizontal,
     bool? flipVertical,
     double? rotationAngle,
@@ -83,6 +95,10 @@ class VideoEffectsConfig {
       invert: invert ?? this.invert,
       sepia: sepia ?? this.sepia,
       sepiaIntensity: sepiaIntensity ?? this.sepiaIntensity,
+      colorThreshold: colorThreshold ?? this.colorThreshold,
+      colorThresholdColor: colorThresholdColor ?? this.colorThresholdColor,
+      colorThresholdSimilarity: colorThresholdSimilarity ?? this.colorThresholdSimilarity,
+      colorThresholdSaturation: colorThresholdSaturation ?? this.colorThresholdSaturation,
       flipHorizontal: flipHorizontal ?? this.flipHorizontal,
       flipVertical: flipVertical ?? this.flipVertical,
       rotationAngle: rotationAngle ?? this.rotationAngle,
@@ -103,6 +119,7 @@ class VideoEffectsConfig {
         !bandingRemoval &&
         !invert &&
         !sepia &&
+        !colorThreshold &&
         !flipHorizontal &&
         !flipVertical &&
         rotationAngle == 0.0;
@@ -123,6 +140,10 @@ class VideoEffectsConfig {
     invert = false;
     sepia = false;
     sepiaIntensity = 0.8;
+    colorThreshold = false;
+    colorThresholdColor = 0xFF0000;
+    colorThresholdSimilarity = 0.30;
+    colorThresholdSaturation = 0.20;
     flipHorizontal = false;
     flipVertical = false;
     rotationAngle = 0.0;
@@ -146,6 +167,10 @@ class VideoEffectsConfig {
     invert = false;
     sepia = false;
     sepiaIntensity = 0.8;
+    colorThreshold = false;
+    colorThresholdColor = 0xFF0000;
+    colorThresholdSimilarity = 0.30;
+    colorThresholdSaturation = 0.20;
   }
 
   /// Reset only geometry
@@ -226,6 +251,14 @@ class VideoEffectsConfig {
     // Negate / Invert colors
     if (invert) {
       filters.add('negate');
+    }
+
+    // Color Threshold filter (VLC colorthres.c parity via libavfilter colorhold)
+    if (colorThreshold) {
+      final hex = colorThresholdColor.toRadixString(16).padLeft(6, '0').toUpperCase();
+      final sim = colorThresholdSimilarity.clamp(0.01, 1.0);
+      final blend = (colorThresholdSaturation * 0.25).clamp(0.0, 0.5);
+      filters.add('colorhold=color=0x$hex:similarity=${sim.toStringAsFixed(2)}:blend=${blend.toStringAsFixed(2)}');
     }
 
     // Sepia Tone via colorchannelmixer (when software filter path is selected)
@@ -362,6 +395,23 @@ class VideoEffectsConfig {
       matrix = _multiplyColorMatrices(matrix, invertMatrix);
     }
 
+    // 6. Color Threshold preview approximation (selective color emphasis in UI preview)
+    if (colorThreshold) {
+      final rTarget = ((colorThresholdColor >> 16) & 0xFF) / 255.0;
+      final gTarget = ((colorThresholdColor >> 8) & 0xFF) / 255.0;
+      final bTarget = (colorThresholdColor & 0xFF) / 255.0;
+      final sim = colorThresholdSimilarity.clamp(0.05, 1.0);
+      final desat = (1.0 - sim * 0.6).clamp(0.0, 1.0);
+
+      final thresholdMatrix = <double>[
+        (1 - desat) + desat * rTarget, desat * gTarget, desat * bTarget, 0, 0,
+        desat * rTarget, (1 - desat) + desat * gTarget, desat * bTarget, 0, 0,
+        desat * rTarget, desat * gTarget, (1 - desat) + desat * bTarget, 0, 0,
+        0, 0, 0, 1, 0,
+      ];
+      matrix = _multiplyColorMatrices(matrix, thresholdMatrix);
+    }
+
     return matrix;
   }
 
@@ -405,6 +455,10 @@ class VideoEffectsConfig {
         'invert': invert,
         'sepia': sepia,
         'sepiaIntensity': sepiaIntensity,
+        'colorThreshold': colorThreshold,
+        'colorThresholdColor': colorThresholdColor,
+        'colorThresholdSimilarity': colorThresholdSimilarity,
+        'colorThresholdSaturation': colorThresholdSaturation,
         'flipHorizontal': flipHorizontal,
         'flipVertical': flipVertical,
         'rotationAngle': rotationAngle,
@@ -425,6 +479,10 @@ class VideoEffectsConfig {
       invert: json['invert'] as bool? ?? false,
       sepia: json['sepia'] as bool? ?? false,
       sepiaIntensity: (json['sepiaIntensity'] as num?)?.toDouble() ?? 0.8,
+      colorThreshold: json['colorThreshold'] as bool? ?? false,
+      colorThresholdColor: (json['colorThresholdColor'] as num?)?.toInt() ?? 0xFF0000,
+      colorThresholdSimilarity: (json['colorThresholdSimilarity'] as num?)?.toDouble() ?? 0.30,
+      colorThresholdSaturation: (json['colorThresholdSaturation'] as num?)?.toDouble() ?? 0.20,
       flipHorizontal: json['flipHorizontal'] as bool? ?? false,
       flipVertical: json['flipVertical'] as bool? ?? false,
       rotationAngle: (json['rotationAngle'] as num?)?.toDouble() ?? 0.0,

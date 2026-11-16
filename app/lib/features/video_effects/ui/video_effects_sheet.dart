@@ -55,11 +55,9 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: EDesign.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(EDesign.r24)),
-      ),
+    return Material(
+      color: EDesign.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(EDesign.r24)),
       child: Column(
         children: [
           // Drag Handle
@@ -383,6 +381,82 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
               _notifyChange();
             },
           ),
+
+        const Divider(color: EDesign.border, height: 24),
+
+        _buildSectionHeader('Color Threshold Isolation (VLC colorthres.c)', () {
+          _config.colorThreshold = false;
+          _config.colorThresholdColor = 0xFF0000;
+          _config.colorThresholdSimilarity = 0.30;
+          _config.colorThresholdSaturation = 0.20;
+          _notifyChange(immediateVf: true);
+        }),
+
+        // Threshold Switch
+        SwitchListTile(
+          title: const Text('Color Threshold Isolation', style: TextStyle(color: EDesign.textPrimary, fontSize: 14)),
+          subtitle: const Text('Isolates selected color while turning other hues monochrome (Sin City / Pleasantville)', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          value: _config.colorThreshold,
+          activeThumbColor: EDesign.primaryCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            _config.colorThreshold = val;
+            _notifyChange(immediateVf: true);
+          },
+        ),
+
+        if (_config.colorThreshold) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Target Color Preset',
+            style: TextStyle(color: EDesign.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildColorChip('Red', 0xFF0000, const Color(0xFFFF0000)),
+              _buildColorChip('Green', 0x00FF00, const Color(0xFF00FF00)),
+              _buildColorChip('Blue', 0x0000FF, const Color(0xFF0044FF)),
+              _buildColorChip('Yellow', 0xFFFF00, const Color(0xFFFFFF00)),
+              _buildColorChip('Cyan', 0x00FFFF, const Color(0xFF00FFFF)),
+              _buildColorChip('Magenta', 0xFF00FF, const Color(0xFFFF00FF)),
+              _buildColorChip('Orange', 0xFFA500, const Color(0xFFFFA500)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildSliderTile(
+            title: 'Similarity Tolerance',
+            value: _config.colorThresholdSimilarity,
+            min: 0.05,
+            max: 0.80,
+            decimals: 2,
+            onChanged: (val) {
+              _config.colorThresholdSimilarity = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.colorThresholdSimilarity = 0.30;
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Saturation Threshold',
+            value: _config.colorThresholdSaturation,
+            min: 0.0,
+            max: 1.0,
+            decimals: 2,
+            onChanged: (val) {
+              _config.colorThresholdSaturation = val;
+              _notifyChange();
+            },
+            onReset: () {
+              _config.colorThresholdSaturation = 0.20;
+              _notifyChange();
+            },
+          ),
+        ],
       ],
     );
   }
@@ -719,6 +793,53 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildColorChip(String label, int hexVal, Color color) {
+    final bool isSelected = _config.colorThresholdColor == hexVal;
+    return InkWell(
+      borderRadius: BorderRadius.circular(EDesign.r8),
+      onTap: () {
+        _config.colorThresholdColor = hexVal;
+        _notifyChange(immediateVf: true);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? EDesign.primaryCyan.withValues(alpha: 0.15)
+              : EDesign.elevatedBackground,
+          borderRadius: BorderRadius.circular(EDesign.r8),
+          border: Border.all(
+            color: isSelected ? EDesign.primaryCyan : EDesign.border,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white24, width: 1),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? EDesign.primaryCyan : EDesign.textPrimary,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
