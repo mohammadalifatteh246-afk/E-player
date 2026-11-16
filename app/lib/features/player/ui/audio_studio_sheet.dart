@@ -4,6 +4,7 @@ import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../../audio/domain/audio_visualizer_engine.dart';
 import '../../audio/domain/spatial_audio_models.dart';
+import '../../audio/domain/audio_pitch_models.dart';
 import '../../audio/ui/audio_spectrum_visualizer_widget.dart';
 
 class AudioConfig {
@@ -27,6 +28,7 @@ class AudioConfig {
   bool visualizerEnabled = false;
   VisualizerStyle visualizerStyle = VisualizerStyle.bars;
   SpatialAudioConfig spatialAudio = SpatialAudioConfig();
+  AudioPitchConfig pitch = AudioPitchConfig();
 
   static const Map<String, List<double>> presets = {
     'Flat': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -120,6 +122,12 @@ class AudioConfig {
       filters.add(spatialFilters);
     }
 
+    // Audio Pitch Shifter & Scaler (VLC scaletempo.c parity)
+    final pitchFilter = pitch.buildMpvAfString();
+    if (pitchFilter.isNotEmpty) {
+      filters.add(pitchFilter);
+    }
+
     // 10-Band Graphic Equalizer
     for (int i = 0; i < freqs.length; i++) {
       if (eq[i].abs() > 0.05) {
@@ -165,6 +173,8 @@ class AudioConfig {
     virtualizer = false;
     threeDAudio = false;
     nightMode = false;
+    spatialAudio.reset();
+    pitch.reset();
     apply(player);
   }
 }
@@ -642,6 +652,10 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
           _buildSpatialAudioCard(),
           const SizedBox(height: 12),
 
+          // Audio Pitch Shifter & Scaler (VLC scaletempo.c Parity)
+          _buildPitchShifterCard(),
+          const SizedBox(height: 12),
+
           _buildBoostSwitchTile(
             title: 'Night Mode',
             subtitle: 'Loudness normalization / DRC',
@@ -934,6 +948,219 @@ class _AudioStudioSheetState extends State<AudioStudioSheet> {
       onSelected: (val) {
         if (val) {
           setState(() => _config.spatialAudio.crossfeedMode = preset);
+          _debouncedApply();
+        }
+      },
+    );
+  }
+
+  Widget _buildPitchShifterCard() {
+    final pitch = _config.pitch;
+    final semitones = pitch.semitones;
+    final cents = pitch.cents;
+    final sign = semitones > 0 ? '+' : '';
+    final centsSign = cents > 0 ? '+' : '';
+
+    return Container(
+      key: const Key('audio_pitch_shifter_card'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: EDesign.elevatedBackground,
+        borderRadius: BorderRadius.circular(EDesign.r16),
+        border: Border.all(
+          color: pitch.enabled ? EDesign.primaryCyan.withValues(alpha: 0.4) : EDesign.border,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: EDesign.primaryCyan.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(EDesign.r8),
+                ),
+                child: const Icon(Icons.music_note_rounded, color: EDesign.primaryCyan, size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pitch Shifter & Scaler',
+                      style: TextStyle(
+                        color: EDesign.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Transpose tone without altering playback speed (VLC scaletempo.c)',
+                      style: TextStyle(color: EDesign.textMuted, fontSize: 10.5),
+                    ),
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                key: const Key('pitch_shifter_toggle'),
+                value: pitch.enabled,
+                activeThumbColor: EDesign.primaryCyan,
+                activeTrackColor: EDesign.primaryCyan.withValues(alpha: 0.5),
+                onChanged: (val) {
+                  setState(() => pitch.enabled = val);
+                  _debouncedApply();
+                },
+              ),
+            ],
+          ),
+          if (pitch.enabled) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Acoustic Pitch Presets',
+              style: TextStyle(color: EDesign.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildPitchPresetChip('Flat', AudioPitchPreset.flat),
+                _buildPitchPresetChip('Chipmunk (+12st)', AudioPitchPreset.chipmunk),
+                _buildPitchPresetChip('Deep Voice (-12st)', AudioPitchPreset.deepVoice),
+                _buildPitchPresetChip('Male->Female (+4st)', AudioPitchPreset.maleToFemale),
+                _buildPitchPresetChip('Female->Male (-4st)', AudioPitchPreset.femaleToMale),
+                _buildPitchPresetChip('A432 Hz', AudioPitchPreset.concertPitch432),
+                _buildPitchPresetChip('Fifth (+7st)', AudioPitchPreset.fifthInterval),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Semitone Transposition', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: EDesign.primaryCyan.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: EDesign.primaryCyan.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '$sign$semitones st (${pitch.pitchRatio.toStringAsFixed(2)}x)',
+                    style: const TextStyle(
+                      color: EDesign.primaryCyan,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                IconButton(
+                  key: const Key('pitch_nudge_semitone_minus'),
+                  icon: const Icon(Icons.remove_circle_outline, color: EDesign.textSecondary, size: 20),
+                  tooltip: '-1 Semitone',
+                  onPressed: () {
+                    setState(() => pitch.setSemitones(pitch.semitones - 1));
+                    _debouncedApply();
+                  },
+                ),
+                Expanded(
+                  child: Slider(
+                    key: const Key('pitch_semitone_slider'),
+                    value: pitch.semitones.toDouble(),
+                    min: -12.0,
+                    max: 12.0,
+                    divisions: 24,
+                    activeColor: EDesign.primaryCyan,
+                    inactiveColor: EDesign.surface,
+                    onChanged: (v) {
+                      setState(() => pitch.setSemitones(v.round()));
+                      _debouncedApply();
+                    },
+                  ),
+                ),
+                IconButton(
+                  key: const Key('pitch_nudge_semitone_plus'),
+                  icon: const Icon(Icons.add_circle_outline, color: EDesign.primaryCyan, size: 20),
+                  tooltip: '+1 Semitone',
+                  onPressed: () {
+                    setState(() => pitch.setSemitones(pitch.semitones + 1));
+                    _debouncedApply();
+                  },
+                ),
+              ],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Fine Tuning (Cents)', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                Text(
+                  '$centsSign${cents.toStringAsFixed(1)} cents',
+                  style: const TextStyle(color: EDesign.primaryCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            Slider(
+              key: const Key('pitch_cents_slider'),
+              value: pitch.cents,
+              min: -100.0,
+              max: 100.0,
+              divisions: 40,
+              activeColor: EDesign.primaryCyan,
+              inactiveColor: EDesign.surface,
+              onChanged: (v) {
+                setState(() => pitch.setCents(v));
+                _debouncedApply();
+              },
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  key: const Key('pitch_reset_button'),
+                  icon: const Icon(Icons.refresh, size: 14, color: EDesign.textSecondary),
+                  label: const Text('Reset Pitch', style: TextStyle(color: EDesign.textSecondary, fontSize: 11)),
+                  onPressed: () {
+                    setState(() => pitch.reset());
+                    _debouncedApply();
+                  },
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPitchPresetChip(String label, AudioPitchPreset preset) {
+    final isSelected = _config.pitch.preset == preset;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: isSelected ? Colors.black : EDesign.textSecondary,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: EDesign.primaryCyan,
+      backgroundColor: EDesign.surface,
+      side: BorderSide(
+        color: isSelected ? EDesign.primaryCyan : EDesign.border,
+        width: 0.8,
+      ),
+      onSelected: (val) {
+        if (val) {
+          setState(() => _config.pitch.applyPreset(preset));
           _debouncedApply();
         }
       },
