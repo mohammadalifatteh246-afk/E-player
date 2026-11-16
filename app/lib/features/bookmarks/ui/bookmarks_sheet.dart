@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../data/bookmark_service.dart';
+import 'bookmark_edit_dialog.dart';
+import 'bookmark_export_dialog.dart';
 
 /// Modal bottom sheet allowing users to view, jump to, rename, and add chapter bookmarks.
 /// Complete parity with VLC's custom bookmarks dialog and hotkey accelerator suite.
@@ -155,53 +157,38 @@ class _BookmarksSheetState extends State<BookmarksSheet> {
     }
   }
 
-  Future<void> _renameBookmark(MediaBookmark bm) async {
-    final controller = TextEditingController(text: bm.label);
-    final newLabel = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: EDesign.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(EDesign.r16),
-          side: const BorderSide(color: EDesign.border),
-        ),
-        title: const Text(
-          'Rename Bookmark',
-          style: TextStyle(color: EDesign.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: EDesign.textPrimary, fontSize: 14),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: EDesign.elevatedSurface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(EDesign.r8),
-              borderSide: const BorderSide(color: EDesign.border),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: EDesign.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: EDesign.primary,
-              foregroundColor: Colors.black,
-            ),
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+  void _editBookmark(MediaBookmark bm) {
+    BookmarkEditDialog.show(
+      context,
+      bookmark: bm,
+      onSave: (updated) {
+        _service.updateBookmark(
+          id: updated.id,
+          label: updated.label,
+          note: updated.note,
+          category: updated.category,
+          colorHex: updated.colorHex,
+          endPosition: updated.endPosition,
+        );
+      },
     );
+  }
 
-    if (newLabel != null && newLabel.trim().isNotEmpty) {
-      await _service.renameBookmark(bm.id, newLabel.trim());
+  void _openExportDialog(List<MediaBookmark> bookmarks) {
+    BookmarkExportDialog.show(
+      context,
+      bookmarks: bookmarks,
+      mediaTitle: widget.mediaId,
+    );
+  }
+
+  Color _hexToColor(String? hex) {
+    if (hex == null || hex.isEmpty) return Colors.amber;
+    final clean = hex.replaceAll('#', '');
+    if (clean.length == 6) {
+      return Color(int.parse('0xFF$clean'));
     }
+    return Colors.amber;
   }
 
   String _formatDuration(Duration d) {
@@ -263,6 +250,12 @@ class _BookmarksSheetState extends State<BookmarksSheet> {
                     ),
                   ),
                   const Spacer(),
+                  if (bookmarks.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.file_upload_outlined, color: EDesign.primary, size: 20),
+                      tooltip: 'Export Bookmarks',
+                      onPressed: () => _openExportDialog(bookmarks),
+                    ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
@@ -379,36 +372,74 @@ class _BookmarksSheetState extends State<BookmarksSheet> {
                               leading: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: Colors.amber.withValues(alpha: 0.2),
+                                  color: _hexToColor(bm.colorHex).withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(EDesign.r8),
-                                  border: Border.all(color: Colors.amber.withValues(alpha: 0.6)),
+                                  border: Border.all(color: _hexToColor(bm.colorHex).withValues(alpha: 0.6)),
                                 ),
                                 child: Text(
-                                  bm.formattedTime,
-                                  style: const TextStyle(
-                                    color: Colors.amber,
-                                    fontSize: 12,
+                                  bm.formattedRange,
+                                  style: TextStyle(
+                                    color: _hexToColor(bm.colorHex),
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
                               ),
-                              title: Text(
-                                bm.label,
-                                style: const TextStyle(
-                                  color: EDesign.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      bm.label,
+                                      style: const TextStyle(
+                                        color: EDesign.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  if (bm.category.isNotEmpty && bm.category != 'general')
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 6),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: EDesign.primary.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: EDesign.primary.withValues(alpha: 0.3), width: 0.6),
+                                      ),
+                                      child: Text(
+                                        bm.category.toUpperCase(),
+                                        style: const TextStyle(
+                                          color: EDesign.primary,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
+                              subtitle: bm.note != null && bm.note!.trim().isNotEmpty
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(top: 3),
+                                      child: Text(
+                                        bm.note!.trim(),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: EDesign.textSecondary,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 16),
+                                    icon: const Icon(Icons.edit_note_outlined, size: 18),
                                     color: EDesign.textSecondary,
-                                    tooltip: 'Rename',
-                                    onPressed: () => _renameBookmark(bm),
+                                    tooltip: 'Annotate / Edit',
+                                    onPressed: () => _editBookmark(bm),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, size: 16),

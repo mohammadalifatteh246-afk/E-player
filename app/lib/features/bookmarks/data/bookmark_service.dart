@@ -79,12 +79,16 @@ class BookmarkService extends ChangeNotifier {
     return List.unmodifiable(list);
   }
 
-  /// Adds a new bookmark at [position] for [mediaId].
+  /// Adds a new bookmark at [position] for [mediaId] with optional annotations.
   /// If a bookmark already exists within 250ms, it is returned without duplicate insertion.
   Future<MediaBookmark> addBookmark({
     required String mediaId,
     required Duration position,
+    Duration? endPosition,
     String? label,
+    String? note,
+    String category = 'general',
+    String? colorHex,
   }) async {
     final existing = _cache[mediaId] ?? [];
 
@@ -106,7 +110,11 @@ class BookmarkService extends ChangeNotifier {
       id: id,
       mediaId: mediaId,
       position: position,
+      endPosition: endPosition,
       label: resolvedLabel,
+      note: note,
+      category: category,
+      colorHex: colorHex,
       createdAt: DateTime.now(),
     );
 
@@ -119,6 +127,60 @@ class BookmarkService extends ChangeNotifier {
     _persistSync();
     notifyListeners();
     return bookmark;
+  }
+
+  /// Updates an existing bookmark's annotations and metadata
+  Future<bool> updateBookmark({
+    required String id,
+    String? label,
+    String? note,
+    String? category,
+    String? colorHex,
+    Duration? endPosition,
+  }) async {
+    for (final entry in _cache.entries) {
+      final list = entry.value;
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].id == id) {
+          list[i] = list[i].copyWith(
+            label: label != null ? label.trim() : list[i].label,
+            note: note,
+            category: category ?? list[i].category,
+            colorHex: colorHex ?? list[i].colorHex,
+            endPosition: endPosition ?? list[i].endPosition,
+          );
+          _persistSync();
+          notifyListeners();
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Imports multiple bookmarks for a media item
+  Future<int> importBookmarks(String mediaId, List<MediaBookmark> imported) async {
+    if (imported.isEmpty) return 0;
+    if (!_cache.containsKey(mediaId)) {
+      _cache[mediaId] = [];
+    }
+
+    int count = 0;
+    for (final b in imported) {
+      final duplicate = _cache[mediaId]!.where((existing) {
+        return (existing.position.inMilliseconds - b.position.inMilliseconds).abs() <= 250;
+      }).firstOrNull;
+
+      if (duplicate == null) {
+        _cache[mediaId]!.add(b);
+        count++;
+      }
+    }
+
+    _cache[mediaId]!.sort((a, b) => a.timestampMs.compareTo(b.timestampMs));
+    _persistSync();
+    notifyListeners();
+    return count;
   }
 
   /// Renames an existing bookmark by [id]
