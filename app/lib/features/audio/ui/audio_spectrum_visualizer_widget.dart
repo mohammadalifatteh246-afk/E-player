@@ -37,6 +37,7 @@ class _AudioSpectrumVisualizerWidgetState extends State<AudioSpectrumVisualizerW
   }
 
   void _onTick() {
+    if (!mounted) return;
     final now = DateTime.now();
     final elapsed = _lastTick == Duration.zero
         ? const Duration(milliseconds: 16)
@@ -51,6 +52,7 @@ class _AudioSpectrumVisualizerWidgetState extends State<AudioSpectrumVisualizerW
   @override
   void dispose() {
     _ticker.removeListener(_onTick);
+    _ticker.stop();
     _ticker.dispose();
     super.dispose();
   }

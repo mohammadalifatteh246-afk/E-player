@@ -1276,7 +1276,7 @@ void main() {
   // ---------------------------------------------------------------------------
   group('Tier 2: Boundary & Corner Cases', () {
     // Shortcuts Boundary (5 Tests)
-    testWidgets('T2.1.1: Volume Clamp Upper Limit at 100% / 150%', (tester) async {
+    testWidgets('T2.1.1: Volume Clamp Upper Limit with Phase 2 Over-Amplification up to 300%', (tester) async {
       final fake = FakePlatformPlayer(initialVolume: 145.0);
       final player = Player(platformPlayer: fake);
 
@@ -1286,8 +1286,17 @@ void main() {
       await simulateShortcut(tester, key: LogicalKeyboardKey.arrowUp);
       expect(player.state.volume, 150.0);
 
+      // Phase 2 allows volume over-amplification beyond legacy 150% up to 300%
       await simulateShortcut(tester, key: LogicalKeyboardKey.arrowUp);
-      expect(player.state.volume, 150.0); // Clamped at max
+      expect(player.state.volume, 155.0); // Advances beyond legacy 150%
+
+      // Verify clamping at 300% max
+      await player.setVolume(295.0);
+      await simulateShortcut(tester, key: LogicalKeyboardKey.arrowUp);
+      expect(player.state.volume, 300.0);
+
+      await simulateShortcut(tester, key: LogicalKeyboardKey.arrowUp);
+      expect(player.state.volume, 300.0); // Clamped at 300% max
 
       await player.dispose();
     });
