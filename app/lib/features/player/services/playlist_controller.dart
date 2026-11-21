@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/models/media_item.dart';
+import 'playlist_serializer.dart';
 
 /// Manages active playback queue, track navigation, search filtering,
 /// and undocked / detached floating window geometry (VLC Parity: `--pl-dock-status=0`, `Ctrl+L`).
@@ -144,5 +146,34 @@ class PlaylistController extends ChangeNotifier {
       return _items.last;
     }
     return null;
+  }
+
+  /// Imports playlist items from a local .m3u, .m3u8, or .xspf file.
+  /// If [append] is true, appends tracks to the existing queue; otherwise replaces it.
+  Future<int> importPlaylist(String filePath, {bool append = false}) async {
+    final file = File(filePath);
+    if (!file.existsSync()) return 0;
+
+    final parsedItems = await PlaylistSerializer.loadFromFile(file);
+    if (parsedItems.isEmpty) return 0;
+
+    if (append) {
+      _items.addAll(parsedItems);
+    } else {
+      _items = List.from(parsedItems);
+      if (_items.isNotEmpty) {
+        _currentPlayingPath = _items.first.path;
+      }
+    }
+    notifyListeners();
+    return parsedItems.length;
+  }
+
+  /// Exports current playlist queue to a .m3u8 or .xspf file at [targetPath].
+  Future<File> exportPlaylist(
+    String targetPath, {
+    String title = 'E-Player Playlist',
+  }) async {
+    return PlaylistSerializer.saveToFile(_items, targetPath, title: title);
   }
 }

@@ -11,6 +11,8 @@ class UndockedPlaylistPanelWidget extends StatefulWidget {
   final Function(MediaItem item) onSelectTrack;
   final VoidCallback onClose;
   final VoidCallback onDockToggle;
+  final VoidCallback? onImportPlaylist;
+  final VoidCallback? onExportPlaylist;
 
   const UndockedPlaylistPanelWidget({
     super.key,
@@ -18,6 +20,8 @@ class UndockedPlaylistPanelWidget extends StatefulWidget {
     required this.onSelectTrack,
     required this.onClose,
     required this.onDockToggle,
+    this.onImportPlaylist,
+    this.onExportPlaylist,
   });
 
   @override
@@ -278,6 +282,32 @@ class _UndockedPlaylistPanelWidgetState
           ),
 
           const Spacer(),
+
+          // Import Playlist Button (VLC Parity)
+          IconButton(
+            key: const Key('undocked_playlist_import_button'),
+            icon: const Icon(Icons.file_open_rounded, size: 18),
+            color: EDesign.primaryCyan,
+            tooltip: 'Import Playlist (.m3u, .m3u8, .xspf)',
+            splashRadius: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            onPressed: widget.onImportPlaylist,
+          ),
+
+          // Export Playlist Button (VLC Parity)
+          IconButton(
+            key: const Key('undocked_playlist_export_button'),
+            icon: const Icon(Icons.save_alt_rounded, size: 18),
+            color: EDesign.textSecondary,
+            tooltip: 'Export Playlist (.m3u8)',
+            splashRadius: 16,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            onPressed: widget.onExportPlaylist,
+          ),
+
+          const SizedBox(width: 4),
 
           // Shuffle Button
           IconButton(

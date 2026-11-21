@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/models/media_item.dart';
@@ -123,6 +124,28 @@ void main() {
       controller.toggleMinimized();
       expect(controller.isMinimized, isTrue);
       expect(notified, isTrue);
+    });
+
+    test('Export and import playlist roundtrip updates items accurately', () async {
+      final tempDir = Directory.systemTemp.createTempSync('playlist_ctrl_test_');
+      final exportPath = '${tempDir.path}/exported_queue.m3u8';
+
+      controller.setItems(sampleItems);
+      expect(controller.items.length, 3);
+
+      final exportedFile = await controller.exportPlaylist(exportPath);
+      expect(exportedFile.existsSync(), isTrue);
+
+      // Create a new controller and import
+      final newController = PlaylistController();
+      final count = await newController.importPlaylist(exportPath);
+      expect(count, 3);
+      expect(newController.items.length, 3);
+      expect(newController.items[0].name, 'Inception.mkv');
+      expect(newController.currentPlayingPath, sampleItems[0].path);
+
+      newController.dispose();
+      tempDir.deleteSync(recursive: true);
     });
   });
 }

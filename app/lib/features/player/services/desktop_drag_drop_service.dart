@@ -10,6 +10,7 @@ enum DroppedItemType {
   videoAudio,
   subtitle,
   folder,
+  playlist,
   unsupported,
 }
 
@@ -37,6 +38,10 @@ class DroppedItem {
     'srt', 'vtt', 'ass', 'ssa', 'sub', 'smi', 'txt',
   };
 
+  static const Set<String> _playlistExtensions = {
+    'm3u', 'm3u8', 'xspf',
+  };
+
   factory DroppedItem.fromPath(String filePath) {
     final fileName = p.basename(filePath);
     final ext = p.extension(filePath).replaceFirst('.', '').toLowerCase();
@@ -57,6 +62,15 @@ class DroppedItem {
         name: fileName,
         extension: ext,
         type: DroppedItemType.subtitle,
+      );
+    }
+
+    if (_playlistExtensions.contains(ext)) {
+      return DroppedItem(
+        path: filePath,
+        name: fileName,
+        extension: ext,
+        type: DroppedItemType.playlist,
       );
     }
 
@@ -99,11 +113,17 @@ class DroppedMediaEvent {
   bool get hasSubtitle =>
       items.any((item) => item.type == DroppedItemType.subtitle);
 
+  bool get hasPlaylist =>
+      items.any((item) => item.type == DroppedItemType.playlist);
+
   List<DroppedItem> get videoAudioItems =>
       items.where((item) => item.type == DroppedItemType.videoAudio).toList();
 
   List<DroppedItem> get subtitleItems =>
       items.where((item) => item.type == DroppedItemType.subtitle).toList();
+
+  List<DroppedItem> get playlistItems =>
+      items.where((item) => item.type == DroppedItemType.playlist).toList();
 
   @override
   String toString() =>

@@ -204,6 +204,45 @@ void main() {
       expect(controller.isMinimized, isFalse);
       expect(find.text('Inception.mp4'), findsOneWidget);
     });
+
+    testWidgets('Import and Export buttons trigger onImportPlaylist and onExportPlaylist callbacks', (tester) async {
+      final controller = PlaylistController();
+      controller.setItems(testItems);
+      bool importCalled = false;
+      bool exportCalled = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: UndockedPlaylistPanelWidget(
+                controller: controller,
+                onSelectTrack: (_) {},
+                onClose: () {},
+                onDockToggle: () {},
+                onImportPlaylist: () => importCalled = true,
+                onExportPlaylist: () => exportCalled = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final importBtn = find.byKey(const Key('undocked_playlist_import_button'));
+      final exportBtn = find.byKey(const Key('undocked_playlist_export_button'));
+
+      expect(importBtn, findsOneWidget);
+      expect(exportBtn, findsOneWidget);
+
+      await tester.tap(importBtn);
+      await tester.pumpAndSettle();
+      expect(importCalled, isTrue);
+
+      await tester.tap(exportBtn);
+      await tester.pumpAndSettle();
+      expect(exportCalled, isTrue);
+    });
   });
 
   group('DesktopKeyboardHandler Ctrl+L Toggle Playlist Tests (VLC Parity)', () {

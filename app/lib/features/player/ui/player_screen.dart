@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
@@ -53,6 +54,7 @@ import '../../../core/db/database_helper.dart';
 import '../../../core/models/media_item.dart';
 import 'widgets/resume_playback_banner_widget.dart';
 import '../services/playlist_controller.dart';
+import '../services/playlist_serializer.dart';
 import 'widgets/undocked_playlist_panel_widget.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
@@ -674,7 +676,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return;
     }
 
-    // 2. If video or audio dropped: play primary media (VLC parity)
+    // 2. If playlist dropped: load & play first track (VLC parity)
+    if (event.hasPlaylist) {
+      final playlistFile = event.playlistItems.first;
+      _playlistController.importPlaylist(playlistFile.path).then((count) {
+        if (!mounted) return;
+        if (count > 0 && _playlistController.items.isNotEmpty) {
+          _playMediaItem(_playlistController.items.first);
+          _showFeedbackMessage(
+            'Playlist loaded: ${playlistFile.name} ($count tracks)',
+            Icons.playlist_play_rounded,
+            EDesign.primaryCyan,
+          );
+        } else {
+          _showFeedbackMessage(
+            'Playlist empty: ${playlistFile.name}',
+            Icons.playlist_remove_rounded,
+            EDesign.warning,
+          );
+        }
+      }).catchError((e) {
+        debugPrint('[PlayerScreen] Failed to import dropped playlist: $e');
+        if (mounted) {
+          _showFeedbackMessage(
+            'Failed to load playlist',
+            Icons.error_outline_rounded,
+            EDesign.danger,
+          );
+        }
+      });
+      return;
+    }
+
+    // 3. If video or audio dropped: play primary media (VLC parity)
     if (event.hasVideoAudio) {
       final mediaItem = event.videoAudioItems.first;
       try {
@@ -861,6 +895,82 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  Future<void> _handleImportPlaylist() async {
+    try {
+      final result = await FilePicker.pickFile(
+        dialogTitle: 'Import Playlist',
+        type: FileType.custom,
+        allowedExtensions: ['m3u8', 'm3u', 'xspf'],
+      );
+      if (result != null && result.path != null) {
+        final count = await _playlistController.importPlaylist(result.path!);
+        if (!mounted) return;
+        if (count > 0 && _playlistController.items.isNotEmpty) {
+          _playMediaItem(_playlistController.items.first);
+          _showFeedbackMessage(
+            'Imported $count tracks',
+            Icons.playlist_play_rounded,
+            EDesign.primaryCyan,
+          );
+        } else {
+          _showFeedbackMessage(
+            'Playlist empty or no valid tracks found',
+            Icons.playlist_remove_rounded,
+            EDesign.warning,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to import playlist: $e');
+      if (mounted) {
+        _showFeedbackMessage(
+          'Failed to import playlist',
+          Icons.error_outline_rounded,
+          EDesign.danger,
+        );
+      }
+    }
+  }
+
+  Future<void> _handleExportPlaylist() async {
+    try {
+      if (_playlistController.items.isEmpty) {
+        _showFeedbackMessage(
+          'Playlist is empty',
+          Icons.info_outline_rounded,
+          EDesign.warning,
+        );
+        return;
+      }
+      final serialized = PlaylistSerializer.serializeM3u8(_playlistController.items);
+      final bytes = Uint8List.fromList(utf8.encode(serialized));
+      final defaultName = 'playlist_${DateTime.now().millisecondsSinceEpoch}.m3u8';
+      final savedUri = await FilePicker.saveFile(
+        dialogTitle: 'Export Playlist (.m3u8)',
+        fileName: defaultName,
+        bytes: bytes,
+        type: FileType.custom,
+        allowedExtensions: ['m3u8', 'm3u', 'xspf'],
+      );
+      if (savedUri != null && mounted) {
+        _showFeedbackMessage(
+          'Playlist exported successfully',
+          Icons.check_circle_rounded,
+          EDesign.primaryCyan,
+        );
+      }
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to export playlist: $e');
+      if (mounted) {
+        _showFeedbackMessage(
+          'Failed to export playlist',
+          Icons.error_outline_rounded,
+          EDesign.danger,
+        );
+      }
+    }
+  }
+
   void _showDockedPlaylistSheet() {
     showModalBottomSheet(
       context: context,
@@ -889,6 +999,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
+                      IconButton(
+                        key: const Key('docked_playlist_import_button'),
+                        icon: const Icon(Icons.file_open_rounded, size: 18),
+                        color: EDesign.primaryCyan,
+                        tooltip: 'Import Playlist (.m3u, .m3u8, .xspf)',
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _handleImportPlaylist();
+                        },
+                      ),
+                      IconButton(
+                        key: const Key('docked_playlist_export_button'),
+                        icon: const Icon(Icons.save_alt_rounded, size: 18),
+                        color: Colors.white70,
+                        tooltip: 'Export Playlist (.m3u8)',
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _handleExportPlaylist();
+                        },
+                      ),
+                      const SizedBox(width: 4),
                       TextButton.icon(
                         key: const Key('docked_playlist_undock_button'),
                         icon: const Icon(Icons.open_in_new_rounded, size: 16, color: EDesign.primaryCyan),
@@ -3721,6 +3852,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     _playlistController.setUndocked(false);
                     _showDockedPlaylistSheet();
                   },
+                  onImportPlaylist: _handleImportPlaylist,
+                  onExportPlaylist: _handleExportPlaylist,
                 ),
               ),
           ],
