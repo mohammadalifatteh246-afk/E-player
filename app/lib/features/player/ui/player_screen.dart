@@ -30,6 +30,8 @@ import '../../network_stream/data/dlna_service.dart';
 import '../../network_stream/ui/dlna_server_browser_sheet.dart';
 import '../../network_stream/data/online_stream_service.dart';
 import '../../network_stream/ui/online_stream_sheet.dart';
+import '../../sleep_timer/data/sleep_timer_controller.dart';
+import '../../sleep_timer/ui/sleep_timer_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
@@ -98,6 +100,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final MediaConverterService _mediaConverterService;
   late final DlnaService _dlnaService;
   late final OnlineStreamService _onlineStreamService;
+  late final SleepTimerController _sleepTimerController;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -379,6 +382,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _player.stream.duration.listen((dur) {
       if (mounted) setState(() => _duration = dur);
     });
+    _player.stream.completed.listen((completed) {
+      if (completed) {
+        _sleepTimerController.handleTrackFinished();
+      }
+    });
     _player.stream.rate.listen((rate) {
       if (mounted) setState(() => _playbackSpeed = rate);
     });
@@ -560,6 +568,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted) setState(() {});
     });
     _initOnlineStreamService();
+    _sleepTimerController = SleepTimerController(
+      onPausePlayback: () {
+        if (mounted) {
+          _player.pause();
+          _showFeedbackMessage('Sleep Timer: Playback Paused', Icons.bedtime_rounded, Colors.cyanAccent);
+        }
+      },
+      onVolumeAttenuationChanged: (attenuation) {
+        if (mounted) {
+          final effectiveVolume = (_volume * attenuation).clamp(0.0, 300.0);
+          _player.setVolume(effectiveVolume);
+        }
+      },
+      onActionTriggered: () {
+        if (mounted) setState(() {});
+      },
+    );
+    _sleepTimerController.addListener(() {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
@@ -729,6 +757,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _mediaConverterService.dispose();
     _dlnaService.dispose();
     _onlineStreamService.dispose();
+    _sleepTimerController.dispose();
     _playlistController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
@@ -2669,6 +2698,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  Future<void> _openSleepTimerSheet() async {
+    _controlsTimer?.cancel();
+    try {
+      await SleepTimerSheet.show(
+        context,
+        controller: _sleepTimerController,
+      );
+    } finally {
+      if (mounted) {
+        _startControlsTimer();
+      }
+    }
+  }
+
   Future<void> _openCastSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -3029,6 +3072,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onTap: () {
                             Navigator.pop(ctx);
                             _openOnlineStreamSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_sleep_timer_button'),
+                          icon: Icons.bedtime_rounded,
+                          title: 'Sleep Timer',
+                          subtitle: _sleepTimerController.isActive
+                              ? 'Active (${_sleepTimerController.state.formattedRemaining})'
+                              : 'Auto-Pause & Sleep',
+                          accentColor: _sleepTimerController.isActive ? Colors.amberAccent : EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openSleepTimerSheet();
                           },
                         ),
                         _buildQuickOptionTile(
@@ -3518,6 +3574,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     );
                                   },
                                 ),
+                                if (_sleepTimerController.isActive)
+                                  InkWell(
+                                    key: const Key('hud_sleep_timer_top_badge'),
+                                    onTap: _openSleepTimerSheet,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      margin: const EdgeInsets.only(right: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.cyanAccent.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: Colors.cyanAccent, width: 1),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.bedtime_rounded, color: Colors.cyanAccent, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _sleepTimerController.state.formattedRemaining,
+                                            style: const TextStyle(
+                                              color: Colors.cyanAccent,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 IconButton(
                                   key: const Key('hud_web_remote_top_button'),
                                   icon: Icon(
