@@ -75,6 +75,20 @@ CREATE TABLE media_items (
     final result = await db.query('media_items', orderBy: orderBy);
     return result.map((json) => _fromMap(json)).toList();
   }
+
+  Future<MediaItem?> getItemByPath(String path) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'media_items',
+      where: 'path = ?',
+      whereArgs: [path],
+      limit: 1,
+    );
+    if (result.isNotEmpty) {
+      return _fromMap(result.first);
+    }
+    return null;
+  }
   
   Future<List<MediaItem>> getItemsByFolder(String folder) async {
     final db = await instance.database;

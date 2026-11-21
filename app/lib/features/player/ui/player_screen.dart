@@ -47,6 +47,8 @@ import '../../stream_recorder/data/stream_recorder_controller.dart';
 import '../../stream_recorder/ui/stream_recorder_badge_widget.dart';
 import '../../stream_recorder/ui/stream_recorder_sheet.dart';
 import '../services/desktop_drag_drop_service.dart';
+import '../../../core/db/database_helper.dart';
+import 'widgets/resume_playback_banner_widget.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -80,6 +82,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   StreamSubscription<double>? _trayVolumeSubscription;
   StreamSubscription<DroppedMediaEvent>? _dragDropSubscription;
   String? _currentMediaPath;
+  bool _showResumePrompt = false;
+  Duration? _savedResumePosition;
 
   bool _isPlaying = true;
   bool _isLocked = false;
@@ -277,6 +281,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted) setState(() {});
     });
     BookmarkService.instance.addListener(_onBookmarksChanged);
+    _checkResumePosition();
     SharedPreferences.getInstance().then((prefs) {
       _bufferCachingController.loadFromPrefs(prefs).then((_) {
         _bufferCachingController.applyToPlayer(_player);
@@ -617,7 +622,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _player.open(Media(mediaItem.path));
         setState(() {
           _currentMediaPath = mediaItem.path;
+          _showResumePrompt = false;
+          _savedResumePosition = null;
         });
+        _checkResumePosition();
         _showFeedbackMessage(
           'Playing: ${mediaItem.name}',
           Icons.play_circle_fill_rounded,
@@ -636,6 +644,64 @@ class _PlayerScreenState extends State<PlayerScreen> {
         Icons.warning_amber_rounded,
         Colors.orangeAccent,
       );
+    }
+  }
+
+  Future<void> _checkResumePosition() async {
+    final targetPath = _currentMediaPath ?? widget.mediaPath;
+    if (targetPath.isEmpty) return;
+
+    try {
+      final item = await DatabaseHelper.instance.getItemByPath(targetPath);
+      if (item != null && item.lastPositionMs >= 5000) {
+        // Only prompt if not completed (e.g. not within last 15 seconds)
+        if (item.durationMs == 0 || item.lastPositionMs < item.durationMs - 15000) {
+          if (mounted) {
+            setState(() {
+              _savedResumePosition = Duration(milliseconds: item.lastPositionMs);
+              _showResumePrompt = true;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to query resume position: $e');
+    }
+  }
+
+  void _handleResumePlayback() {
+    if (_savedResumePosition != null) {
+      _player.seek(_savedResumePosition!);
+      _showFeedbackMessage(
+        'Resumed from ${_formatDuration(_savedResumePosition!)}',
+        Icons.history_rounded,
+        EDesign.primaryCyan,
+      );
+    }
+    if (mounted) {
+      setState(() => _showResumePrompt = false);
+    }
+  }
+
+  void _handleRestartPlayback() {
+    _player.seek(Duration.zero);
+    _showFeedbackMessage(
+      'Restarted from beginning',
+      Icons.replay_rounded,
+      EDesign.primaryCyan,
+    );
+    if (mounted) {
+      setState(() => _showResumePrompt = false);
+    }
+    final targetPath = _currentMediaPath ?? widget.mediaPath;
+    if (targetPath.isNotEmpty) {
+      try {
+        context.read<LibraryProvider>().updateWatchProgress(
+              targetPath,
+              0,
+              _duration.inMilliseconds,
+            );
+      } catch (_) {}
     }
   }
 
@@ -3304,6 +3370,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
             StreamRecorderBadgeWidget(
               controller: _streamRecorderController,
             ),
+
+            // VLC Resume Playback Prompt Banner (--qt-continue=1 parity)
+            if (_showResumePrompt && _savedResumePosition != null)
+              Positioned(
+                key: const Key('resume_playback_banner_overlay'),
+                top: _controlsVisible ? 85 : 25,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: ResumePlaybackBannerWidget(
+                    resumePosition: _savedResumePosition!,
+                    onResume: _handleResumePlayback,
+                    onRestart: _handleRestartPlayback,
+                    onDismiss: () {
+                      if (mounted) setState(() => _showResumePrompt = false);
+                    },
+                  ),
+                ),
+              ),
           ],
         ),
       ),
