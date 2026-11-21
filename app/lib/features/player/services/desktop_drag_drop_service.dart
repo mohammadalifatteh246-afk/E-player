@@ -11,6 +11,7 @@ enum DroppedItemType {
   subtitle,
   folder,
   playlist,
+  archive,
   unsupported,
 }
 
@@ -42,6 +43,10 @@ class DroppedItem {
     'm3u', 'm3u8', 'xspf',
   };
 
+  static const Set<String> _archiveExtensions = {
+    'zip', 'tar', 'gz', 'tgz',
+  };
+
   factory DroppedItem.fromPath(String filePath) {
     final fileName = p.basename(filePath);
     final ext = p.extension(filePath).replaceFirst('.', '').toLowerCase();
@@ -71,6 +76,15 @@ class DroppedItem {
         name: fileName,
         extension: ext,
         type: DroppedItemType.playlist,
+      );
+    }
+
+    if (fileName.toLowerCase().endsWith('.tar.gz') || _archiveExtensions.contains(ext)) {
+      return DroppedItem(
+        path: filePath,
+        name: fileName,
+        extension: ext,
+        type: DroppedItemType.archive,
       );
     }
 
@@ -116,6 +130,9 @@ class DroppedMediaEvent {
   bool get hasPlaylist =>
       items.any((item) => item.type == DroppedItemType.playlist);
 
+  bool get hasArchive =>
+      items.any((item) => item.type == DroppedItemType.archive);
+
   List<DroppedItem> get videoAudioItems =>
       items.where((item) => item.type == DroppedItemType.videoAudio).toList();
 
@@ -124,6 +141,9 @@ class DroppedMediaEvent {
 
   List<DroppedItem> get playlistItems =>
       items.where((item) => item.type == DroppedItemType.playlist).toList();
+
+  List<DroppedItem> get archiveItems =>
+      items.where((item) => item.type == DroppedItemType.archive).toList();
 
   @override
   String toString() =>

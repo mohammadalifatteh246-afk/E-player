@@ -64,6 +64,21 @@ void main() {
       }
     });
 
+    test('DroppedItem classifies archive formats correctly (.zip, .tar, .tar.gz, .tgz)', () {
+      final testCases = [
+        ('C:/Downloads/season1.zip', DroppedItemType.archive, 'zip'),
+        ('D:/Anime/naruto.tar', DroppedItemType.archive, 'tar'),
+        ('E:/Archives/pack.tar.gz', DroppedItemType.archive, 'gz'),
+        ('/home/user/collection.tgz', DroppedItemType.archive, 'tgz'),
+      ];
+
+      for (final (path, expectedType, expectedExt) in testCases) {
+        final item = DroppedItem.fromPath(path);
+        expect(item.type, equals(expectedType), reason: 'Failed for $path');
+        expect(item.extension, equals(expectedExt));
+      }
+    });
+
     test('DroppedItem classifies directories and unsupported files', () {
       final tempDir = Directory.systemTemp.createTempSync('eplayer_drop_test');
       addTearDown(() {
@@ -82,6 +97,7 @@ void main() {
         DroppedItem.fromPath('C:/Movies/Inception.mkv'),
         DroppedItem.fromPath('C:/Movies/Inception_en.srt'),
         DroppedItem.fromPath('C:/Playlists/movies.m3u8'),
+        DroppedItem.fromPath('C:/Archives/series.zip'),
         DroppedItem.fromPath('C:/Movies/Notes.pdf'),
       ];
 
@@ -90,12 +106,15 @@ void main() {
       expect(event.hasVideoAudio, isTrue);
       expect(event.hasSubtitle, isTrue);
       expect(event.hasPlaylist, isTrue);
+      expect(event.hasArchive, isTrue);
       expect(event.videoAudioItems.length, equals(1));
       expect(event.videoAudioItems.first.name, equals('Inception.mkv'));
       expect(event.subtitleItems.length, equals(1));
       expect(event.subtitleItems.first.name, equals('Inception_en.srt'));
       expect(event.playlistItems.length, equals(1));
       expect(event.playlistItems.first.name, equals('movies.m3u8'));
+      expect(event.archiveItems.length, equals(1));
+      expect(event.archiveItems.first.name, equals('series.zip'));
       expect(event.primaryItem?.name, equals('Inception.mkv'));
     });
 

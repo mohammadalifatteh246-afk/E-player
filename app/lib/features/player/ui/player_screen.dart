@@ -56,6 +56,9 @@ import 'widgets/resume_playback_banner_widget.dart';
 import '../services/playlist_controller.dart';
 import '../services/playlist_serializer.dart';
 import 'widgets/undocked_playlist_panel_widget.dart';
+import '../../web_remote/data/web_remote_service.dart';
+import '../../web_remote/ui/web_remote_sheet.dart';
+import '../../archive/services/archive_media_service.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -80,6 +83,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final PuzzleWallController _puzzleWallController;
   late final TeletextClosedCaptionController _teletextCcController;
   late final StreamRecorderController _streamRecorderController;
+  late final WebRemoteService _webRemoteService;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -485,6 +489,46 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _playlistController.addListener(() {
       if (mounted) setState(() {});
     });
+    _webRemoteService = WebRemoteService();
+    _webRemoteService.statusProvider = () {
+      final activePath = _currentMediaPath ?? widget.mediaPath;
+      return WebRemoteStatus(
+        isPlaying: _player.state.playing,
+        title: p.basename(activePath),
+        positionMs: _player.state.position.inMilliseconds,
+        durationMs: _player.state.duration.inMilliseconds,
+        volume: _player.state.volume,
+        aspectRatio: _cropController.current.label,
+        isMuted: _player.state.volume <= 0.0,
+        currentAudioTrack: _player.state.track.audio.id,
+        currentSubtitleTrack: _player.state.track.subtitle.id,
+        abRepeatState: _abRepeatController.state.name,
+      );
+    };
+    _webRemoteService.onPlayPause = () => _player.playOrPause();
+    _webRemoteService.onSeek = (posMs) => _player.seek(Duration(milliseconds: posMs));
+    _webRemoteService.onSetVolume = (vol) => _player.setVolume(vol);
+    _webRemoteService.onCycleAspectRatio = () {
+      _cycleCropRatio();
+    };
+    _webRemoteService.onStepFrame = () => _stepFrame();
+    _webRemoteService.onCycleABRepeat = () {
+      _cycleABRepeat();
+    };
+    _webRemoteService.onNext = () {
+      final nextTrack = _playlistController.getNextTrack();
+      if (nextTrack != null) _playMediaItem(nextTrack);
+    };
+    _webRemoteService.onPrevious = () {
+      final prevTrack = _playlistController.getPreviousTrack();
+      if (prevTrack != null) _playMediaItem(prevTrack);
+    };
+    _webRemoteService.onToggleFullscreen = () => _toggleFullscreen();
+    _webRemoteService.onCycleSubtitle = () => _cycleSubtitleTrack();
+    _webRemoteService.onCycleAudio = () => _cycleAudioTrack();
+    _webRemoteService.addListener(() {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
@@ -649,6 +693,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _puzzleWallController.dispose();
     _teletextCcController.dispose();
     _streamRecorderController.dispose();
+    _webRemoteService.dispose();
     _playlistController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
@@ -708,7 +753,81 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return;
     }
 
-    // 3. If video or audio dropped: play primary media (VLC parity)
+    // 3. If archive (.zip, .tar) dropped: stream directly from archive (VLC parity)
+    if (event.hasArchive) {
+      final archiveFile = event.archiveItems.first;
+      ArchiveMediaService.listMediaInArchive(archiveFile.path).then((entries) async {
+        if (!mounted) return;
+        if (entries.isEmpty) {
+          _showFeedbackMessage(
+            'No playable media in ${archiveFile.name}',
+            Icons.folder_zip_rounded,
+            EDesign.warning,
+          );
+          return;
+        }
+
+        if (entries.length == 1) {
+          final extractedPath = await ArchiveMediaService.extractMedia(
+            archiveFile.path,
+            entries.first.pathInArchive,
+          );
+          if (extractedPath != null && mounted) {
+            final mediaItem = MediaItem(
+              path: extractedPath,
+              name: '${archiveFile.name} ➔ ${entries.first.name}',
+              parentFolder: p.dirname(archiveFile.path),
+              lastPlayed: DateTime.now(),
+            );
+            _playMediaItem(mediaItem);
+            _showFeedbackMessage(
+              'Playing from archive: ${entries.first.name}',
+              Icons.folder_zip_rounded,
+              EDesign.primaryCyan,
+            );
+          }
+        } else {
+          final playlistItems = <MediaItem>[];
+          for (final entry in entries) {
+            final extractedPath = await ArchiveMediaService.extractMedia(
+              archiveFile.path,
+              entry.pathInArchive,
+            );
+            if (extractedPath != null) {
+              playlistItems.add(
+                MediaItem(
+                  path: extractedPath,
+                  name: entry.name,
+                  parentFolder: archiveFile.name,
+                  lastPlayed: DateTime.now(),
+                ),
+              );
+            }
+          }
+          if (playlistItems.isNotEmpty && mounted) {
+            _playlistController.setItems(playlistItems, activePath: playlistItems.first.path);
+            _playMediaItem(playlistItems.first);
+            _showFeedbackMessage(
+              'Loaded ${playlistItems.length} tracks from ${archiveFile.name}',
+              Icons.folder_zip_rounded,
+              EDesign.primaryCyan,
+            );
+          }
+        }
+      }).catchError((e) {
+        debugPrint('[PlayerScreen] Failed to inspect dropped archive: $e');
+        if (mounted) {
+          _showFeedbackMessage(
+            'Failed to read archive',
+            Icons.error_outline_rounded,
+            EDesign.danger,
+          );
+        }
+      });
+      return;
+    }
+
+    // 4. If video or audio dropped: play primary media (VLC parity)
     if (event.hasVideoAudio) {
       final mediaItem = event.videoAudioItems.first;
       try {
@@ -2673,6 +2792,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           },
                         ),
                         _buildQuickOptionTile(
+                          key: const Key('hud_web_remote_button'),
+                          icon: Icons.phonelink_rounded,
+                          title: 'Web Remote Control',
+                          subtitle: _webRemoteService.isRunning
+                              ? 'Active (${_webRemoteService.port})'
+                              : 'Wi-Fi QR Remote',
+                          accentColor: _webRemoteService.isRunning ? EDesign.success : EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            WebRemoteSheet.show(context, _webRemoteService);
+                          },
+                        ),
+                        _buildQuickOptionTile(
                           icon: Icons.picture_in_picture_alt_rounded,
                           title: 'PiP Window',
                           subtitle: 'Background Float',
@@ -3139,9 +3271,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           ),
                         ),
 
-                        // Right: Active Cast Pill & Playlist Toggle Button (Ctrl+L)
+                        // Right: Active Cast Pill, Web Remote & Playlist Toggle Button (Ctrl+L)
                         SizedBox(
-                          width: 100,
+                          width: 140,
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: Row(
@@ -3157,6 +3289,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                       onPressed: _openCastSheet,
                                     );
                                   },
+                                ),
+                                IconButton(
+                                  key: const Key('hud_web_remote_top_button'),
+                                  icon: Icon(
+                                    Icons.phonelink_rounded,
+                                    color: _webRemoteService.isRunning ? EDesign.success : Colors.white,
+                                    size: 20,
+                                  ),
+                                  tooltip: 'Web Remote (${_webRemoteService.isRunning ? "Active" : "Off"})',
+                                  onPressed: () => WebRemoteSheet.show(context, _webRemoteService),
                                 ),
                                 IconButton(
                                   key: const Key('hud_playlist_button'),
