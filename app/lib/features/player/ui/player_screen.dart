@@ -84,6 +84,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _currentMediaPath;
   bool _showResumePrompt = false;
   Duration? _savedResumePosition;
+  bool _showRemainingTime = true;
 
   bool _isPlaying = true;
   bool _isLocked = false;
@@ -283,6 +284,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
     BookmarkService.instance.addListener(_onBookmarksChanged);
     _checkResumePosition();
     SharedPreferences.getInstance().then((prefs) {
+      if (prefs.containsKey('player_show_remaining_time')) {
+        if (mounted) {
+          setState(() {
+            _showRemainingTime = prefs.getBool('player_show_remaining_time') ?? true;
+          });
+        }
+      }
       _bufferCachingController.loadFromPrefs(prefs).then((_) {
         _bufferCachingController.applyToPlayer(_player);
       });
@@ -735,6 +743,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
       final minutes = remaining.inMinutes.remainder(60).toString();
       return '- $minutes:$seconds';
     }
+  }
+
+  void _toggleTimeDisplayMode() {
+    setState(() {
+      _showRemainingTime = !_showRemainingTime;
+    });
+    _showFeedbackMessage(
+      _showRemainingTime ? 'Time: Remaining' : 'Time: Total Duration',
+      Icons.schedule_rounded,
+      EDesign.primaryCyan,
+    );
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool('player_show_remaining_time', _showRemainingTime);
+    }).catchError((_) {});
   }
 
   void _setSpeed(double speed) {
@@ -2947,16 +2969,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   ],
                                 ),
                               ),
-                              Text(
-                                _formatRemainingDuration(_position, _duration),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: 'Inter',
-                                  shadows: [
-                                    Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
-                                  ],
+                              GestureDetector(
+                                key: const Key('timeline_duration_toggle'),
+                                onTap: _toggleTimeDisplayMode,
+                                behavior: HitTestBehavior.opaque,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                                  child: Text(
+                                    _showRemainingTime
+                                        ? _formatRemainingDuration(_position, _duration)
+                                        : _formatPosition(_duration),
+                                    style: TextStyle(
+                                      color: _showRemainingTime ? Colors.white : EDesign.primaryCyan,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Inter',
+                                      shadows: const [
+                                        Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
