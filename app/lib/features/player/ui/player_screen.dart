@@ -21,6 +21,7 @@ import '../../video_effects/domain/video_effects_service.dart';
 import '../../video_effects/ui/video_effects_sheet.dart';
 import '../../video_effects/ui/video_overlay_widget.dart';
 import '../../video_effects/ui/watermark_studio_sheet.dart';
+import '../../video_effects/ui/anaglyph_studio_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
@@ -2822,6 +2823,29 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 setState(() {
                                   _videoEffectsConfig = updated;
                                 });
+                                _videoEffectsService.saveToPreferences(updated);
+                              },
+                            );
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_anaglyph_studio_button'),
+                          icon: Icons.remove_red_eye_rounded,
+                          title: '3D Anaglyph',
+                          subtitle: _videoEffectsConfig.anaglyphEnabled
+                              ? 'Active (${_videoEffectsConfig.anaglyphMatrix.label})'
+                              : 'VLC 3D Filter',
+                          accentColor: _videoEffectsConfig.anaglyphEnabled ? Colors.redAccent : EDesign.textSecondary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            AnaglyphStudioSheet.show(
+                              context,
+                              config: _videoEffectsConfig,
+                              onConfigChanged: (updated) {
+                                setState(() {
+                                  _videoEffectsConfig = updated;
+                                });
+                                _videoEffectsService.apply(_player, updated, immediateVf: true);
                                 _videoEffectsService.saveToPreferences(updated);
                               },
                             );

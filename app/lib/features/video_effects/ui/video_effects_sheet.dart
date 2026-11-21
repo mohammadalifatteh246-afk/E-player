@@ -6,6 +6,7 @@ import '../models/video_effects_config.dart';
 import '../domain/video_effects_service.dart';
 import '../domain/puzzle_wall_controller.dart';
 import '../../player/services/interactive_zoom_controller.dart';
+import 'anaglyph_studio_sheet.dart';
 
 /// Interactive Video Effects Studio Sheet for E-Player.
 /// Matches VLC Media Player's Extended Video Effects dialog:
@@ -533,6 +534,52 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
               _config.colorThresholdSaturation = 0.20;
               _notifyChange();
             },
+          ),
+        ],
+
+        const Divider(color: EDesign.border, height: 16),
+
+        _buildSectionHeader('3D Stereoscopic Anaglyph (VLC anaglyph.c)', () {
+          _config.resetAnaglyph();
+          _notifyChange(immediateVf: true);
+        }),
+
+        SwitchListTile(
+          key: const Key('video_effects_anaglyph_switch'),
+          title: const Text('3D Anaglyph Mode', style: TextStyle(color: EDesign.textPrimary, fontSize: 14)),
+          subtitle: const Text('Stereoscopic Red-Cyan 3D filter with depth disparity', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          value: _config.anaglyphEnabled,
+          activeThumbColor: EDesign.primaryCyan,
+          contentPadding: EdgeInsets.zero,
+          onChanged: (val) {
+            _config.anaglyphEnabled = val;
+            _notifyChange(immediateVf: true);
+          },
+        ),
+
+        if (_config.anaglyphEnabled) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ElevatedButton.icon(
+              key: const Key('video_effects_open_anaglyph_studio_button'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: EDesign.elevatedBackground,
+                foregroundColor: EDesign.primaryCyan,
+                side: const BorderSide(color: EDesign.primaryCyan),
+              ),
+              icon: const Icon(Icons.remove_red_eye_rounded, size: 18),
+              label: const Text('Open 3D Anaglyph Studio'),
+              onPressed: () {
+                AnaglyphStudioSheet.show(
+                  context,
+                  config: _config,
+                  onConfigChanged: (cfg) {
+                    _config = cfg;
+                    _notifyChange(immediateVf: true);
+                  },
+                );
+              },
+            ),
           ),
         ],
       ],

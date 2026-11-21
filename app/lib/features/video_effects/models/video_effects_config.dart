@@ -2,10 +2,12 @@ import 'dart:math' as math;
 import 'puzzle_wall_models.dart';
 import 'video_overlay_models.dart';
 import 'deinterlace_models.dart';
+import 'anaglyph_models.dart';
 
 export 'puzzle_wall_models.dart';
 export 'video_overlay_models.dart';
 export 'deinterlace_models.dart';
+export 'anaglyph_models.dart';
 
 /// Video Effects Configuration for E-Player.
 /// Reverse engineered from VLC media player's `adjust.c`, `sharpen.c`,
@@ -83,10 +85,22 @@ class VideoEffectsConfig {
   DeinterlaceMode deinterlaceMode;
   DeinterlaceAlgorithm deinterlaceAlgorithm;
 
+  // --- 3D Anaglyph Stereoscopic Filter (VLC anaglyph.c & FFmpeg stereo3d parity) ---
+  bool anaglyphEnabled;
+  AnaglyphSourceMode anaglyphSource; // Synthetic 2D, SBS, or Top-Bottom
+  AnaglyphColorMatrix anaglyphMatrix; // Red-Cyan Dubois, Color, Green-Magenta, Amber-Blue
+  double anaglyphParallax; // Horizontal disparity / convergence offset (-30.0 to +30.0 px, default 8.0)
+  bool anaglyphSwapEyes; // Swap Left/Right eye view
+
   VideoEffectsConfig({
     this.masterEnabled = true,
     this.deinterlaceMode = DeinterlaceMode.off,
     this.deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif,
+    this.anaglyphEnabled = false,
+    this.anaglyphSource = AnaglyphSourceMode.synthetic2D,
+    this.anaglyphMatrix = AnaglyphColorMatrix.redCyanDubois,
+    this.anaglyphParallax = 8.0,
+    this.anaglyphSwapEyes = false,
     this.brightness = 0.0,
     this.contrast = 0.0,
     this.saturation = 0.0,
@@ -141,6 +155,11 @@ class VideoEffectsConfig {
     bool? masterEnabled,
     DeinterlaceMode? deinterlaceMode,
     DeinterlaceAlgorithm? deinterlaceAlgorithm,
+    bool? anaglyphEnabled,
+    AnaglyphSourceMode? anaglyphSource,
+    AnaglyphColorMatrix? anaglyphMatrix,
+    double? anaglyphParallax,
+    bool? anaglyphSwapEyes,
     double? brightness,
     double? contrast,
     double? saturation,
@@ -193,6 +212,11 @@ class VideoEffectsConfig {
       masterEnabled: masterEnabled ?? this.masterEnabled,
       deinterlaceMode: deinterlaceMode ?? this.deinterlaceMode,
       deinterlaceAlgorithm: deinterlaceAlgorithm ?? this.deinterlaceAlgorithm,
+      anaglyphEnabled: anaglyphEnabled ?? this.anaglyphEnabled,
+      anaglyphSource: anaglyphSource ?? this.anaglyphSource,
+      anaglyphMatrix: anaglyphMatrix ?? this.anaglyphMatrix,
+      anaglyphParallax: anaglyphParallax ?? this.anaglyphParallax,
+      anaglyphSwapEyes: anaglyphSwapEyes ?? this.anaglyphSwapEyes,
       brightness: brightness ?? this.brightness,
       contrast: contrast ?? this.contrast,
       saturation: saturation ?? this.saturation,
@@ -265,6 +289,7 @@ class VideoEffectsConfig {
         !wallEnabled &&
         !logoEnabled &&
         !marqueeEnabled &&
+        !anaglyphEnabled &&
         deinterlaceMode == DeinterlaceMode.off;
   }
 
@@ -273,6 +298,11 @@ class VideoEffectsConfig {
     masterEnabled = true;
     deinterlaceMode = DeinterlaceMode.off;
     deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif;
+    anaglyphEnabled = false;
+    anaglyphSource = AnaglyphSourceMode.synthetic2D;
+    anaglyphMatrix = AnaglyphColorMatrix.redCyanDubois;
+    anaglyphParallax = 8.0;
+    anaglyphSwapEyes = false;
     brightness = 0.0;
     contrast = 0.0;
     saturation = 0.0;
@@ -320,6 +350,15 @@ class VideoEffectsConfig {
     marqueeOffsetX = 16;
     marqueeOffsetY = 16;
     marqueeShowBackground = true;
+  }
+
+  /// Reset only 3D anaglyph stereoscopic filter settings (VLC anaglyph.c parity)
+  void resetAnaglyph() {
+    anaglyphEnabled = false;
+    anaglyphSource = AnaglyphSourceMode.synthetic2D;
+    anaglyphMatrix = AnaglyphColorMatrix.redCyanDubois;
+    anaglyphParallax = 8.0;
+    anaglyphSwapEyes = false;
   }
 
   /// Reset only essential adjustments
@@ -508,6 +547,33 @@ class VideoEffectsConfig {
     // Deinterlacing filter (VLC deinterlace.c parity)
     if (deinterlaceMode != DeinterlaceMode.off) {
       filters.add(deinterlaceAlgorithm.mpvFilterString);
+    }
+
+    // 3D Anaglyph filter (VLC anaglyph.c parity & FFmpeg stereo3d/rgbashift)
+    if (anaglyphEnabled) {
+      if (anaglyphSource == AnaglyphSourceMode.synthetic2D) {
+        // Monoscopic 2D with horizontal parallax channel shift
+        int shift = anaglyphParallax.round();
+        if (anaglyphSwapEyes) shift = -shift;
+        switch (anaglyphMatrix) {
+          case AnaglyphColorMatrix.redCyanDubois:
+          case AnaglyphColorMatrix.redCyanColor:
+          case AnaglyphColorMatrix.redCyanHalfColor:
+            filters.add('rgbashift=rh=$shift:gh=${-shift}:bh=${-shift}');
+            break;
+          case AnaglyphColorMatrix.greenMagenta:
+            filters.add('rgbashift=gh=$shift:rh=${-shift}:bh=${-shift}');
+            break;
+          case AnaglyphColorMatrix.amberBlue:
+            filters.add('rgbashift=rh=$shift:gh=$shift:bh=${-shift}');
+            break;
+        }
+      } else {
+        // Stereoscopic 3D source (SBS / TaB) via FFmpeg stereo3d
+        final inFmt = anaglyphSource.getMpvIn(anaglyphSwapEyes);
+        final outFmt = anaglyphMatrix.mpvOut;
+        filters.add('stereo3d=in=$inFmt:out=$outFmt');
+      }
     }
 
     return filters.join(',');
@@ -724,6 +790,11 @@ class VideoEffectsConfig {
         'marqueeOffsetX': marqueeOffsetX,
         'marqueeOffsetY': marqueeOffsetY,
         'marqueeShowBackground': marqueeShowBackground,
+        'anaglyphEnabled': anaglyphEnabled,
+        'anaglyphSource': anaglyphSource.name,
+        'anaglyphMatrix': anaglyphMatrix.name,
+        'anaglyphParallax': anaglyphParallax,
+        'anaglyphSwapEyes': anaglyphSwapEyes,
       };
 
   factory VideoEffectsConfig.fromJson(Map<String, dynamic> json) {
@@ -737,6 +808,17 @@ class VideoEffectsConfig {
         (e) => e.name == json['deinterlaceAlgorithm'],
         orElse: () => DeinterlaceAlgorithm.yadif,
       ),
+      anaglyphEnabled: json['anaglyphEnabled'] as bool? ?? false,
+      anaglyphSource: AnaglyphSourceMode.values.firstWhere(
+        (e) => e.name == json['anaglyphSource'],
+        orElse: () => AnaglyphSourceMode.synthetic2D,
+      ),
+      anaglyphMatrix: AnaglyphColorMatrix.values.firstWhere(
+        (e) => e.name == json['anaglyphMatrix'],
+        orElse: () => AnaglyphColorMatrix.redCyanDubois,
+      ),
+      anaglyphParallax: (json['anaglyphParallax'] as num?)?.toDouble() ?? 8.0,
+      anaglyphSwapEyes: json['anaglyphSwapEyes'] as bool? ?? false,
       brightness: (json['brightness'] as num?)?.toDouble() ?? 0.0,
       contrast: (json['contrast'] as num?)?.toDouble() ?? 0.0,
       saturation: (json['saturation'] as num?)?.toDouble() ?? 0.0,
