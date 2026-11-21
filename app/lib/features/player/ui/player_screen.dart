@@ -20,6 +20,8 @@ import '../../video_effects/domain/video_effects_service.dart';
 import '../../video_effects/ui/video_effects_sheet.dart';
 import '../../video_effects/ui/video_overlay_widget.dart';
 import 'subtitle_settings_sheet.dart';
+import '../../subtitles/domain/dual_subtitle_controller.dart';
+import '../../subtitles/ui/dual_subtitle_sheet.dart';
 import '../../subtitles/ui/online_subtitles_sheet.dart';
 import 'audio_studio_sheet.dart';
 import '../domain/video_rotation_service.dart';
@@ -118,6 +120,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   List<SubtitleTrack> _subtitleTracks = [];
   SubtitleTrack _selectedSubtitleTrack = SubtitleTrack.no();
+  late final DualSubtitleController _dualSubtitleController;
 
   final FocusNode _keyboardFocusNode = FocusNode();
   List<AudioTrack> _audioTracks = [];
@@ -280,6 +283,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _controller = VideoController(_player);
     _abRepeatController = ABRepeatController();
     _cropController = AspectCropController(_player);
+    _dualSubtitleController = DualSubtitleController();
+    _dualSubtitleController.attachPlayer(_player);
+    _dualSubtitleController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _bufferCachingController = BufferCachingSettingsController();
     _interactiveZoomController = InteractiveZoomController(player: _player);
     _interactiveZoomController.addListener(() {
@@ -367,6 +375,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         setState(() {
           _selectedSubtitleTrack = track.subtitle;
           _selectedAudioTrack = track.audio;
+          _dualSubtitleController.setPrimaryTrack(track.subtitle);
         });
       }
     });
@@ -632,6 +641,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _controlsTimer?.cancel();
     _feedbackTimer?.cancel();
     _keyboardFocusNode.dispose();
+    _dualSubtitleController.dispose();
     VideoRotationService.resetOrientation();
     _interactiveZoomController.dispose();
     _puzzleWallController.dispose();
@@ -810,6 +820,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
     SharedPreferences.getInstance().then((prefs) {
       prefs.setBool('player_show_remaining_time', _showRemainingTime);
     }).catchError((_) {});
+  }
+
+  String _formatTrackShortName(SubtitleTrack track) {
+    if (track.language != null && track.language!.isNotEmpty) {
+      return track.language!.toUpperCase();
+    }
+    if (track.title != null && track.title!.isNotEmpty) {
+      return track.title!.length > 8 ? track.title!.substring(0, 8) : track.title!;
+    }
+    return track.id == 'no' ? 'NONE' : track.id;
   }
 
   void _togglePlaylist() {
@@ -1970,6 +1990,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 TeletextClosedCaptionsSheet.show(
                   context,
                   controller: _teletextCcController,
+                ).then((_) {
+                  if (mounted) _keyboardFocusNode.requestFocus();
+                });
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.subtitles_rounded,
+                color: _dualSubtitleController.isDualActive ? const Color(0xFFE741FF) : EDesign.primaryCyan,
+              ),
+              title: Row(
+                children: [
+                  const Text('Dual Subtitles Studio...', style: EDesign.body),
+                  const SizedBox(width: 8),
+                  if (_dualSubtitleController.isDualActive)
+                    EDesign.buildBadge('ACTIVE', color: const Color(0xFFE741FF)),
+                ],
+              ),
+              subtitle: Text(
+                _dualSubtitleController.isDualActive
+                    ? 'Bottom: ${_formatTrackShortName(_dualSubtitleController.primaryTrack)} · Top: ${_formatTrackShortName(_dualSubtitleController.secondaryTrack)}'
+                    : 'Simultaneous top & bottom tracks (VLC parity)',
+                style: EDesign.caption,
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                DualSubtitleSheet.show(
+                  context,
+                  controller: _dualSubtitleController,
+                  availableTracks: _subtitleTracks,
                 ).then((_) {
                   if (mounted) _keyboardFocusNode.requestFocus();
                 });
@@ -3224,8 +3274,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 children: [
                                   IconButton(
                                     key: const Key('hud_subtitles_button'),
-                                    icon: const EVectorIcon(name: 'subtitles', size: 22, color: Colors.white),
-                                    tooltip: 'Subtitles',
+                                    icon: EVectorIcon(
+                                      name: 'subtitles',
+                                      size: 22,
+                                      color: _dualSubtitleController.isDualActive
+                                          ? const Color(0xFFE741FF)
+                                          : Colors.white,
+                                    ),
+                                    tooltip: _dualSubtitleController.isDualActive
+                                        ? 'Dual Subtitles Active'
+                                        : 'Subtitles',
                                     onPressed: _showSubtitleMenu,
                                   ),
                                   const SizedBox(width: 8),
@@ -3589,6 +3647,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
             StreamRecorderBadgeWidget(
               controller: _streamRecorderController,
             ),
+
+            // Dual Subtitle Active Status Pill
+            if (_dualSubtitleController.isDualActive)
+              Positioned(
+                key: const Key('dual_subtitle_active_badge'),
+                top: _controlsVisible ? 75 : 20,
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16162A).withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(EDesign.r8),
+                    border: Border.all(color: const Color(0xFFE741FF).withValues(alpha: 0.7)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE741FF).withValues(alpha: 0.35),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.subtitles_rounded, size: 14, color: Color(0xFFE741FF)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'DUAL SUB: ${_formatTrackShortName(_dualSubtitleController.primaryTrack)} ↓ · ${_formatTrackShortName(_dualSubtitleController.secondaryTrack)} ↑',
+                        style: const TextStyle(
+                          color: Color(0xFFE741FF),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // VLC Resume Playback Prompt Banner (--qt-continue=1 parity)
             if (_showResumePrompt && _savedResumePosition != null)
