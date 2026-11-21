@@ -1,25 +1,29 @@
-# BRIEFING — 2026-11-04T13:15:00Z
+# BRIEFING — 2026-11-11T06:26:00Z
 
 ## Mission
-Deliver production update to E-Player Flutter app (empty group creation with Add button, long-press selection with Select All, delete/move across Home/Library, scrollable 5-item History, and video-only filtering for Media Library).
+Implement Phase 2: Core UX & Playback Enhancements for the E-Player Flutter desktop & mobile application (Volume Over-Amplification to 300% with 3-color safety indicator, Frame-by-Frame Stepping, A-B Repeat Looping Scene Looper, Aspect Ratio Crop Cycling, and Network/Demuxer Buffer Caching Settings) with full automated test coverage and 0 analyzer issues.
 
 ## 🔒 My Identity
 - Archetype: Project Orchestrator
 - Roles: orchestrator, user_liaison, human_reporter, successor
-- Working directory: d:\E-player\.agents\teamwork\orchestrator_2\
-- Original parent: sentinel
-- Original parent conversation ID: 52d2ea98-0542-4342-87bd-86a803904d6d
+- Working directory: d:\E-player\app
+- State folder: d:\E-player\.agents\teamwork\orchestrator_2
+- Original parent: parent
+- Original parent conversation ID: b5b9479d-bf07-4e2e-8ec7-7cf2dff75f5e
 
 ## 🔒 My Workflow
 - **Pattern**: Project Pattern (Dual Track: Implementation + E2E Testing)
 - **Scope document**: d:\E-player\PROJECT.md
-1. **Decompose**: Survey completed (3 explorers). Feature Inventory & Milestones in PROJECT.md.
+1. **Decompose**:
+   - Survey phase: 3 parallel Explorers (CYPHER engine/properties, AURA gestures/HUD, KRONOS/FORGE looping/caching/architecture) [DONE].
+   - Merge into Feature Inventory and Milestones in PROJECT.md [DONE].
+   - Dual track: Implementation track milestones (M1: Volume 300% & 3-Color Indicator, M2: Frame Stepping & A-B Looper, M3: Aspect Crop Cycling & Caching Settings) + E2E Testing Track (M4: Phase 2 E2E Suite) + Final M5: 100% pass, adversarial hardening (Tier 5), forensic integrity audit.
 2. **Dispatch & Execute**:
-   - Milestone 1: DONE (Passed gate: 2 reviewers, 2 challengers, auditor CLEAN)
-   - Milestone 4: DONE (E2E Test Writer authored 84 tests, published TEST_READY.md)
-   - Milestone 2: Worker M2 dispatched -> Reviewers -> Challengers -> Auditor -> Gate check
-   - Milestone 3: Scrollable History & Video-Only Media Library (pending M2 gate pass)
-   - Milestone 5: Final E2E Pass, Hardening & Independent Victory Audit
+   - M1 Sub-Orchestrator: Volume Over-Amplification to 300% & 3-Color Safety Indicator.
+   - M4 Sub-Orchestrator: Dual Track E2E Test Suite authoring & publication of TEST_READY.md.
+   - On M1 gate pass -> Dispatch M2 Sub-Orchestrator.
+   - On M2 gate pass -> Dispatch M3 Sub-Orchestrator.
+   - On M3 gate pass & TEST_READY.md published -> Dispatch M5 (Final E2E Pass, Tier 5 Hardening & Forensic Audit).
 3. **On failure** (in this order):
    - Retry: nudge stuck agent or re-send task
    - Replace: spawn fresh agent with partial progress
@@ -29,67 +33,65 @@ Deliver production update to E-Player Flutter app (empty group creation with Add
    - Escalate: report to parent (last resort)
 4. **Succession**: At 16 spawns, write handoff.md, spawn successor.
 - **Work items**:
-  1. Survey & Architecture [done]
-  2. Milestone Decomposition & Test Infra [done]
-  3. Milestone 1: Empty Group Creation + Add Button [done]
-  4. Milestone 2: Long-Press Multi-Select, Select All, Delete/Move (Home & Library) [in-progress]
-  5. Milestone 3: Scrollable History with 5-Item Limit & Video-Only Media Library [pending]
-  6. Milestone 4: E2E Test Suite Authoring (Dual Track) [done]
-  7. Milestone 5: E2E Testing & Coverage Hardening [pending]
-- **Current phase**: 2B (Milestone 2 Execution)
-- **Current focus**: worker_m2 implementing multi-select, Select All, delete, move across Home & Library
+  1. Phase 0: Survey Codebase & Architecture (3 Explorers) [done]
+  2. Feature Inventory, Interface Contracts, & Milestones Decomposition [done]
+  3. Milestone 1: Volume Over-Amplification to 300% & 3-Color Safety Indicator [in-progress]
+  4. Milestone 4: Phase 2 E2E Test Suite (Dual Track) [in-progress]
+  5. Milestone 2: Frame-by-Frame Stepping & A-B Repeat Looper [pending M1]
+  6. Milestone 3: Aspect Ratio Crop Cycling & Network/Disk Buffer Caching Settings [pending M2]
+  7. Milestone 5: E2E Verification, Adversarial Hardening & Forensic Integrity Audit [pending]
+- **Current phase**: 2A (Decompose & Delegate to Sub-Orchestrators)
+- **Current focus**: Executing M1 (Implementation Track) and M4 (E2E Testing Track) in parallel
 
 ## 🔒 Key Constraints
 - Never write source code or run build/test commands directly — orchestrate via subagents only.
 - Never reuse a subagent after it has delivered its handoff — always spawn fresh.
 - Zero tolerance for cheating or facade implementations (Auditor check is non-skippable binary veto).
-- Pass `dart analyze` with 0 errors/warnings and `flutter test` 100% pass.
+- Pass `flutter analyze` / `dart analyze` with 0 errors and 0 warnings.
+- Deliver automated tests in `d:\E-player\app\test` verifying all Phase 2 capabilities.
 - Target workspace: d:\E-player\app exclusively.
 - Clean up any temporary artifacts.
 
 ## Current Parent
-- Conversation ID: 52d2ea98-0542-4342-87bd-86a803904d6d
-- Updated: not yet
+- Conversation ID: b5b9479d-bf07-4e2e-8ec7-7cf2dff75f5e
+- Updated: 2026-11-11T06:00:01Z
 
 ## Key Decisions Made
-- Milestone 1 Gate PASSED unanimously (clean audit, 2 approve reviews, 2 approve challengers).
-- Milestone 4 E2E Test Suite PASSED (84 tests, TEST_READY.md published).
-- Dispatched worker_m2 for Milestone 2 (Long-Press Multi-Select, Select All, Delete/Move).
+- Phase 0 Survey completed by CYPHER, AURA, and KRONOS/FORGE. All findings synthesized into `PROJECT.md` and `TEST_INFRA.md`.
+- Milestone 1 (Volume 300% & 3-Color Indicator) and Milestone 4 (E2E Test Suite) launched concurrently in parallel tracks.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
 |-------|------|-----------|--------|---------|
-| Forge | teamwork_explorer | Survey Models & State Architecture | completed | be6dbae6-6f08-4dad-9dce-a2afcfede15a |
-| Aura | teamwork_explorer | Survey UI & Gestures Architecture | completed | f6e93273-359a-4c6f-9204-6bb5f3c3da61 |
-| Kronos | teamwork_explorer | Survey History, MediaLib & Tests | completed | 88eeeb1f-58c4-4425-bb96-ce701fb03b7d |
-| worker_m1 | teamwork_worker | Milestone 1 Implementation | completed | cce2e5ed-eba6-4bf7-8077-0289b3220c66 |
-| test_writer_e2e | teamwork_test_writer | Milestone 4 E2E Test Suite | completed | fd0a513c-e3e0-49bf-8114-ec9d2ac1abf1 |
-| reviewer_m1_1 | teamwork_reviewer | Milestone 1 Code Review | completed (APPROVE) | 1ab215ee-ba77-4788-a939-c5f5171f10ec |
-| reviewer_m1_2 | teamwork_reviewer | Milestone 1 UI/UX Review | completed (APPROVE) | 80bc9abe-ecea-42dd-8f32-b7491147b0b2 |
-| challenger_m1_1 | teamwork_challenger | Milestone 1 Service Stress Testing | completed (APPROVE) | b84d0c8e-d5d5-40fa-9208-f5d2354cc330 |
-| challenger_m1_2 | teamwork_challenger | Milestone 1 UI & Navigation Stress | completed (APPROVE) | f0fadd39-a074-4265-855f-1a3227db641f |
-| auditor_m1_1 | teamwork_auditor | Milestone 1 Forensic Integrity Audit | completed (CLEAN) | 0c5e1352-ba5c-463f-bd01-4481c5808634 |
-| worker_m2 | teamwork_worker | Milestone 2 Implementation | in-progress | 4a27488a-d0bf-478d-be88-fe8f37f6ae03 |
+| explorer_survey_1 | teamwork_explorer | Survey mpv Engine & Properties (CYPHER) | completed | 74c72369-8bdb-4eb7-bad7-48674a8dc287 |
+| explorer_survey_2 | teamwork_explorer | Survey UI, Gestures & HUD (AURA) | completed | a3d82aff-12fa-4784-8b2c-b59ec3cc97e0 |
+| explorer_survey_3 | teamwork_explorer | Survey Looping, Caching & Tests (KRONOS/FORGE) | completed | 19131ee8-0f29-4a67-83e1-f17797b7964b |
+| sub_orch_m1 | self | Sub-Orchestrator: Milestone 1 (Volume 300% & 3-Color Indicator) | in-progress | 64e09fc9-3d69-4af4-a53c-50f335bc9ff5 |
+| sub_orch_e2e | self | Sub-Orchestrator: Milestone 4 (Phase 2 E2E Test Suite) | in-progress | 8aa2ab80-d824-4917-a9ed-90f211789bd2 |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 11 / 16
-- Pending subagents: 4a27488a-d0bf-478d-be88-fe8f37f6ae03
+- Spawn count: 5 / 16
+- Pending subagents: 64e09fc9-3d69-4af4-a53c-50f335bc9ff5, 8aa2ab80-d824-4917-a9ed-90f211789bd2
 - Predecessor: none
-- Successor: not yet spawned
+- Successor spawned: not yet spawned
+- Successor generation: none
+- Successor state folder: none
 
 ## Active Timers
-- Heartbeat cron: 1f4eb210-26b4-4171-85cb-7db1c898c75c/task-21
-- Safety timer: 1f4eb210-26b4-4171-85cb-7db1c898c75c/task-299
+- Heartbeat cron: cfb12254-fb8f-487a-8093-2f824a398acb/task-37
+- Safety timer: cfb12254-fb8f-487a-8093-2f824a398acb/task-117
 - On succession: kill all timers before spawning successor
 - On context truncation: handle timers as step 4 of the State Recovery section of your prompt says
 
 ## Artifact Index
-- d:\E-player\PROJECT.md — Global project plan & architecture
-- d:\E-player\TEST_INFRA.md — E2E test suite plan
-- d:\E-player\TEST_READY.md — E2E test suite readiness artifact
-- d:\E-player\.agents\teamwork\orchestrator_2\GATE_STATUS.md — Milestone 1 Gate Pass status
 - d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md — User request specification
 - d:\E-player\.agents\teamwork\orchestrator_2\DISPATCH.md — Incoming parent dispatch message
 - d:\E-player\.agents\teamwork\orchestrator_2\BRIEFING.md — Persistent working memory
 - d:\E-player\.agents\teamwork\orchestrator_2\progress.md — Liveness heartbeat and milestone tracker
+- d:\E-player\PROJECT.md — Global project plan & architecture
+- d:\E-player\TEST_INFRA.md — E2E testing specification
+- d:\E-player\docs\vlc_gap_analysis.md — Authoritative reference specification
+- d:\E-player\.agents\teamwork\explorer_survey_1\handoff.md — CYPHER survey handoff report
+- d:\E-player\.agents\teamwork\explorer_survey_2\handoff.md — AURA survey handoff report
+- d:\E-player\.agents\teamwork\explorer_survey_3\handoff.md — KRONOS & FORGE survey handoff report

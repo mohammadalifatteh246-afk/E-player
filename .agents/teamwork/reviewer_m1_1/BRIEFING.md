@@ -1,7 +1,7 @@
-# BRIEFING — 2026-11-04T13:13:00Z
+# BRIEFING — 2026-11-11T07:28:00Z
 
 ## Mission
-Review Milestone 1 (Custom Media Groups, Navigation, and Folder Detail Screen) implementation against requirements, invariants, and integrity standards.
+Review Milestone 1 (Volume Overamplification 0–300%, Smooth Physics, Safety Visuals & libmpv Integration) for E-Player Phase 2 against requirements, invariants, and integrity standards.
 
 ## 🔒 My Identity
 - Archetype: reviewer_critic
@@ -12,55 +12,52 @@ Review Milestone 1 (Custom Media Groups, Navigation, and Folder Detail Screen) i
 - Instance: 1 of 1
 - Milestone (Current): Milestone 1 (Media Groups, Navigation, Folder Detail)
 - Parent (Current): 1f4eb210-26b4-4171-85cb-7db1c898c75c
+- Phase 2 Milestone: Milestone 1 (Volume Overamplification 0–300% & Safety Visuals)
+- Phase 2 Parent: 64e09fc9-3d69-4af4-a53c-50f335bc9ff5
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
 - Write ONLY to working directory: d:\E-player\.agents\teamwork\reviewer_m1_1/
 - No C: drive access. No local compilation of binaries (no flutter build apk/windows)
 - Maintain progress.md with timestamps for liveness
+- Actively check for integrity violations: hardcoding, facades, shortcuts, fake logs
+- If integrity violations found, verdict MUST be REQUEST_CHANGES
 
 ## Current Parent
-- Conversation ID: 1f4eb210-26b4-4171-85cb-7db1c898c75c
-- Updated: 2026-11-04T13:13:00Z
+- Conversation ID: 64e09fc9-3d69-4af4-a53c-50f335bc9ff5
+- Updated: 2026-11-11T07:28:00Z
 
 ## Review Scope
 - **Files to review**:
-  - `lib/features/home/domain/media_group_service.dart`
-  - `lib/features/home/ui/home_screen.dart`
-  - `lib/features/library/ui/folder_detail_screen.dart`
-- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md`, `TEST_READY.md`
+  - `lib/features/player/ui/gesture_models.dart`
+  - `lib/features/player/ui/cinematic_gesture_engine.dart`
+  - `lib/features/player/ui/widgets/desktop_keyboard_handler.dart`
+  - `lib/features/player/ui/player_screen.dart`
+  - `test/unit/volume_overamp_test.dart`
+  - `test/unit/desktop_keyboard_handler_test.dart`
+  - `test/unit/cinematic_gesture_engine_test.dart`
+- **Interface contracts**: `PROJECT.md`, `ORIGINAL_REQUEST.md` (lines 85–151), `SCOPE.md`
 - **Review criteria**:
-  - Batch add/remove/move, persistence, deduplication in MediaGroupService.
-  - Custom groups navigation, elimination of take(8) fallback in HomeScreen.
-  - GroupId binding, empty state card with Add button, AppBar Add action in FolderDetailScreen.
-  - Code quality, null safety, architectural consistency, and interface compliance.
-  - Adversarial stress testing & integrity violation check.
+  - Volume range extended from 0–100% to 0–300%.
+  - Physics: linear gain K=150.0 across 0–300%, zero jump discontinuity at 100%.
+  - Clamping: volume clamped strictly to [0.0, 300.0].
+  - Safety visuals: 3 color tiers (0-100% Green #22C55E, 101-200% Amber #F59E0B, 201-300% Red #EF4444). Warning icon for >100%.
+  - Keyboard integration: Arrow Up/Down 5% increments, passing color & icon to OSD.
+  - libmpv initialization: `volume-max: 300.0`.
+  - Zero placeholders, zero TODOs, zero integrity violations.
 
 ## Review Checklist
-- **Items reviewed**:
-  - `media_group_service.dart`: Atomic batch methods `addItemsToGroup`, `removeItemsFromGroup`, `moveItemsBetweenGroups`, JSON serialization, deduplication, SharedPreferences persistence.
-  - `home_screen.dart`: Custom groups horizontal rail navigation passing `items: groupItems` (no sample items injection) and `groupId: group.id`.
-  - `folder_detail_screen.dart`: `groupId` parameter, dynamic binding to `MediaGroupService`, empty state card ("This group is empty") with Add button, AppBar Add action, 3-option modal import workflow (Library, FilePicker, FolderPicker), "Remove from Group" popup action.
-  - `test/media_group_service_test.dart`: 7/7 passed.
-  - `test/widgets/folder_detail_screen_test.dart`: 3/3 passed.
-  - `test/widgets/m1_ui_navigation_empirical_challenge_test.dart`: 5/5 passed.
-  - `test/e2e/e2e_requirements_test.dart` (Feature 1 & Feature 2): 10/10 passed.
-- **Verdict**: APPROVE
-- **Unverified claims**: None. All claims independently verified via automated test runs and source inspection.
+- **Items reviewed**: [Pending]
+- **Verdict**: pending
+- **Unverified claims**: Worker 1's claims of passing tests and smooth physics.
 
 ## Attack Surface
-- **Hypotheses tested**:
-  - Attempted sample items injection into newly created groups -> Defeated; empty groups initialize strictly with 0 items.
-  - Duplicate path insertion into custom groups -> Defeated; atomic deduplication enforced.
-  - Non-existent path handling in FolderDetailScreen -> Handled safely with fallback metadata and zero crash.
-  - Self-move idempotency -> Handled cleanly without duplicate creation.
-  - UI regression for non-group folders -> Verified; regular folders do not show group empty card or group Add action.
-- **Vulnerabilities found**: None in Milestone 1 implementation. Minor analyzer warnings noted in challenger's newly created test file `m1_ui_navigation_empirical_challenge_test.dart` (unused local variables `g1`, `g2`, `g3`).
-- **Untested angles**: None within Milestone 1 scope.
+- **Hypotheses tested**: [Pending]
+- **Vulnerabilities found**: [Pending]
+- **Untested angles**: Discontinuity at 100%, rounding / precision issues, out-of-bound inputs, keyboard step overflow.
 
 ## Key Decisions Made
-- Confirmed Milestone 1 meets all requirements R1, R2 batch primitives, architectural invariants, and zero integrity violations.
-- Verdict is APPROVE.
+- [TBD]
 
 ## Artifact Index
 - DISPATCH.md — incoming dispatch log

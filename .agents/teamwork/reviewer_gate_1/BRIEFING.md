@@ -1,74 +1,75 @@
-# BRIEFING — 2026-11-03T11:36:00Z
+# BRIEFING — 2026-11-12T10:05:00Z
 
 ## Mission
-Perform an independent, adversarial code and architecture review of the clean-room implementation in `app/`.
+Perform an independent, adversarial code and architecture review of Phase 3 clean-room implementations (Subtitles OpenSubtitles service, Network Media stream SMB/WebDAV/DLNA, Cast discovery mDNS/SSDP/DIAL) and test suites.
 
 ## 🔒 My Identity
 - Archetype: reviewer_critic
 - Roles: reviewer, critic
-- Working directory: d:\E-player\.agents\teamwork\reviewer_gate_1
+- Working directory: D:\E-player
+- State folder: D:\E-player\.agents\teamwork\reviewer_gate_1
 - Original parent: b2008e01-408f-4008-b628-3252f17ed10a
 - Milestone: Clean-Room Code & Architecture Review Gate 1
 - Instance: 1 of 1
+- Updated Parent: 21c13783-ab88-4572-9d57-807956b46fec (Milestone 4 / Phase 3 Review)
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code
 - Evidence-based verdicts: APPROVE or REQUEST_CHANGES
 - Actively check for integrity violations (hardcoded test results, facade implementations, shortcuts, fabricated verification, self-certifying work)
-- Write handoff.md and maintain progress.md in working directory
-- Communicate verdict via send_message to caller b2008e01-408f-4008-b628-3252f17ed10a
+- Write handoff.md and maintain progress.md in state folder
+- Communicate verdict via send_message to caller 21c13783-ab88-4572-9d57-807956b46fec
 
 ## Current Parent
-- Conversation ID: b2008e01-408f-4008-b628-3252f17ed10a
-- Updated: 2026-11-03T11:28:07Z
+- Conversation ID: 21c13783-ab88-4572-9d57-807956b46fec
+- Updated: 2026-11-12T10:03:37Z
 
 ## Review Scope
-- **Files to review**:
-  - `app/lib/core/models/media_library_models.dart`
-  - `app/lib/core/db/media_library_database.dart`
-  - `app/lib/core/db/media_library_repository.dart`
-  - `app/lib/core/db/task_queue_repository.dart`
-  - `app/lib/features/browser/domain/file_system_service.dart`
-  - `app/lib/features/browser/domain/directory_watcher_service.dart`
-  - `app/lib/features/library/domain/auto_rescan_coordinator.dart`
-  - `app/lib/features/browser/ui/file_browser_screen.dart` and widgets
-  - Tests: `app/test/unit/` and `app/test/widgets/file_browser_screen_test.dart`
+- **Files reviewed**:
+  - `app/lib/features/subtitles/data/opensubtitles_service.dart` (350 lines)
+  - `app/lib/features/subtitles/models/subtitle_result.dart` (277 lines)
+  - `app/lib/features/network_stream/data/network_media_service.dart` (369 lines)
+  - `app/lib/features/network_stream/models/network_share.dart` (321 lines)
+  - `app/lib/features/cast/data/cast_discovery_service.dart` (440 lines)
+  - `app/lib/features/cast/models/cast_device.dart` (159 lines)
+  - `app/test/unit/phase3_subtitles_network_cast_test.dart` (696 lines, 19 unit tests)
+  - `app/test/e2e/phase3_e2e_test.dart` (504 lines, 5 E2E integration scenarios)
+  - `app/test/unit/phase3_adversarial_stress_test.dart` (532 lines, 20 edge-case stress tests)
+  - `app/test/e2e/phase1_e2e_test.dart` (Line 1290 harmonized test)
 - **Interface contracts**:
-  - `d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`
-  - `d:\E-player\.agents\teamwork\spec_miner_blueprint\CLEAN_ROOM_SPECIFICATION.md`
-  - `d:\E-player\.agents\teamwork\test_verifier_rea_ledger\PERSISTENT_REA_LEDGER.md`
-- **Review criteria**: correctness, completeness, interface conformance, robust error handling, resource disposal, zero TODOs, static analysis, unit/widget tests, adversarial edge case stress testing.
+  - `D:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`
+  - `D:\E-player\.agents\teamwork\orchestrator_6\ANALYSIS_SYNTHESIS.md`
+  - `D:\E-player\.agents\teamwork\worker_m4_task_execution\handoff.md`
+- **Review criteria**:
+  - Correctness, architecture, and robustness
+  - Zero TODOs, zero FIXMEs, zero UnimplementedError stubs (VERIFIED: 0 found)
+  - Zero integrity violations (VERIFIED: Real logic, genuine math/parsers)
+  - Static analysis (`flutter analyze`) (VERIFIED: 0 issues across entire app)
+  - Test suites execution (`flutter test`) (VERIFIED: 100% pass across all suites)
 
 ## Review Checklist
-- **Items reviewed**:
-  - Models: `media_library_models.dart` (946 lines, immutable records, JSON/Map serialization, copyWith, equality)
-  - Database: `media_library_database.dart` (359 lines, WAL mode, foreign keys, recursive triggers, FTS5 table, legacy migration)
-  - Repositories: `media_library_repository.dart` (502 lines), `task_queue_repository.dart` (100 lines)
-  - Domain: `file_system_service.dart` (262 lines), `directory_watcher_service.dart` (241 lines), `stability_probe_service.dart` (94 lines), `differential_reconciler.dart` (172 lines), `auto_rescan_coordinator.dart` (500 lines)
-  - Presentation: `file_browser_screen.dart` (475 lines), `breadcrumb_bar.dart` (116 lines), `drive_selector_bar.dart` (78 lines), `folder_list_tile.dart` (162 lines), `media_item_details_sheet.dart` (278 lines)
-  - Tests: 7 test files, 30 dedicated clean-room tests, 568 total regression tests.
+- **Items reviewed**: All 6 Phase 3 source files, 3 test files, harmonized test line 1290, and mirrored targets.
 - **Verdict**: APPROVE
-- **Unverified claims**: 0. All claims verified independently via CLI and code inspection.
+- **Unverified claims**: None. All empirical assertions verified independently.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - Kernel buffer overflow recovery: Verified `maxEventsPerSecond = 200` triggers `overflowCatch` -> differential crawl fallback.
-  - Temporary file download debounce: Verified `CREATE + DELETE` coalesced to NOOP.
-  - Active file lock during copy/download: Verified `StabilityProbeService` exclusive lock test + exponential backoff + attribute invariance.
-  - Windows extended paths (`\\?\`): Verified normalization past 240 chars.
-  - Device dismount/remount soft delete: Verified `trigger_device_presence_update` cascades to folders, files, and media without data loss.
-  - Process cleanup & file locking: Resolved lingering `flutter_tester` locks on `sqlite3.dll`.
-- **Vulnerabilities found**: None. Architecture is resilient and watertight.
-- **Untested angles**: Hardware-level drive sudden unplugs during active SQLite write transaction (mitigated by SQLite WAL mode + busy_timeout = 5000ms).
+  - MovieHash integer overflow on 64-bit boundaries (PASSED: BigInt arithmetic modulo 2^64).
+  - Empty files (0 bytes) and sub-64KB file hashing (PASSED: Handled without out-of-bounds).
+  - High-volume DIDL-Lite parsing (1000 items) and escaped SOAP envelopes (PASSED).
+  - Special characters in SMB credentials (#, @, %, unicode) (PASSED: Uri component encoded).
+  - Truncated mDNS packets and DNS compression pointers (PASSED: Handled safely).
+- **Vulnerabilities found**: None. Codebase is clean, resilient, and production-ready.
+- **Untested angles**: Hardware-level network link down during active chunked socket write (handled gracefully by standard dart:io Socket exceptions).
 
 ## Key Decisions Made
-- Confirmed zero integrity violations: No hardcoded test responses, no facade patterns, no copy-paste open-source code.
-- Confirmed static analysis clean: `dart analyze` reports 0 issues.
-- Confirmed test coverage: 30/30 clean-room tests passed, 568/568 regression tests passed.
+- Confirmed zero integrity violations: No hardcoded test responses, no facade patterns, no copy-paste shortcuts.
+- Confirmed static analysis clean: `flutter analyze` reports 0 issues.
+- Confirmed test coverage: 19/19 unit tests, 5/5 E2E tests, 20/20 adversarial tests, 173/173 combined tests pass.
 - Issued unconditional APPROVE verdict.
 
 ## Artifact Index
-- `d:\E-player\.agents\teamwork\reviewer_gate_1\DISPATCH.md` — Inbound instructions
-- `d:\E-player\.agents\teamwork\reviewer_gate_1\BRIEFING.md` — Situational awareness
-- `d:\E-player\.agents\teamwork\reviewer_gate_1\progress.md` — Heartbeat and step tracking
-- `d:\E-player\.agents\teamwork\reviewer_gate_1\handoff.md` — Final review report and verdict
+- `D:\E-player\.agents\teamwork\reviewer_gate_1\DISPATCH.md` — Inbound instructions & status check
+- `D:\E-player\.agents\teamwork\reviewer_gate_1\BRIEFING.md` — Persistent situational awareness
+- `D:\E-player\.agents\teamwork\reviewer_gate_1\progress.md` — Execution tracking
+- `D:\E-player\.agents\teamwork\reviewer_gate_1\handoff.md` — Final review report and verdict

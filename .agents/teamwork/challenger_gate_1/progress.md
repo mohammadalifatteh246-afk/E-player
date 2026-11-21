@@ -1,14 +1,16 @@
 # Progress - challenger_gate_1
 
-Last visited: 2026-11-03T11:48:30Z
+Last visited: 2026-11-12T10:02:00Z
 
-- [x] Initialized DISPATCH.md and BRIEFING.md
-- [x] Read ORIGINAL_REQUEST.md, CLEAN_ROOM_SPECIFICATION.md, worker handoff.md, PERSISTENT_REA_LEDGER.md
-- [x] Inspected clean-room implementation in `app/lib`
-- [x] Run existing tests in `app/test` (baseline verified: 30 clean-room tests passed in 31s)
-- [x] Write and execute adversarial stress test harness 1: Rapid concurrent filesystem events (sliding debounce & coalescing) -> PASSED (4/4)
-- [x] Write and execute adversarial stress test harness 2: Stability probing (`StabilityProbeService`) under active locks & sequential size changes -> PASSED (5/5)
-- [x] Write and execute adversarial stress test harness 3: SQLite transaction concurrency (concurrent reads during write transactions) -> PASSED (4/4)
-- [x] Verify test cleanup invariant -> PASSED (0 temp directories, 0 test db files on disk)
-- [x] Compile observations, logic chains, and verdict into `handoff.md`
-- [x] Send verdict to parent orchestrator
+- [x] Initialized DISPATCH.md and updated BRIEFING.md for Milestone 4 / Phase 3 Empirical Challenge
+- [x] Read ORIGINAL_REQUEST.md and worker_m4_task_execution handoff.md
+- [x] Inspected implementation files in `app/lib/features/subtitles`, `network_stream`, `cast`
+- [x] Baseline test run executed: 24/24 tests passed (19 unit, 5 e2e)
+- [x] Designed and authored adversarial stress harness `app/test/unit/phase3_adversarial_stress_test.dart` (20 scenarios across 4 objectives)
+- [x] Executed adversarial stress harness: 20/20 edge-case tests passed
+- [x] Combined test execution: 44/44 tests passed (19 unit + 5 e2e + 20 adversarial)
+- [x] Static code analysis `flutter analyze` executed: 0 errors, 0 warnings, 0 lints
+- [x] Cleaned up all temporary files: verified 0 leftover temp artifacts in `$env:TEMP`
+- [x] Mirrored `phase3_adversarial_stress_test.dart` to all 4 external workspace locations with 100% SHA256 parity
+- [x] Formulated empirical challenge findings and verdict (CONFIRMED)
+- [x] Delivering handoff report to `handoff.md` and messaging parent orchestrator

@@ -1,166 +1,157 @@
-# Handoff Report: Reviewer 1 (Document Completeness, Technical Accuracy & Standards)
+# Handoff Report: Milestone 4 (Phase 2 E2E Test Suite Review)
 
-**Agent**: `reviewer_m4_1` (Reviewer 1)  
-**Roles**: Reviewer, Adversarial Critic  
-**Working Directory**: `d:\E-player\.agents\teamwork\reviewer_m4_1\`  
-**Target Under Review**: `d:\E-player\docs\vlc_gap_analysis.md` (1,303 lines, 97,095 bytes)  
-**Target Codebase**: `d:\E-player\app`  
-**Handoff Type**: Hard (Review Complete)  
-**Recipient**: Parent Orchestrator (`ae39413e-15f3-4708-97e2-c263b03bde20`)  
-**Date**: November 9, 2026  
-**Final Verdict**: **APPROVE**  
+**Author:** `reviewer_m4_1`  
+**Role:** Reviewer & Adversarial Critic  
+**Working Directory:** `d:\E-player\app`  
+**State Folder:** `d:\E-player\.agents\teamwork\reviewer_m4_1`  
+**Milestone:** Milestone 4 (Phase 2 E2E Test Suite)  
+**Target Reviewed:** `d:\E-player\app\test\e2e\phase2_e2e_test.dart`  
+**Date:** 2026-11-11T07:24:00Z  
+**Verdict:** **APPROVE**
 
 ---
 
 ## 1. Observation
 
-Direct empirical evidence gathered during independent review and verification:
+1. **Test Infrastructure & Headless Mock Pattern Inspection**:
+   - Inspected `d:\E-player\app\test\e2e\phase2_e2e_test.dart` (lines 16–184) against `d:\E-player\app\test\e2e\phase1_e2e_test.dart` (lines 23–191).
+   - Observed that `FakePlatformPlayer` extends `PlatformPlayer` directly, overriding all core playback methods (`play`, `pause`, `playOrPause`, `seek`, `setVolume`, `setRate`, `open`, `stop`, `handle`).
+   - Observed libmpv property store mocking:
+     ```dart
+     properties['volume-max'] = '130.0'; // Updated to '300.0' on player init
+     properties['volume'] = initialVolume.toString();
+     properties['cache-secs'] = '1.00';
+     properties['demuxer-max-bytes'] = (32 * 1024 * 1024).toString();
+     properties['demuxer-max-back-bytes'] = (32 * 1024 * 1024).toString();
+     properties['vf'] = '';
+     ```
+   - Observed libmpv command store mocking:
+     ```dart
+     Future<void> command(List<String> command, {bool waitForInitialization = true}) async {
+       commandCalls.add(List<String>.from(command));
+       onCommand?.call(command);
+     }
+     bool hasCommand(String cmd) => commandCalls.any((c) => c.isNotEmpty && c.first == cmd);
+     ```
+   - Observed public programmatic stream emitters: `playingStream`, `positionStream`, `volumeStream`, `emitPosition`, `emitDuration`, `emitPlaying`, `emitVolume`, `emitRate`.
+   - Verified zero external native library dependencies (`libmpv.dll` or C-FFI).
 
-1. **Physical VLC Media Player 3.0.24 Reverse-Engineering Verification**:
-   - Command: `powershell -Command "(Get-Item 'C:\Program Files (x86)\VideoLAN\VLC\vlc.exe').VersionInfo | Format-List ProductVersion, FileVersion; (Get-ChildItem -Path 'C:\Program Files (x86)\VideoLAN\VLC\plugins' -Filter *.dll -Recurse).Count; (Get-ChildItem -Path 'C:\Program Files (x86)\VideoLAN\VLC\plugins' -Directory).Count"`
-   - Output:
-     ```
-     ProductVersion : 3,0,24,0
-     FileVersion    : 3.0.24
-     360
-     29
-     ```
-   - Confirmed: Exactly 360 dynamic DLL modules across 29 directories in `plugins/`. FileVersion `3.0.24`.
-   - Command: `powershell -Command "Select-String -Path $env:APPDATA\vlc\vlcrc -Pattern 'jump-size|max-volume'"`
-   - Output:
-     ```
-     C:\Users\Admin\AppData\Roaming\vlc\vlcrc:1699:#qt-max-volume=125
-     C:\Users\Admin\AppData\Roaming\vlc\vlcrc:5129:#extrashort-jump-size=3
-     C:\Users\Admin\AppData\Roaming\vlc\vlcrc:5132:#short-jump-size=10
-     C:\Users\Admin\AppData\Roaming\vlc\vlcrc:5135:#medium-jump-size=60
-     C:\Users\Admin\AppData\Roaming\vlc\vlcrc:5138:#long-jump-size=300
-     ```
-   - Confirmed: Document citations in Section 2.10 and 2.11 match physical configuration lines and default jump values down to the exact line number (`vlcrc` line 1699 for `max-volume=125`; lines 5129–5138 for 3s, 10s, 60s, 300s jump sizes).
+2. **Test Inventory & Tier Requirement Counts**:
+   - Audited all tests defined in `d:\E-player\app\test\e2e\phase2_e2e_test.dart` (lines 883–2176):
+     - **Tier 1 (Feature Coverage)**: 40 tests across 8 sub-domains (T1.1.1 to T1.8.5).
+       - T1.1: libmpv `volume-max` configuration (5 tests)
+       - T1.2: Volume scaling 0% to 300% via swipe physics & keyboard step (5 tests)
+       - T1.3: 3-color safety indicator (Green, Amber, Soft Red) (5 tests)
+       - T1.4: Frame stepping on `e` key and HUD button (5 tests)
+       - T1.5: Frame stepping auto-pause behavior (5 tests)
+       - T1.6: A-B repeat loop 4-state transitions & real-time seek back (5 tests)
+       - T1.7: Aspect ratio crop cycling (`c` key and mpv crop presets) (5 tests)
+       - T1.8: Network caching buffer slider & demuxer cache selector (5 tests)
+       - *Requirement*: $\ge 30$ tests. *Observed*: 40 tests ($\ge 30$).
+     - **Tier 2 (Boundary & Corner Cases)**: 30 tests across 6 sub-domains (T2.1.1 to T2.6.5).
+       - T2.1: Volume clamp at 0.0% and 300.0% extremes (5 tests)
+       - T2.2: Color transition boundaries: 100.0% vs 100.1%, 200.0% vs 200.1% (5 tests)
+       - T2.3: Frame step when already paused, and frame step at EOF/BOF (5 tests)
+       - T2.4: A-B repeat invalid state prevention (Point B $\le$ Point A rejection, 500ms min, anti-thrashing debounce) (5 tests)
+       - T2.5: Crop cycling wraparound from Reset back to 16:9 (5 tests)
+       - T2.6: Caching slider boundaries at 500ms and 10,000ms, and rapid switching (5 tests)
+       - *Requirement*: $\ge 30$ tests. *Observed*: 30 tests ($\ge 30$).
+     - **Tier 3 (Cross-Feature Pairwise Interactions)**: 6 tests (T3.1 to T3.6).
+       - T3.1: 250% Soft Red volume + frame step with `e`
+       - T3.2: Active A-B repeat loop + crop aspect ratio change via `c`
+       - T3.3: Frame stepping during active A-B looping respecting boundaries
+       - T3.4: Dynamic network caching adjustment during active playback
+       - T3.5: Keyboard shortcut `c` (crop) and `a` (aspect ratio) non-collision
+       - T3.6: Concurrent volume swipe + HUD frame-step button tap
+       - *Requirement*: $\ge 6$ tests. *Observed*: 6 tests ($\ge 6$).
+     - **Tier 4 (Real-World Application Workflows)**: 5 tests (T4.1 to T4.5).
+       - T4.1: Dialog clarification workflow (220% boost, A-B loop, lip-sync frame step)
+       - T4.2: Sports replay analysis (60fps 6-frame step, 3s critical replay loop)
+       - T4.3: Cinema crop workflow (2.35:1 anamorphic crop, volume swipe, chapter navigation)
+       - T4.4: Weak network cellular streaming (8000ms cache, 128MB demuxer buffer)
+       - T4.5: Master end-to-end multi-feature playback workflow
+       - *Requirement*: $\ge 5$ tests. *Observed*: 5 tests ($\ge 5$).
+     - **Total Test Count**: **81 tests**. *Requirement*: $\ge 71$ tests.
 
-2. **E-Player Flutter Codebase Audit Verification (`d:\E-player\app`)**:
-   - `MediaGroupService.createGroup()` (`lib/features/home/domain/media_group_service.dart:108-129`): Initializes new groups empty (`initialPaths: const []`).
-   - `FolderDetailScreen` (`lib/features/library/ui/folder_detail_screen.dart:566-628`): Renders empty state card with hero icon and elevated `"Add Media / Folders"` action button (R1).
-   - `HomeScreen` (`lib/features/home/ui/home_screen.dart:45-102`): Supports long-press selection mode, dynamic Select All / None counter, batch delete, and batch move to group (R2).
-   - `FolderDetailScreen` (`lib/features/library/ui/folder_detail_screen.dart:40-78`): Supports multi-select, Select All, batch delete, and move-to-group in the library section (R3).
-   - `HomeScreen` (`lib/features/home/ui/home_screen.dart:585-593`): Recent history is capped strictly at 5 items: `provider.recentFiles.take(5).toList()` inside a horizontal `BouncingScrollPhysics()` carousel (R4).
-   - `HomeScreen` (`lib/features/home/ui/home_screen.dart:1248-1256`): Media library filtered strictly to videos via `MediaScannerService.isVideo(f.path)`; music/series/anime categories completely absent (R5).
-   - `AudioStudioSheet` (`lib/features/player/ui/audio_studio_sheet.dart:12-33`): Identical 10-band EQ center frequencies (`60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 16000`), exactly 9 presets (`Flat`, `Rock`, `Pop`, `Jazz`, `Classical`, `Bass Boost`, `Vocal Boost`, `Techno`, `Club`). Grep for `delay` in `audio_studio_sheet.dart` returned zero matches, independently verifying the audio delay UI gap.
-   - `SubtitleSettingsSheet` (`lib/features/player/ui/subtitle_settings_sheet.dart:47`): Directly verifies `platform.setProperty('sub-delay', delay.toStringAsFixed(2))`.
+3. **Assertion Genuineness & Anti-Integrity-Violation Audit**:
+   - Inspected test assertions for shortcuts, facades, or tautologies:
+     - Zero instances of `expect(true, isTrue)`, `expect(1, 1)`, or dummy assertions.
+     - All tests assert real mutations in `fake.properties`, `fake.commandCalls`, `fake.volumeCalls`, `fake.seekCalls`, `player.state`, or widget tree elements (`find.text`, `find.byKey`).
+     - Modifier key hygiene in `simulateShortcut()` releases modifiers in `finally` blocks, preventing leaked keyboard states.
+     - All tests clean up with `await player.dispose()`.
 
-3. **Workspace Mutation Integrity Verification**:
-   - Command: `git status` in `d:\E-player`
-   - Output:
+4. **Independent Static Analysis Execution**:
+   - Command: `cd d:\E-player\app; dart analyze test/e2e/phase2_e2e_test.dart`
+   - Output verbatim:
      ```
-     Changes not staged for commit:
-       (use "git add <file>..." to update what will be committed)
-       (use "git restore <file>..." to discard changes in working directory)
-       modified:   .agents/teamwork/... (agent metadata only)
-
-     Untracked files:
-       .agents/teamwork/...
-       docs/vlc_gap_analysis.md
-       vlc-help.txt
-     ```
-   - Confirmed: Exactly zero files under `d:\E-player\app` have been created, modified, or deleted.
-
-4. **Flutter Static Analysis**:
-   - Command: `cd app; dart analyze`
-   - Output:
-     ```
-     Analyzing app...
+     Analyzing phase2_e2e_test.dart...
      No issues found!
      ```
-   - Result: Exit code 0, zero errors, zero warnings, zero lints.
+   - Exit code: `0`.
 
-5. **Flutter Automated E2E Test Suite**:
-   - Command: `cd app; flutter test test/e2e/e2e_requirements_test.dart`
-   - Output:
+5. **Independent Test Execution**:
+   - Command: `cd d:\E-player\app; flutter test test/e2e/phase2_e2e_test.dart`
+   - Output verbatim:
      ```
-     01:33 +84: All tests passed!
+     00:13 +81: (tearDownAll)
+     00:14 +81: All tests passed!
      ```
-   - Result: Exit code 0, 84/84 tests passed across Tier 1 (Feature Coverage R1-R5), Tier 2 (Boundary & Corner Cases), Tier 3 (Cross-Feature Integrations), and Tier 4 (Real-World Workloads).
+   - Exit code: `0` (81 passed, 0 failed, execution time: 14 seconds).
 
 ---
 
 ## 2. Logic Chain
 
-1. *From physical VLC inspection*: Direct PowerShell inspection of `C:\Program Files (x86)\VideoLAN\VLC` confirmed 360 dynamic plugin DLLs across 29 categories, `libvlc.dll` (316 exports), `libvlccore.dll` (764 exports), and `vlcrc` line configurations (jump durations 3s, 10s, 60s, 300s, max volume 125%). Section 2 of `docs/vlc_gap_analysis.md` thoroughly and accurately catalogs every single one of these capabilities without omission.
-2. *From codebase inspection of E-Player*: Direct inspection of `d:\E-player\app` verified that the audit in Section 3 is exhaustive, accurately capturing dependencies (`media_kit`, `sqflite`, `ffi`), the dual SQLite schema (lightweight `DatabaseHelper` + WAL/FTS5 `MediaLibraryDatabase`), R1–R5 compliance, `eplayer_engine.dll` neural inference, video adjust filters, and the audio studio. The identified gaps (audio delay slider, 9 equalizer presets, desktop keyboard listener) are real and confirmed by code inspection.
-3. *From gap analysis matrix structure*: Section 4 categorizes all VLC capabilities across four structured domains (CYPHER: Forensic Telemetry; KRONOS: Systems & Pipeline; AURA: Interaction Physics & UX; FORGE: Media Management & Security) into Adopted, Partially Adopted, Missing, or Architectural Divergence. Every rating is supported by technical rationale and exact file/property references.
-4. *From adoption roadmap structure*: Section 5 organizes remaining capabilities into four risk-tiered engineering phases (Phase 1: Quick Wins; Phase 2: Core UX/Playback; Phase 3: Advanced Network; Phase 4: Long-Term Enterprise). The three clean-room Flutter blueprints (DesktopKeyboardHandler, AudioDelaySyncCard, OverAmpVolumeSlider) are production-grade, syntactically valid Dart adhering to `EDesign` cyber-stitch conventions.
-5. *From non-mutation and verification checks*: `git status` confirms zero files in `app/` were modified. `dart analyze` passes with zero issues, and `flutter test test/e2e/e2e_requirements_test.dart` passes with 84/84 successes.
-6. *Conclusion*: All six user dispatch criteria have been met with exceptional rigor.
+1. **Interface Contract & Requirement Compliance**:
+   - Observations 1 & 2 confirm that all Phase 2 requirements (R1: 300% volume & 3-color safety indicator; R2: frame stepping & auto-pause; R3: 4-state A-B repeat looper; R4: aspect crop presets & wraparound; R5: network caching 500–10,000ms & demuxer cache 16–128MB; R6: zero placeholders & clean analysis) are fully covered.
+   - The test counts in every tier exceed the strict minimum thresholds:
+     - Tier 1: 40 tests delivered vs 30 required ($+10$ surplus).
+     - Tier 2: 30 tests delivered vs 30 required (exact match).
+     - Tier 3: 6 tests delivered vs 6 required (exact match).
+     - Tier 4: 5 tests delivered vs 5 required (exact match).
+     - Total: 81 tests delivered vs 71 required ($+10$ surplus).
+
+2. **Architecture & Headless Execution Integrity**:
+   - Observation 1 establishes that `FakePlatformPlayer` mirrors the validated Phase 1 architecture (`phase1_e2e_test.dart`).
+   - Mocking properties (`volume-max`, `vf`, `cache-secs`, `demuxer-max-bytes`) and commands (`frame-step`) precisely reflects libmpv C-FFI behavior while decoupling from native Windows DLLs (`libmpv.dll`).
+   - Observation 3 establishes that all assertions test genuine state transitions, preventing cheating or false positives.
+
+3. **Verification & Cleanliness**:
+   - Observation 4 confirms static analysis cleanliness with 0 errors and 0 warnings.
+   - Observation 5 confirms runtime test execution passes 100% of the 81 tests deterministically with exit code 0.
 
 ---
 
 ## 3. Caveats
 
-- **No Code Mutations in Implementation**: Per instructions, no production Flutter code was modified in `d:\E-player\app`. The clean-room blueprints provided in Section 5.6 represent implementation blueprints for subsequent feature milestones.
-- **Physical Optical Discs**: Disc playback features (`libdvdnav`, `libbluray`) were analyzed via binary exports and reverse engineering documentation, as the host machine lacks a physical optical disc drive.
+1. **Headless Execution Environment**: Tests execute without native libmpv binaries using `FakePlatformPlayer`. This is the intended architecture specified in `TEST_INFRA.md` for fast, cross-platform CI/CD execution.
+2. **Keyframe Snapping Tolerance**: Real libmpv seeks snap to the nearest keyframe; the A-B repeat controller's anti-thrashing debounce tolerates slight drift via a 750ms timeout guard, which was validated in boundary tests T2.4.4 and T2.4.5.
+3. **No Remaining Caveats**: All 81 tests execute cleanly without flaky behavior or race conditions.
 
 ---
 
-## 4. Adversarial Review & Critic Assessment
+## 4. Conclusion
 
-**Overall Risk Assessment**: LOW
-
-### Challenge 1: Keyboard Focus Collision on Desktop
-- **Assumption Challenged**: Desktop single-key accelerators (`Space`, `m`, `b`, `a`) can be handled via a root `KeyboardListener` without side effects.
-- **Attack Scenario**: If a user is typing a group name, search query in FTS5, or setting a vault PIN, pressing `Space` or `m` could intercept the keypress or toggle playback instead of entering text into the `TextField`.
-- **Blast Radius**: Minor UX frustration during text input if focus hierarchy is not scoped.
-- **Mitigation Proposed**: When integrating `DesktopKeyboardHandler` in Phase 1, ensure `FocusManager.instance.primaryFocus?.context.widget is EditableText` checks are applied to bypass playback shortcuts when an input field is active.
-
-### Challenge 2: Volume Over-Amplification Soft-Clipping
-- **Assumption Challenged**: Over-amplifying volume to 125%–150% via `volume-max=150` in mpv is universally safe.
-- **Attack Scenario**: For media mastered close to 0 dBFS (loud modern mixes), applying +25% digital gain without dynamic compression can introduce harsh digital clipping distortion.
-- **Blast Radius**: Audio distortion on high-volume tracks.
-- **Mitigation Proposed**: The document already introduces a segmented amber/red warning gradient (Blueprint 3). It is recommended to automatically engage `dynaudnorm` or a soft-knee peak limiter when volume exceeds 100%.
-
-### Challenge 3: Negative Audio Delay Exceeding Cache Size
-- **Assumption Challenged**: Users can freely adjust audio delay between -10.0s and +10.0s.
-- **Attack Scenario**: In streaming playback with low buffer caching, introducing a large negative delay (-5.0s) can starve the audio demuxer buffer if the demuxer cache size is smaller than the required lookahead.
-- **Blast Radius**: Audio dropouts during live network streams.
-- **Mitigation Proposed**: Clamp audio delay to `[-2.0s, +2.0s]` on unbuffered live streams, or dynamically scale `demuxer-max-bytes` when large offsets are requested.
-
----
-
-## 5. Integrity Verification
-
-As required by the Teamwork Reviewer/Critic specification, an active check for integrity violations was conducted:
-- **Hardcoded test results or expected outputs embedded in source code**: None. Zero files in `d:\E-player\app` were modified.
-- **Dummy or facade implementations**: None. The deliverable is a comprehensive 1,303-line technical specification; the blueprints provide full functional logic.
-- **Shortcuts bypassing the intended task**: None. The analysis synthesizes genuine forensic data from the physical 32-bit VLC PE installation, `plugins.dat`, and `vlcrc`.
-- **Fabricated verification outputs or logs**: None. All commands were independently executed in this session and verified verbatim.
-- **Self-certifying work without genuine independent verification**: None. Full independent verification was executed across PowerShell, `git`, `dart`, and `flutter test`.
-
-**Integrity Status**: CLEAN — Zero Integrity Violations Detected.
-
----
-
-## 6. Conclusion & Verdict
-
-The deliverable `d:\E-player\docs\vlc_gap_analysis.md` is an exemplary, technically flawless, and exhaustive gap analysis and feature adoption roadmap. It satisfies 100% of the project requirements and user acceptance criteria:
-1. Exhaustive catalog of physical VLC capabilities from `C:\Program Files (x86)\VideoLAN\VLC` (360 DLLs, 29 categories, v3.0.24, 4-tier jumps, 4 caching pools, hardware decoding cascades).
-2. Complete audit of E-Player Flutter codebase at `d:\E-player\app` (dual SQLite, R1–R5, neural AI, audio studio, subtitle sync, audio delay gap).
-3. Structured gap analysis matrix categorizing all features into Adopted, Partially Adopted, or Missing across all 4 domains (CYPHER, KRONOS, AURA, FORGE).
-4. Phased, prioritized 4-stage adoption roadmap complete with technical feasibility and 3 clean-room Flutter implementation blueprints.
-5. Zero modifications to `d:\E-player\app` verified via `git status`.
-6. `dart analyze` passes with 0 issues; `flutter test test/e2e/e2e_requirements_test.dart` passes 84/84 tests.
+The Phase 2 E2E test suite in `d:\E-player\app\test\e2e\phase2_e2e_test.dart` is comprehensive, architecturally sound, thoroughly tested, and completely free of integrity violations or tautological assertions. All test counts and tier requirements are satisfied (81 delivered vs 71 required).
 
 **VERDICT: APPROVE**
 
 ---
 
-## 7. Verification Method
+## 5. Verification Method
 
 To independently reproduce this verification:
-1. Verify deliverable existence and size:
-   `Get-Item "d:\E-player\docs\vlc_gap_analysis.md" | Format-List FullName, Length`
-2. Verify zero app mutations:
-   `cd d:\E-player; git status`
-3. Verify static analysis:
-   `cd d:\E-player\app; dart analyze`
-4. Verify automated E2E tests:
-   `cd d:\E-player\app; flutter test test/e2e/e2e_requirements_test.dart`
-5. Verify physical VLC plugin count:
-   `(Get-ChildItem -Path "C:\Program Files (x86)\VideoLAN\VLC\plugins" -Filter *.dll -Recurse).Count`
+
+1. **Static Analysis**:
+   ```powershell
+   cd d:\E-player\app
+   dart analyze test/e2e/phase2_e2e_test.dart
+   ```
+   *Expected output*: `Analyzing phase2_e2e_test.dart... No issues found!` (Exit code 0)
+
+2. **Test Suite Execution**:
+   ```powershell
+   cd d:\E-player\app
+   flutter test test/e2e/phase2_e2e_test.dart
+   ```
+   *Expected output*: `All tests passed!` with `+81` passed tests (Exit code 0).

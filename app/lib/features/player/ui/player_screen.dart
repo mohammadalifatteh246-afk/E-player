@@ -934,25 +934,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _openAiStudio() {
+    _controlsTimer?.cancel();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
-        return SizedBox(
-          height: MediaQuery.of(context).size.height * 0.70,
-          child: EnhancementStudioSheet(
-            aiEngine: _aiEngine,
-            mediaPath: widget.mediaPath,
-            config: _enhancementConfig,
-            onConfigChanged: () {
-              setState(() {});
-              _applyEnhancements();
-            },
+        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final sheetHeight = isLandscape ? (screenHeight * 0.94) : (screenHeight * 0.78);
+        return SafeArea(
+          top: isLandscape,
+          child: SizedBox(
+            height: sheetHeight,
+            child: EnhancementStudioSheet(
+              aiEngine: _aiEngine,
+              mediaPath: widget.mediaPath,
+              config: _enhancementConfig,
+              onConfigChanged: () {
+                setState(() {});
+                _applyEnhancements();
+              },
+            ),
           ),
         );
       },
     ).then((_) {
+      _startControlsTimer();
       setState(() {});
       _applyEnhancements();
       if (mounted) _keyboardFocusNode.requestFocus();

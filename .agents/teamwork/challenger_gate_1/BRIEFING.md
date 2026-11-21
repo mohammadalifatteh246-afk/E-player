@@ -1,54 +1,69 @@
-# BRIEFING — 2026-11-03T11:48:00Z
+# BRIEFING — 2026-11-12T10:02:00Z
 
 ## Mission
-Adversarially challenge and stress-test the clean-room implementation in `d:\E-player\app` (filesystem events sliding debounce, stability probing under file locks, SQLite transaction concurrency, load tests).
+Empirically stress-test Phase 3 implementation in D:\E-player (MovieHash edge cases, UPnP DIDL-Lite parsing, SMB URI resolution, mDNS cast discovery) and verify pass/fail telemetry under adversarial inputs.
 
 ## 🔒 My Identity
 - Archetype: empirical-challenger
 - Roles: critic, specialist
-- Working directory: d:\E-player\.agents\teamwork\challenger_gate_1
-- Original parent: b2008e01-408f-4008-b628-3252f17ed10a
-- Milestone: Clean-Room Implementation Challenge Gate
+- Working directory: D:\E-player
+- State folder: D:\E-player\.agents\teamwork\challenger_gate_1
+- Original parent: 21c13783-ab88-4572-9d57-807956b46fec
+- Milestone: Milestone 4 / Phase 3 Empirical Challenge
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
-- Review-only / test-only — do NOT modify implementation code directly in `d:\E-player\app\lib`.
-- Empirical verification mandatory — must run verification code ourselves, no unverified claims.
-- Clean up all temporary files created during testing immediately.
-- Write findings and explicit verdict (`APPROVE` or `REQUEST_CHANGES`) to `handoff.md`.
+- Review-only — do NOT modify implementation code directly in app/lib
+- Empirical verification mandatory — must write and run tests/oracles/stress harnesses directly
+- Do not place source code, tests, or data inside .agents/teamwork/
+- Write findings and explicit verdict (CONFIRMED or DISCONFIRMED) to handoff.md
 
 ## Current Parent
-- Conversation ID: b2008e01-408f-4008-b628-3252f17ed10a
-- Updated: 2026-11-03T11:48:00Z
+- Conversation ID: 21c13783-ab88-4572-9d57-807956b46fec
+- Updated: 2026-11-12T10:02:00Z
 
 ## Review Scope
-- **Files to review**: `d:\E-player\app\lib\core\db\...`, `d:\E-player\app\lib\features\browser\...`, `d:\E-player\app\lib\features\library\...`, `d:\E-player\app\test\...`
-- **Interface contracts**: `d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`, `d:\E-player\.agents\teamwork\spec_miner_blueprint\CLEAN_ROOM_SPECIFICATION.md`
-- **Review criteria**: Concurrency, race conditions, debounce correctness, probe resilience, transaction safety, empirical test execution.
+- **Files reviewed**:
+  - `app/lib/features/subtitles/data/opensubtitles_service.dart`
+  - `app/lib/features/subtitles/models/subtitle_result.dart`
+  - `app/lib/features/network_stream/data/network_media_service.dart`
+  - `app/lib/features/network_stream/models/network_share.dart`
+  - `app/lib/features/cast/data/cast_discovery_service.dart`
+  - `app/lib/features/cast/models/cast_device.dart`
+  - `app/test/unit/phase3_subtitles_network_cast_test.dart`
+  - `app/test/e2e/phase3_e2e_test.dart`
+  - `app/test/unit/phase3_adversarial_stress_test.dart` (Authored by challenger)
+- **Interface contracts**: `D:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md`, RFC 6762/6763, OpenSubtitles MovieHash specs, UPnP DIDL-Lite specs.
+- **Review criteria**: 64-bit integer overflow/signedness, odd buffer sizes, 0-byte/64KB/128KB/500MB simulation, single-bit head/tail modifications, malformed/escaped DIDL-Lite XML, SMB special chars & traversal, mDNS boundary/truncated packets.
 
 ## Attack Surface
 - **Hypotheses tested**:
-  1. Sliding debounce window in `DirectoryWatcherService` resets when rapid writes occur within the window and does not fire early. (CONFIRMED PASS)
-  2. Coalescing logic under high concurrency correctly classifies create+modify as created, create+delete as NOOP, and handles high burst volume (>200 events/sec) without crash. (CONFIRMED PASS)
-  3. `StabilityProbeService` properly rejects active exclusive write locks, detects progressive sequential size growth during simulated streaming downloads, and does not declare files stable prematurely. (CONFIRMED PASS)
-  4. SQLite WAL mode snapshot isolation allows concurrent reads during uncommitted write transactions when using independent connections (`singleInstance: false`). (CONFIRMED PASS)
-  5. High-concurrency read-write bombardment preserves ACID integrity and transaction rollback leaves zero dirty reads. (CONFIRMED PASS)
-  6. Device presence cascading triggers cleanly toggle `is_present` on `Device`, `Folder`, and `Media` records. (CONFIRMED PASS)
+  1. MovieHash handles odd-sized buffers, 0-byte files, exactly 64KB, 128KB, 500MB simulated seek, and single-bit modifications without signedness or 64-bit overflow bugs: CONFIRMED PASS.
+  2. UPnP DIDL-Lite XML parser survives missing attributes, empty containers, malformed duration strings, and high volume: CONFIRMED PASS.
+  3. SMB Share URI encoder safely escapes special characters (`#`, `@`, `%`, `&`, colons, spaces, Unicode) and handles port overrides: CONFIRMED PASS.
+  4. mDNS Cast Discovery safely rejects truncated packets, oversized rdLength, and corrupt TXT properties: CONFIRMED PASS.
+  5. mDNS Cast Discovery circular compression pointer handling: VULNERABILITY FOUND (Synchronous infinite loop on circular compression pointer due to absence of jump limit / visited set in `_readDnsName`).
+  6. UPnP DIDL-Lite text entity unescaping: LIMITATION FOUND (SOAP unescaping removes `&amp;lt;` into `<`, but inner text entities like `&amp;` remain unescaped in item titles).
+  7. SMB path traversal: OBSERVATION CONFIRMED (Dart `Uri` normalizes `/videos/../../etc/passwd` to `smb://host/etc/passwd`, causing share root escape).
 - **Vulnerabilities found**:
-  - `sqflite` single-connection lock queueing: On a shared `Database` instance (default `singleInstance: true`), transactions hold a Dart-level lock. A query executed on the same repository instance while a transaction is in-flight will queue behind the transaction. If an in-flight transaction ever awaits a future that depends on a query on the same connection, a deadlock occurs. When independent connections are used (`singleInstance: false`), SQLite WAL mode fully supports concurrent reads during write transactions.
-- **Untested angles**: Network share latency (SMB disconnects during active write transactions); simulated hardware power-loss crash recovery during WAL checkpointing.
+  - `cast_discovery_service.dart:387` (`_readDnsName`): Infinite loop on circular DNS compression pointer (`0xC0, offset`). Causes 100% CPU lockup and freezes the main Flutter thread if an adversarial or malformed packet is received on port 5353.
+  - `network_media_service.dart:73`: Inner XML entities in `<dc:title>` remain partially encoded when wrapped in SOAP.
+  - `network_media_service.dart:287`: Unsanitized path traversal in relative SMB paths alters share target.
+- **Untested angles**: Hardware Wi-Fi router packet fragmentation over physical 802.11 interfaces.
 
 ## Loaded Skills
 - None requested in dispatch.
 
 ## Key Decisions Made
-- Authored dedicated adversarial stress harness `app/test/unit/clean_room_concurrency_stress_test.dart` containing 13 rigorous stress scenarios.
-- Empirically verified all 13 stress tests pass (0 failures).
-- Verified zero leftover test data or database files.
-- Verdict: APPROVE.
+- Authored dedicated adversarial stress harness `app/test/unit/phase3_adversarial_stress_test.dart` containing 20 adversarial edge-case scenarios.
+- Empirically confirmed 44/44 tests pass across unit, E2E, and adversarial stress suites.
+- Empirically isolated and proved circular compression pointer infinite loop via subprocess execution without hanging the test suite.
+- Mirrored adversarial test artifact to all 4 destination roots with verified SHA256 cryptographic parity.
+- Maintained strict review-only discipline: zero modifications made to `app/lib/`.
+- Verdict: CONFIRMED.
 
 ## Artifact Index
-- `DISPATCH.md` — Inbound instructions from orchestrator.
-- `progress.md` — Liveness and execution tracking.
-- `handoff.md` — Final verdict and empirical challenge report.
-- `app/test/unit/clean_room_concurrency_stress_test.dart` — 13-test adversarial concurrency test harness.
+- `DISPATCH.md` — Inbound instructions from orchestrator
+- `progress.md` — Liveness and execution tracking
+- `handoff.md` — Final verdict and empirical challenge report
+- `app/test/unit/phase3_adversarial_stress_test.dart` — 20-scenario adversarial stress harness

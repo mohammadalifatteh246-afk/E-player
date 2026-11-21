@@ -1,23 +1,26 @@
 # Progress — orchestrator_2
 
 ## Current Status
-Last visited: 2026-11-04T14:11:30Z
+Last visited: 2026-11-11T07:35:30Z
 
-- [x] Initialized workspace and state files (DISPATCH.md, BRIEFING.md)
-- [x] Started heartbeat cron (task-21) and safety timer (task-456)
-- [x] Phase 0: Survey codebase with 3 parallel Explorers (Forge, Aura, Kronos)
-- [x] Created PROJECT.md (Architecture, Feature Inventory, Milestones, Interface Contracts)
-- [x] Created TEST_INFRA.md (Opaque-box E2E test plan for Dual Track)
-- [x] Milestone 4: E2E Test Track Suite (Dual Track) — 84 tests in test/e2e/e2e_requirements_test.dart, TEST_READY.md published
-- [x] Milestone 1: Empty Group Creation with Add Button — GATE PASSED (CLEAN audit, 2x APPROVE reviews, 2x APPROVE challengers)
-- [/] Milestone 2: Long-Press Multi-Select, Select All, Delete, and Move (Home & Library)
-  - [/] worker_m2 (4a27488a-d0bf-478d-be88-fe8f37f6ae03) — completing tests and handoff
-  - [ ] Reviewers (2)
-  - [ ] Challengers (2)
-  - [ ] Forensic Auditor
-  - [ ] Gate check
-- [ ] Milestone 3: Scrollable History with 5-Item Limit & Video-Only Media Library
-- [ ] Milestone 5: E2E Testing, Adversarial Verification & Independent Victory Audit
+- [x] Received Phase 2 dispatch message and recorded in DISPATCH.md
+- [x] Initialized Phase 2 BRIEFING.md
+- [x] Phase 0: Survey codebase with 3 parallel Explorers (CYPHER, AURA, KRONOS/FORGE) — ALL COMPLETED
+- [x] Created Phase 2 Feature Inventory & updated PROJECT.md & TEST_INFRA.md
+- [/] Milestone 1: Volume Over-Amplification to 300% & 3-Color Safety Indicator — IN GATE AUDIT
+  - [x] Sub-Orchestrator dispatched (64e09fc9-3d69-4af4-a53c-50f335bc9ff5)
+  - [x] Worker 1 completed: 101/101 unit tests passed, 0 analyze errors/warnings
+  - [/] Gate verification dispatched: Reviewer 1, Reviewer 2, Challenger 1, Challenger 2, Forensic Auditor
+- [/] Milestone 4: Phase 2 E2E Test Suite (Dual Track) — IN REVIEW & GATE AUDIT
+  - [x] Sub-Orchestrator dispatched (8aa2ab80-d824-4917-a9ed-90f211789bd2)
+  - [x] `test/e2e/phase2_e2e_test.dart` authored (2,174 lines, 81 tests across all 4 tiers)
+  - [x] Test Writer completed: 81/81 tests passed, 0 analyze errors/warnings
+  - [x] Reviewer 1: **APPROVE**
+  - [x] Reviewer 2: **APPROVE**
+  - [/] Challenger 1, Challenger 2, and Forensic Auditor running
+- [ ] Milestone 2: Frame-by-Frame Stepping & A-B Repeat Looper — PENDING (after M1)
+- [ ] Milestone 3: Aspect Ratio Crop Cycling & Network/Disk Buffer Caching Settings — PENDING (after M2)
+- [ ] Milestone 5: E2E Verification, Adversarial Hardening & Forensic Integrity Audit — PENDING (after M3 & M4)
 
 ## Iteration Status
-Current iteration: 2 / 32
+Current iteration: 1 / 32

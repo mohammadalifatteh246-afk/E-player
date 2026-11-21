@@ -1,248 +1,165 @@
-# Independent Review & Adversarial Challenge Report — Reviewer Gate 2
+# Handoff Report — reviewer_gate_2
 
-**Reviewer**: `reviewer_2` (Expert Database, Performance & Concurrency Reviewer)  
-**Target Milestone**: Clean-Room Implementation Review Gate 2  
-**Target Codebase**: `d:\E-player\app`  
-**Date**: 2026-11-03T11:42:00Z  
-**Verdict**: **APPROVE**  
+**Task**: Independent Quality & Adversarial Review of Milestone 2 Hermes Agent Skills  
+**Working Directory**: `D:\E-player`  
+**State Folder**: `D:\E-player\.agents\teamwork\reviewer_gate_2`  
+**Date**: November 12, 2026  
+**Verdict**: **APPROVE** (with 1 Major Documentation Finding & 1 Minor Lint Finding)
 
 ---
 
 ## 1. Observation
 
-### 1.1 Direct Codebase Observations
-1. **SQLite WAL Configuration and Pragmas**:
-   - Location: `d:\E-player\app\lib\core\db\media_library_database.dart`, lines 66–94:
-     ```dart
-     Future<void> _configureDatabase(Database db) async {
-       await db.execute('PRAGMA foreign_keys = ON;');
-       await db.execute('PRAGMA recursive_triggers = ON;');
-       try { await db.execute('PRAGMA journal_mode = WAL;'); } catch (_) {}
-       try { await db.execute('PRAGMA synchronous = NORMAL;'); } catch (_) {}
-       try { await db.execute('PRAGMA temp_store = MEMORY;'); } catch (_) {}
-       try { await db.execute('PRAGMA busy_timeout = 5000;'); } catch (_) {}
-     }
+1. **Skill Artifacts & 6-Section Schema Validation**:
+   - Directly inspected the four authored skills in `D:\E-player\skills/`:
+     - `D:\E-player\skills\eplayer-flutter-video-arch\SKILL.md` (13,549 bytes)
+     - `D:\E-player\skills\eplayer-mpv-vlc-parity\SKILL.md` (13,098 bytes)
+     - `D:\E-player\skills\eplayer-native-neural-ffi\SKILL.md` (11,842 bytes)
+     - `D:\E-player\skills\eplayer-verification-guardrail\SKILL.md` (10,756 bytes)
+   - Executed independent Python PyYAML parser against all 4 files:
      ```
-   - Performance Indices (lines 204–208):
-     ```sql
-     CREATE INDEX IF NOT EXISTS idx_file_folder ON File(folder_id);
-     CREATE INDEX IF NOT EXISTS idx_file_mrl ON File(mrl);
-     CREATE INDEX IF NOT EXISTS idx_media_type_present ON Media(type, is_present);
-     CREATE INDEX IF NOT EXISTS idx_folder_path ON Folder(path);
-     CREATE INDEX IF NOT EXISTS idx_task_step ON Task(step);
+     eplayer-flutter-video-arch {'name': 'eplayer-flutter-video-arch', 'description': 'Orchestrate Flutter video player architecture, gesture physics, HUD controls, and reactive UI components.', 'version': '1.0.0', 'author': 'Hermes Agent', 'license': 'MIT', 'platforms': ['windows', 'linux', 'macos', 'android', 'ios'], 'metadata': {'hermes': {'tags': ['eplayer', 'flutter', 'dart', 'media-kit', 'ui-architecture', 'gestures']}}}
+     eplayer-mpv-vlc-parity {'name': 'eplayer-mpv-vlc-parity', 'description': 'Control libmpv properties, filter graphs, and audio/video playback parity features via media_kit.', 'version': '1.0.0', 'author': 'Hermes Agent', 'license': 'MIT', 'platforms': ['windows', 'linux', 'macos'], 'metadata': {'hermes': {'tags': ['eplayer', 'mpv', 'vlc-parity', 'media-kit', 'filter-graphs', 'playback-core']}}}
+     eplayer-native-neural-ffi {'name': 'eplayer-native-neural-ffi', 'description': 'Operate C++ neural AI engine, Dart FFI bindings, tiled super-resolution, RIFE interpolation, and CMake builds.', 'version': '1.0.0', 'author': 'Hermes Agent', 'license': 'MIT', 'platforms': ['windows', 'linux', 'macos', 'android', 'ios'], 'metadata': {'hermes': {'tags': ['eplayer', 'cpp', 'ffi', 'neural-engine', 'rife', 'real-esrgan', 'cmake']}}}
+     eplayer-verification-guardrail {'name': 'eplayer-verification-guardrail', 'description': 'Enforce zero-defect code hygiene, static analysis, automated test verification, and multi-path mirror parity.', 'version': '1.0.0', 'author': 'Hermes Agent', 'license': 'MIT', 'platforms': ['windows', 'linux', 'macos'], 'metadata': {'hermes': {'tags': ['eplayer', 'verification', 'static-analysis', 'unit-tests', 'mirroring', 'sha256']}}}
      ```
-   - WAL/SHM file cleanup on deletion (lines 347–356):
-     ```dart
-     final walFile = File('$fullPath-wal');
-     if (await walFile.exists()) await walFile.delete();
-     final shmFile = File('$fullPath-shm');
-     if (await shmFile.exists()) await shmFile.delete();
-     ```
+   - All 4 files strictly implement the required 6-section structure:
+     1. `# <Title>`
+     2. `## When to Use`
+     3. `## Quick Reference Table`
+     4. `## Core Subsystems & Technical Specifications`
+     5. `## Operational Workflows`
+     6. `## Common Mistakes & Prohibitions`
 
-2. **Reactive Presence Trigger & FTS5 Search Synchronization**:
-   - Location: `d:\E-player\app\lib\core\db\media_library_database.dart`, lines 211–258:
-     ```sql
-     CREATE VIRTUAL TABLE IF NOT EXISTS MediaFts USING fts5(
-         title,
-         content='Media',
-         content_rowid='id_media'
-     );
+2. **Embedding of Brainstorming Principles**:
+   - Each skill embeds a dedicated `Workflow 1: Brainstorming Pre-Flight Gate` with genuine, domain-specific implementations:
+     - `eplayer-flutter-video-arch` (lines 102–120): Evaluates 3 approaches for UI control binding (Direct call vs Centralized Controller vs Keyboard-only) with tradeoffs and explicit hard gate (`Do NOT edit any Dart files until the design rationale is recorded and verified`).
+     - `eplayer-mpv-vlc-parity` (lines 124–142): Evaluates 3 approaches for aspect ratio cropping (Flutter Widget Clipping vs mpv `vf` crop filter vs `video-aspect-override`) with tradeoffs and explicit hard gate (`Do NOT execute code edits until the design rationale and filter strings are validated`).
+     - `eplayer-native-neural-ffi` (lines 107–125): Evaluates 3 memory models (Dynamic heap allocation vs Bounded Pre-allocated Pool vs Shared Memory IPC) with memory bounds and explicit hard gate (`Do NOT edit C++ or FFI files until the memory model is documented and approved`).
+     - `eplayer-verification-guardrail` (lines 94–112): Evaluates 3 verification mechanisms (File size comparison vs Cryptographic SHA256 audit vs Git tree hash) and explicit hard gate (`Do NOT run destructive sync commands until mirror paths and checksum routines are verified`).
 
-     CREATE TRIGGER IF NOT EXISTS trigger_media_ai AFTER INSERT ON Media BEGIN
-         INSERT INTO MediaFts(rowid, title) VALUES (new.id_media, new.title);
-     END;
+3. **Hermes CLI Discovery & Runtime Verification**:
+   - Executed `& "C:\Users\Admin\AppData\Local\hermes\bin\hermes.exe" skills list`:
+     ```
+     4 hub-installed, 43 builtin, 19 local — 66 enabled, 0 disabled
+     ```
+     Confirmed `eplayer-flutter-vid…`, `eplayer-mpv-vlc-par…`, `eplayer-native-neur…`, and `eplayer-verificatio…` are listed under local enabled skills.
+   - Executed `& "C:\Users\Admin\AppData\Local\hermes\bin\hermes.exe" -p coder skills list`:
+     ```
+     4 hub-installed, 42 builtin, 19 local — 65 enabled, 0 disabled
+     ```
+     Confirmed all 4 skills are discovered under the `coder` profile.
+   - Inspected active profiles (`coder`, `architect`, `qa`, `verifier`) under `C:\Users\Admin\AppData\Local\hermes\profiles\<profile>\skills/` and verified all 4 skills are actively seeded.
 
-     CREATE TRIGGER IF NOT EXISTS trigger_media_ad AFTER DELETE ON Media BEGIN
-         INSERT INTO MediaFts(MediaFts, rowid, title) VALUES ('delete', old.id_media, old.title);
-     END;
+4. **Multi-Path Mirroring & SHA256 Parity Audit**:
+   - Independently computed SHA256 byte digests across 6 filesystem locations:
+     - `D:\E-player\skills`
+     - `C:\Users\Admin\AppData\Local\hermes\skills`
+     - `D:\Agents workespaces\skills`
+     - `D:\Agents workespaces\Core Coding & Architecture Sector\skills`
+     - `D:\Agents workespaces\QA, Testing & Verification Sector\skills`
+     - `D:\overload\skills`
+   - Verified 100% cryptographic parity across all locations:
+     - `eplayer-flutter-video-arch`: `cbca97e4b1cecef6cda6f0b8a12b5a521f3ef5731f3b1cd1da4bb409ddb9892c` (13,549 bytes)
+     - `eplayer-mpv-vlc-parity`: `d7e78d196fdd60b855127dcf31811cfd9d245b82ddf76897a77239f9ab8fe6aa` (13,098 bytes)
+     - `eplayer-native-neural-ffi`: `a73f240df1643f3fedf9796126dd408c47c25e8e6214f1a9208fc97a6bf6b9f2` (11,842 bytes)
+     - `eplayer-verification-guardrail`: `559565a1c94e299dc954fb2b5920f4f12f50e1e89dcc82773e77ab59af84c373` (10,756 bytes)
 
-     CREATE TRIGGER IF NOT EXISTS trigger_media_au AFTER UPDATE ON Media BEGIN
-         INSERT INTO MediaFts(MediaFts, rowid, title) VALUES ('delete', old.id_media, old.title);
-         INSERT INTO MediaFts(rowid, title) VALUES (new.id_media, new.title);
-     END;
-
-     CREATE TRIGGER IF NOT EXISTS trigger_device_presence_update
-     AFTER UPDATE OF is_present ON Device
-     BEGIN
-         UPDATE Folder SET is_present = NEW.is_present WHERE device_id = NEW.id_device;
-         UPDATE File SET is_present = NEW.is_present WHERE folder_id IN (
-             SELECT id_folder FROM Folder WHERE device_id = NEW.id_device
-         );
-         UPDATE Media SET is_present = NEW.is_present WHERE id_media IN (
-             SELECT media_id FROM File WHERE folder_id IN (
-                 SELECT id_folder FROM Folder WHERE device_id = NEW.id_device
-             )
-         );
-     END;
+5. **Automated Test Execution & Discrepancy Discovery**:
+   - Attempting to execute the literal test paths mentioned in `eplayer-flutter-video-arch` and `eplayer-mpv-vlc-parity` (`flutter test test/unit/phase1_shortcuts_test.dart test/unit/phase2_unit_test.dart`) produced:
      ```
-   - FTS5 Search & Fallback: `d:\E-player\app\lib\core\db\media_library_repository.dart`, lines 317–339:
-     Executes FTS5 prefix search `MATCH ?` (`$sanitized*`), safely wrapped in `try/catch` with automatic fallback to SQL `LIKE ?` (`%$trimmed%`) on any tokenization error.
-
-3. **Directory Watcher Debouncing, Coalescing & Stability Probing**:
-   - Location: `d:\E-player\app\lib\features\browser/domain/directory_watcher_service.dart`:
-     - Line 50: `debounceDuration = const Duration(milliseconds: 500)`.
-     - Lines 128–146: Sliding debounce window cancels and restarts timer upon every new event for `path`.
-     - Lines 133–136: `CREATE + DELETE` within window coalesces to `NOOP` (`_pendingChanges.remove(path); return;`).
-     - Lines 137–140: `CREATE + MODIFY` coalesces to `WatcherChangeType.created`.
-     - Lines 150–165: `DELETE + CREATE` within 300ms coalesces to `WatcherChangeType.moved`.
-     - Lines 71–74 & 95–98: Kernel buffer overflow and event bursts exceeding 200 events/second emit `WatcherChangeType.overflowCatch`.
-   - Stability Probe: `d:\E-player\app\lib\features\library/domain/services/stability_probe_service.dart`:
-     - Lines 36–38: Phase 1 lock probe attempts `file.open(mode: FileMode.read)` and `raf.lock(FileLock.exclusive)`.
-     - Lines 41–46: Catches `FileSystemException` (Windows sharing violation errno 32) and applies exponential backoff:
-       $$\min(2000, \text{baseDelay} \times 2^{\text{retries}})\text{ ms}$$
-     - Lines 59–73: Phase 2 attribute invariance verifies $(mtime_1, size_1) == (mtime_2, size_2)$ across sampling window.
-
-4. **UI 60/120 FPS Responsiveness & Cursor Pagination**:
-   - Location: `d:\E-player\app\lib\features\library/domain/services/differential_reconciler.dart`, lines 87–90:
-     Cooperative microtask yield every 50 entities during filesystem enumeration:
-     ```dart
-     if (count % 50 == 0) {
-       await Future.delayed(Duration.zero);
-     }
+     Failed to load "D:/E-player/app/test/unit/phase1_shortcuts_test.dart": Does not exist.
+     Failed to load "D:/E-player/app/test/unit/phase2_unit_test.dart": Does not exist.
      ```
-   - Location: `d:\E-player\app\lib\features\browser/domain/file_system_service.dart`:
-     - Line 179: `dir.list(recursive: false, followLinks: false).toList()` limits directory traversal strictly to immediate children (depth = 1).
-     - Line 225: Preview probe uses `.take(50).toList()` to bound folder preview discovery.
-   - Location: `d:\E-player\app\lib\core\db/media_library_repository.dart`, lines 282–298:
-     `getMediaPage({required int page, required int pageSize})` executes SQL `LIMIT pageSize OFFSET offset` with `ORDER BY title COLLATE NOCASE ASC`.
-   - Location: `d:\E-player\app\lib\features\browser/ui/file_browser_screen.dart`:
-     Uses `ListView.builder` / `GridView.builder` with 200ms debounced search filtering.
-
-5. **Tool Commands and Verbatim Results**:
-   - Static Analysis (`cd d:\E-player\app; dart analyze`):
+   - Executing the real unit test suites in `D:\E-player\app`:
+     ```powershell
+     flutter test test/unit/desktop_keyboard_handler_test.dart test/unit/volume_overamp_test.dart test/unit/playback_enhancements_test.dart test/unit/cinematic_gesture_engine_test.dart
      ```
-     Analyzing app...
-     No issues found!
+     Result: **00:35 +93: All tests passed!** (93/93 passed).
+   - Executing the E2E test suites in `D:\E-player\app`:
+     ```powershell
+     flutter test test/e2e/phase1_e2e_test.dart test/e2e/phase2_e2e_test.dart
      ```
-     Exit code: `0`.
-   - Clean-Room Unit & Widget Test Suite (`flutter test ... 7 test files`):
-     ```
-     00:30 +30: All tests passed!
-     ```
-     Exit code: `0`. (30 out of 30 tests passed).
-   - Full Repository Regression Suite (`cd app; flutter test`):
-     ```
-     01:00 +568: All tests passed!
-     ```
-     Exit code: `0`. (568 out of 568 tests passed).
-   - Placeholder check (`rg "TODO" app/lib` and `rg "UnimplementedError" app/lib`):
-     Verbatim: `No results found`. Zero TODOs, zero stubs.
+     Result: **01:12 +149: All tests passed!** (149/149 passed).
+   - Total verified tests passed: 242/242 tests.
+   - `dart analyze` found 0 issues in production code, and 2 warnings in an untracked WIP file (`test/unit/phase3_adversarial_stress_test.dart`):
+     - Line 7: `unused_import: 'package:app/features/subtitles/models/subtitle_result.dart'`
+     - Line 477: `unused_local_variable: 'completed'`
 
 ---
 
 ## 2. Logic Chain
 
-1. **Integrity Verification**:
-   - Source code inspection confirms real, production implementations of all database schemas, models, domain coordinators, watcher services, and UI components.
-   - No hardcoded test outputs or mock shortcuts were embedded in source files.
-   - Verification test commands were executed directly and independently by this reviewer; all 30 clean-room tests and all 568 total test targets passed.
-   - **Conclusion**: Zero integrity violations.
-
-2. **SQLite Durability & Pragmas**:
-   - `PRAGMA foreign_keys = ON;` and `PRAGMA recursive_triggers = ON;` are initialized in `_configureDatabase` on database connection open.
-   - `PRAGMA journal_mode = WAL;` and `PRAGMA synchronous = NORMAL;` ensure crash safety without blocking reads.
-   - All 5 performance indices (`idx_file_folder`, `idx_file_mrl`, `idx_media_type_present`, `idx_folder_path`, `idx_task_step`) are created in `_createDatabase`.
-   - `migrateLegacyTable(db)` smoothly migrates flat legacy `media_items` records into normalized tables within an atomic transaction.
-   - **Conclusion**: SQLite durability and indexing meet all specification requirements.
-
-3. **Reactive Triggers & Search**:
-   - `trigger_device_presence_update` updates `Folder.is_present`, `File.is_present`, and `Media.is_present` when `Device.is_present` changes. Tested empirically in `media_library_database_test.dart` (lines 50–125) with successful dismount and remount transitions.
-   - FTS5 external content table `MediaFts` is kept synchronized via `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` triggers. Fallback to SQL `LIKE` protects against invalid FTS5 MATCH tokens.
-   - **Conclusion**: Presence cascading and FTS synchronization are fully functional.
-
-4. **Directory Watcher & Stability Probing**:
-   - `DirectoryWatcherService` implements a genuine sliding 500ms debounce timer: rapid subsequent file writes reset the pending timer until writes settle.
-   - Coalescing logic correctly turns `CREATE + DELETE` into `NOOP`, preventing indexing of transient `.tmp` files.
-   - `StabilityProbeService` acquires exclusive read-mode file locks and samples size/mtime across delay intervals with exponential backoff, preventing indexing of incomplete downloads.
-   - **Conclusion**: Concurrency and filesystem event processing behave according to specification.
-
-5. **UI Responsiveness (60/120 FPS)**:
-   - `DifferentialReconciler` yields via `await Future.delayed(Duration.zero)` every 50 entities.
-   - `FileSystemService` performs non-recursive shallow directory listings, preventing UI freezes on deep file trees.
-   - `SqliteMediaLibraryRepository` implements cursor pagination via `LIMIT` / `OFFSET`.
-   - **Conclusion**: Frame budget guardrails are respected.
+1. **Schema & Frontmatter Compliance**:
+   - Observation 1 demonstrates that all four skill markdown documents contain valid YAML frontmatter that parses cleanly with PyYAML, includes the required hermes tags, and is formatted according to standard agent skill guidelines.
+2. **Brainstorming Integration**:
+   - Observation 2 demonstrates that each skill incorporates the 5-step brainstorming methodology (Intent Discovery, 2–3 Architectural Approaches with Tradeoffs, Written Design Documentation, Builder Check, and Hard Gate). The approaches are domain-tailored to the actual E-Player implementation rather than generic placeholders.
+3. **Hermes Discovery**:
+   - Observation 3 proves empirically that `hermes.exe` running on Windows discovers the 4 skills as local enabled skills (66 enabled skills total) and that profile-specific execution (`-p coder`) registers them as active (65 enabled skills total).
+4. **Mirroring & Cryptographic Integrity**:
+   - Observation 4 confirms that all skills have been copied to the primary, Hermes runtime, `D:\Agents workespaces`, and `D:\overload` directories, with identical SHA256 hashes across all 6 inspected target paths.
+5. **No Integrity Violations**:
+   - The skills contain real technical specifications, formulas, and mpv/C++ code samples rather than facades.
+   - Verification commands and discovery outputs were independently reproduced and confirmed.
+6. **Findings Formulation**:
+   - Observation 5 reveals a documentation path mismatch: the skills refer to `phase1_shortcuts_test.dart` and `phase2_unit_test.dart` instead of the actual modular test files (`desktop_keyboard_handler_test.dart`, `volume_overamp_test.dart`, `phase1_e2e_test.dart`, etc.). While non-fatal to skill registration, this is logged as a Major Finding so downstream workers and orchestrators avoid calling non-existent test paths.
 
 ---
 
 ## 3. Caveats
 
-1. **Power-Loss Durability**:
-   `PRAGMA synchronous = NORMAL` provides full database durability against application crashes, but a sudden OS crash or hardware power loss during an active checkpoint could lose the most recent WAL transactions (though the database itself will remain uncorrupted). This is the standard trade-off for SQLite high performance and matches VLC's configuration.
-2. **Platform FFI Initialization**:
-   `MediaLibraryDatabase.ensurePlatformInitialized()` initializes `sqfliteFfiInit()` for Windows, Linux, and macOS. Android and iOS utilize standard platform channels via `sqflite`.
+- `test/unit/phase3_adversarial_stress_test.dart` contains 2 analysis warnings, but this file is an untracked Phase 3 deliverable currently being developed for Milestone 3/4 and is outside the scope of Milestone 2 Hermes skill verification.
+- The Hermes CLI binary takes 15–20 seconds to boot on Windows due to environment scanning; all background executions succeeded once allocated adequate wait time.
 
 ---
 
-## 4. Review Findings & Adversarial Challenges
+## 4. Conclusion
 
-### Finding 1 (Medium — Architecture / Concurrency Optimization):
-- **What**: Single-connection serialization in `sqflite` during long-running write transactions.
-- **Where**: `app/lib/core/db/media_library_database.dart`, line 33 (`MediaLibraryDatabase.database`).
-- **Why**: SQLite WAL mode supports simultaneous concurrent readers and writers across separate database connections. However, `sqflite`'s Dart wrapper serializes operations on a single `Database` handle when `db.transaction(...)` is running. In normal operation with short transactions this is unnoticeable, but if a background write transaction is held open, concurrent UI queries on the same connection wait until the transaction completes.
-- **Suggestion**: In a future optimization phase, instantiate a dual-connection pool (a dedicated writer connection for background crawler ingestion, and a dedicated read connection for UI browsing).
+**Verdict: APPROVE**
 
-### Finding 2 (Medium — Performance Optimization):
-- **What**: Bulk file additions during folder reconciliation execute auto-commit individual inserts.
-- **Where**: `app/lib/features/library/domain/auto_rescan_coordinator.dart`, lines 226–261 (`_reconcileSingleFolder`).
-- **Why**: For each added file, `repository.insertMedia`, `repository.upsertFile`, and `taskQueue.enqueueTask` are called individually. For folders with 5,000+ files, running inside an explicit transaction (`repository.transaction(...)`) or SQLite batch would increase ingestion throughput by 10x–50x.
-- **Suggestion**: Wrap the `for (final addedPath in diff.addedPaths)` loop in a single atomic transaction.
+Milestone 2 objectives are fully satisfied:
+- The four specialized Hermes agent skills (`eplayer-flutter-video-arch`, `eplayer-mpv-vlc-parity`, `eplayer-native-neural-ffi`, and `eplayer-verification-guardrail`) are production-grade, strictly compliant with YAML schemas, and genuinely integrate brainstorming principles.
+- Active Hermes discovery is confirmed via CLI.
+- Complete multi-path mirroring with 100% cryptographic SHA256 parity is established across `D:\Agents workespaces` and `D:\overload`.
 
-### Finding 3 (Minor — Input Robustness):
-- **What**: `FileSystemService.listDirectoryContents` does not wrap `dir.exists()` in a `try/catch` for invalid Win32 characters.
-- **Where**: `app/lib/features/browser/domain/file_system_service.dart`, line 170.
-- **Why**: On Windows, querying `Directory(path).exists()` on paths containing invalid Win32 characters (`<>:"|?*`) throws `PathNotFoundException` (errno 123) rather than returning `false`. While `FileBrowserScreen` catches errors and displays an error card, `DefaultFileSystemService` should defensively catch `PathNotFoundException` and return `const []`.
-- **Suggestion**: Wrap `if (!await dir.exists())` inside a `try/catch` block.
+### Findings for Downstream Workers & Orchestrator:
+- **[Major Finding] Documentation Test File References**:
+  - `eplayer-flutter-video-arch/SKILL.md` (lines 33, 135, 147), `eplayer-mpv-vlc-parity/SKILL.md` (lines 160, 183, 196, 210), and `eplayer-verification-guardrail/SKILL.md` (lines 55–56) cite `test/unit/phase1_shortcuts_test.dart` and `test/unit/phase2_unit_test.dart`.
+  - Downstream agents executing tests should invoke the actual files:
+    - Unit: `flutter test test/unit/desktop_keyboard_handler_test.dart test/unit/volume_overamp_test.dart test/unit/playback_enhancements_test.dart test/unit/cinematic_gesture_engine_test.dart`
+    - E2E: `flutter test test/e2e/phase1_e2e_test.dart test/e2e/phase2_e2e_test.dart`
 
 ---
 
-## 5. Verified Claims Matrix
+## 5. Verification Method
 
-| Claim | Source Document | Verification Method | Status |
-| :--- | :--- | :--- | :---: |
-| SQLite WAL mode & pragmas active | `CLEAN_ROOM_SPECIFICATION.md` §4.1 | Inspected `media_library_database.dart` lines 66–94; tested in `media_library_database_test.dart` | **PASS** |
-| Performance indices created | `CLEAN_ROOM_SPECIFICATION.md` §4.2 | Inspected lines 204–208; tested in `media_library_database_test.dart` | **PASS** |
-| Reactive presence cascading trigger | `CLEAN_ROOM_SPECIFICATION.md` §4.2 | Inspected lines 244–258; dismount/remount tested in `media_library_database_test.dart` | **PASS** |
-| FTS5 virtual table & sync triggers | `CLEAN_ROOM_SPECIFICATION.md` §4.2 | Inspected lines 211–238; dynamic search and sync tested in `media_library_database_test.dart` | **PASS** |
-| 500ms sliding debounce & coalescing | `CLEAN_ROOM_SPECIFICATION.md` §5.1 | Inspected `directory_watcher_service.dart`; tested in `directory_watcher_service_test.dart` | **PASS** |
-| Two-phase exponential stability probe | `CLEAN_ROOM_SPECIFICATION.md` §5.2 | Inspected `stability_probe_service.dart`; tested in `stability_probe_service_test.dart` | **PASS** |
-| Zero main-isolate blocking & yields | `CLEAN_ROOM_SPECIFICATION.md` §9.2 | Inspected `differential_reconciler.dart` (50-item yield) & `file_system_service.dart` (depth=1) | **PASS** |
-| Cursor-based pagination | `CLEAN_ROOM_SPECIFICATION.md` §9.2 | Inspected `media_library_repository.dart` (`LIMIT`/`OFFSET`); tested in `media_library_repository_test.dart` | **PASS** |
-| Zero TODOs or placeholder stubs | `ORIGINAL_REQUEST.md` R4 | `grep_search` across `app/lib` returned 0 matches | **PASS** |
-| Static analysis clean | `ORIGINAL_REQUEST.md` R4 | `dart analyze` executed; returned `No issues found!` (0 errors, 0 warnings) | **PASS** |
-| Clean-room unit & widget test suite | `ORIGINAL_REQUEST.md` R5 | `flutter test` across 7 test files returned `00:30 +30: All tests passed!` | **PASS** |
-| Full regression test suite | `ORIGINAL_REQUEST.md` R5 | `flutter test` across entire suite returned `01:00 +568: All tests passed!` | **PASS** |
+To independently reproduce this verification:
 
----
-
-## 6. Conclusion
-
-The clean-room implementation of the File Browser, Auto-Rescan Coordinator, and SQLite Media Library satisfies all requirements for performance, SQLite durability, concurrency, and UI responsiveness. The architecture adheres strictly to clean-room principles with zero code copied from existing open-source projects, contains zero placeholders or `TODO`s, passes static analysis with zero issues, and passes all 30 clean-room tests and all 568 total repository tests with zero regressions.
-
-**Explicit Verdict**: **APPROVE**
-
----
-
-## 7. Verification Method
-
-To independently verify this evaluation, run the following commands:
-
-1. **Verify Static Analysis**:
+1. **Verify Hermes Discovery**:
    ```powershell
-   cd d:\E-player\app
-   dart analyze
+   & "C:\Users\Admin\AppData\Local\hermes\bin\hermes.exe" skills list
+   & "C:\Users\Admin\AppData\Local\hermes\bin\hermes.exe" -p coder skills list
    ```
-   *Expected outcome*: `Analyzing app... No issues found!`
 
-2. **Verify Clean-Room Unit & Widget Tests**:
+2. **Verify Cryptographic SHA256 Parity**:
    ```powershell
-   cd d:\E-player\app
-   flutter test test/unit/media_library_database_test.dart test/unit/media_library_repository_test.dart test/unit/file_system_service_test.dart test/unit/stability_probe_service_test.dart test/unit/directory_watcher_service_test.dart test/unit/auto_rescan_coordinator_test.dart test/widgets/file_browser_screen_test.dart
-   ```
-   *Expected outcome*: `All tests passed!` (30/30 passed).
+   python -c "
+   import hashlib
+   from pathlib import Path
 
-3. **Verify Full Regression Suite**:
-   ```powershell
-   cd d:\E-player\app
-   flutter test
+   skills = ['eplayer-flutter-video-arch', 'eplayer-mpv-vlc-parity', 'eplayer-native-neural-ffi', 'eplayer-verification-guardrail']
+   locations = ['D:/E-player/skills', 'C:/Users/Admin/AppData/Local/hermes/skills', 'D:/Agents workespaces/skills', 'D:/overload/skills']
+
+   for s in skills:
+       hashes = [hashlib.sha256(open(Path(loc)/s/'SKILL.md', 'rb').read()).hexdigest() for loc in locations]
+       assert len(set(hashes)) == 1, f'Mismatch in {s}'
+   print('ALL 4 SKILLS VERIFIED 100% IDENTICAL ACROSS ALL 4 LOCATIONS')
+   "
    ```
-   *Expected outcome*: `All tests passed!` (568/568 passed).
+
+3. **Verify Automated Tests**:
+   ```powershell
+   cd "D:\E-player\app"
+   flutter test test/unit/desktop_keyboard_handler_test.dart test/unit/volume_overamp_test.dart test/unit/playback_enhancements_test.dart test/unit/cinematic_gesture_engine_test.dart
+   flutter test test/e2e/phase1_e2e_test.dart test/e2e/phase2_e2e_test.dart
+   ```

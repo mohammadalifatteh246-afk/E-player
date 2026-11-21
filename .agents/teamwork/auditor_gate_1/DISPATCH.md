@@ -1,39 +1,32 @@
-## 2026-11-03T11:28:56Z
+## 2026-11-12T09:45:11Z
 
-You are auditor_1, a forensic integrity auditor adhering to zero-tolerance clean-room verification.
+You are a teamwork_auditor.
+Working directory: D:\E-player
+State folder: D:\E-player\.agents\teamwork\auditor_gate_1
 
-Working directory: d:\E-player\.agents\teamwork\auditor_gate_1\
-Original Request path: d:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
-Clean-Room Specification path: d:\E-player\.agents\teamwork\spec_miner_blueprint\CLEAN_ROOM_SPECIFICATION.md
-Worker Handoff path: d:\E-player\.agents\teamwork\worker_clean_room_impl\handoff.md
-Persistent REA Ledger path: d:\E-player\.agents\teamwork\test_verifier_rea_ledger\PERSISTENT_REA_LEDGER.md
+MANDATORY FIRST STEP: You MUST read ORIGINAL_REQUEST.md before starting work:
+Path: D:\E-player\.agents\teamwork\ORIGINAL_REQUEST.md
 
-Please read ORIGINAL_REQUEST.md and the worker/test handoffs first.
+Context:
+- Milestone 1 Synthesis: D:\E-player\.agents\teamwork\orchestrator_6\ANALYSIS_SYNTHESIS.md
+- Milestone 2 Skills: D:\E-player\skills/
+- Milestone 4 Implementation & Test Suites: `app/lib/features/subtitles/`, `network_stream/`, `cast/`, `app/test/unit/phase3_subtitles_network_cast_test.dart`, `app/test/e2e/phase3_e2e_test.dart`, `app/test/e2e/phase1_e2e_test.dart`.
+- Mirror Locations: `D:\Agents workespaces` and `D:\overload`.
 
-Mission:
-Perform a comprehensive forensic integrity audit across all files authored in `d:\E-player\app`:
-- `app/lib/core/models/media_library_models.dart`
-- `app/lib/core/db/media_library_database.dart`
-- `app/lib/core/db/media_library_repository.dart`
-- `app/lib/core/db/task_queue_repository.dart`
-- `app/lib/features/browser/domain/file_system_service.dart`
-- `app/lib/features/browser/domain/directory_watcher_service.dart`
-- `app/lib/features/library/domain/auto_rescan_coordinator.dart`
-- `app/lib/features/library/domain/services/stability_probe_service.dart`
-- `app/lib/features/library/domain/services/differential_reconciler.dart`
-- `app/lib/features/browser/ui/file_browser_screen.dart` and widgets.
-- All test suites in `app/test/unit/` and `app/test/widgets/`.
-
-Integrity Checks:
-1. **No Code Copying / Clean-Room Invariant**: Verify that zero C++ code from VLC, VideoLAN, or external GPL repos was copied. Verify all code is 100% genuine Dart 3 clean-room architecture.
-2. **No Dummy / Facade Implementations**: Verify that all methods have authentic, functional logic (no returning hardcoded constants, no empty stubs, no simulated fake objects).
-3. **No TODOs / Placeholders**: Verify 0 occurrences of `// TODO`, `// FIXME`, or dummy placeholders in `app/lib/`.
-4. **Authentic SQLite & Database Logic**: Verify genuine SQLite DDL, authentic triggers (`trigger_device_presence_update`), real FTS5 virtual table, real indexes, and real transactions.
-5. **Authentic Watcher & Debouncing**: Verify genuine directory watching with `Directory.watch()`, real 500ms sliding debounce, and real stability probing.
-6. **Test Invariant Audit**: Verify that all tests pass without mocking core persistence/services, and that no temporary demo/test files or test databases remain on disk.
-
-Produce a forensic integrity report with an unambiguous verdict:
-`CLEAN` or `INTEGRITY VIOLATION`.
-Save your report to `d:\E-player\.agents\teamwork\auditor_gate_1\handoff.md`.
-Maintain `progress.md` in your directory.
-Send a completion message back with your verdict.
+Objectives:
+Perform an exhaustive forensic integrity audit across all requirements (R1, R2, R3, R4) and acceptance criteria:
+1. Anti-Cheating & Integrity Forensics:
+   - Verify that all newly created implementations (`opensubtitles_service.dart`, `network_media_service.dart`, `cast_discovery_service.dart`) are authentic and contain genuine logic.
+   - Scan for forbidden markers: `TODO`, `FIXME`, `throw UnimplementedError()`, `dummy`, `mock`, or hardcoded test returns in production files.
+   - Verify that test assertions in `phase3_subtitles_network_cast_test.dart` and `phase3_e2e_test.dart` are non-tautological and genuinely exercise production methods.
+2. Static Analysis Verification:
+   - Run `cd D:\E-player\app; flutter analyze` independently.
+   - Confirm verbatim exit code 0 and "No issues found!".
+3. Automated Test Suite Verification:
+   - Run `cd D:\E-player\app; flutter test` independently across all test suites.
+   - Confirm exit code 0 with zero failures.
+4. Cryptographic Mirroring Verification:
+   - Independently compute SHA256 hashes of all mirrored files in `D:\Agents workespaces` and `D:\overload` and compare against source files in `D:\E-player`.
+   - Confirm zero mismatches and 100% parity.
+5. Provide a binary audit verdict: CLEAN or INTEGRITY VIOLATION.
+6. Write a complete handoff report to `D:\E-player\.agents\teamwork\auditor_gate_1\handoff.md` and message the parent orchestrator with your verdict.
