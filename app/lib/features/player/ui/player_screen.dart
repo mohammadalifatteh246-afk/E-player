@@ -28,6 +28,8 @@ import '../../export/domain/media_converter_service.dart';
 import '../../export/ui/media_converter_sheet.dart';
 import '../../network_stream/data/dlna_service.dart';
 import '../../network_stream/ui/dlna_server_browser_sheet.dart';
+import '../../network_stream/data/online_stream_service.dart';
+import '../../network_stream/ui/online_stream_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
@@ -95,6 +97,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final DualAudioService _dualAudioService;
   late final MediaConverterService _mediaConverterService;
   late final DlnaService _dlnaService;
+  late final OnlineStreamService _onlineStreamService;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -552,6 +555,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _dlnaService.addListener(() {
       if (mounted) setState(() {});
     });
+    _onlineStreamService = OnlineStreamService();
+    _onlineStreamService.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _initOnlineStreamService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
@@ -720,6 +728,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _dualAudioService.dispose();
     _mediaConverterService.dispose();
     _dlnaService.dispose();
+    _onlineStreamService.dispose();
     _playlistController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
@@ -2615,6 +2624,51 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  Future<void> _initOnlineStreamService() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _onlineStreamService.init(prefs);
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to init OnlineStreamService: $e');
+    }
+  }
+
+  Future<void> _openOnlineStreamSheet() async {
+    _controlsTimer?.cancel();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      await OnlineStreamSheet.show(
+        context,
+        service: _onlineStreamService,
+        prefs: prefs,
+        onPlayStream: (streamUrl, title) {
+          final mediaItem = MediaItem(
+            path: streamUrl,
+            name: title,
+            parentFolder: 'Online Stream',
+            lastPlayed: DateTime.now(),
+          );
+          _playMediaItem(mediaItem);
+        },
+        onEnqueueStream: (streamUrl, title) {
+          _playlistController.addTrack(
+            MediaItem(
+              path: streamUrl,
+              name: title,
+              parentFolder: 'Online Stream',
+              lastPlayed: DateTime.now(),
+            ),
+          );
+        },
+      );
+    } finally {
+      if (mounted) {
+        _startControlsTimer();
+      }
+    }
+  }
+
   Future<void> _openCastSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -2967,6 +3021,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           },
                         ),
                         _buildQuickOptionTile(
+                          key: const Key('hud_online_stream_button'),
+                          icon: Icons.travel_explore_rounded,
+                          title: 'Network Stream',
+                          subtitle: 'YouTube & URL (Ctrl+N)',
+                          accentColor: EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openOnlineStreamSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
                           icon: Icons.picture_in_picture_alt_rounded,
                           title: 'PiP Window',
                           subtitle: 'Background Float',
@@ -3300,6 +3365,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         },
         onTogglePlaylist: _togglePlaylist,
+        onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {

@@ -29,6 +29,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onToggleRecord;
   final VoidCallback? onCycleDeinterlace;
   final VoidCallback? onTogglePlaylist;
+  final VoidCallback? onOpenNetworkStream;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -57,6 +58,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onToggleRecord,
     this.onCycleDeinterlace,
     this.onTogglePlaylist,
+    this.onOpenNetworkStream,
     this.focusNode,
     this.autofocus = true,
   });
@@ -445,6 +447,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyL && !isAlt && widget.onTogglePlaylist != null) {
       widget.onUserActivity();
       widget.onTogglePlaylist!();
+      return KeyEventResult.handled;
+    }
+
+    // 22. Open Network Stream (Ctrl + N) (VLC parity: Ctrl+N opens network stream)
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN && !isAlt && widget.onOpenNetworkStream != null) {
+      widget.onUserActivity();
+      widget.onOpenNetworkStream!();
       return KeyEventResult.handled;
     }
 
