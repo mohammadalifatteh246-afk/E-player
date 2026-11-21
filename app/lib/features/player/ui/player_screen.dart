@@ -20,6 +20,7 @@ import '../../video_effects/models/video_effects_config.dart';
 import '../../video_effects/domain/video_effects_service.dart';
 import '../../video_effects/ui/video_effects_sheet.dart';
 import '../../video_effects/ui/video_overlay_widget.dart';
+import '../../video_effects/ui/watermark_studio_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
@@ -2802,6 +2803,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onTap: () {
                             Navigator.pop(ctx);
                             WebRemoteSheet.show(context, _webRemoteService);
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_watermark_studio_button'),
+                          icon: Icons.branding_watermark_rounded,
+                          title: 'Watermark & Logo',
+                          subtitle: _videoEffectsConfig.logoEnabled
+                              ? 'Active (${_videoEffectsConfig.logoPosition.label})'
+                              : 'VLC Logo Overlay',
+                          accentColor: _videoEffectsConfig.logoEnabled ? EDesign.primaryCyan : EDesign.textSecondary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            WatermarkStudioSheet.show(
+                              context,
+                              config: _videoEffectsConfig,
+                              onConfigChanged: (updated) {
+                                setState(() {
+                                  _videoEffectsConfig = updated;
+                                });
+                                _videoEffectsService.saveToPreferences(updated);
+                              },
+                            );
                           },
                         ),
                         _buildQuickOptionTile(

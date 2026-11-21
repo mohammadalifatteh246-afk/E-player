@@ -1064,6 +1064,36 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
               _notifyChange();
             },
           ),
+          _buildSliderTile(
+            title: 'Logo Offset X (Pixels)',
+            value: _config.logoOffsetX.toDouble(),
+            min: 0.0,
+            max: 300.0,
+            decimals: 0,
+            onChanged: (val) {
+              _config.logoOffsetX = val.round();
+              _notifyChange();
+            },
+            onReset: () {
+              _config.logoOffsetX = 20;
+              _notifyChange();
+            },
+          ),
+          _buildSliderTile(
+            title: 'Logo Offset Y (Pixels)',
+            value: _config.logoOffsetY.toDouble(),
+            min: 0.0,
+            max: 300.0,
+            decimals: 0,
+            onChanged: (val) {
+              _config.logoOffsetY = val.round();
+              _notifyChange();
+            },
+            onReset: () {
+              _config.logoOffsetY = 20;
+              _notifyChange();
+            },
+          ),
         ],
 
         const Divider(color: EDesign.border, height: 24),

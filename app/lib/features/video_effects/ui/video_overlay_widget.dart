@@ -78,7 +78,9 @@ class _VideoOverlayWidgetState extends State<VideoOverlayWidget> {
         fit: StackFit.expand,
         children: [
           // 1. Watermark / Logo Overlay (VLC logo.c parity)
-          if (cfg.logoEnabled && cfg.logoPath != null && cfg.logoPath!.isNotEmpty)
+          if (cfg.logoEnabled &&
+              ((cfg.logoPath != null && cfg.logoPath!.isNotEmpty) ||
+                  (cfg.logoText != null && cfg.logoText!.isNotEmpty)))
             _buildLogo(cfg),
 
           // 2. Text Marquee OSD Overlay (VLC marq.c parity)
@@ -90,8 +92,40 @@ class _VideoOverlayWidgetState extends State<VideoOverlayWidget> {
   }
 
   Widget _buildLogo(VideoEffectsConfig cfg) {
-    final file = File(cfg.logoPath!);
     final opacity = cfg.logoOpacity.clamp(0.0, 1.0);
+
+    Widget content;
+    if (cfg.logoPath != null && cfg.logoPath!.isNotEmpty) {
+      final file = File(cfg.logoPath!);
+      content = Image.file(
+        file,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+      );
+    } else if (cfg.logoText != null && cfg.logoText!.isNotEmpty) {
+      content = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35 * opacity),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2 * opacity)),
+        ),
+        child: Text(
+          cfg.logoText!,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: opacity),
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+            shadows: const [
+              Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1)),
+            ],
+          ),
+        ),
+      );
+    } else {
+      return const SizedBox.shrink();
+    }
 
     return Align(
       alignment: cfg.logoPosition.alignment,
@@ -106,11 +140,7 @@ class _VideoOverlayWidgetState extends State<VideoOverlayWidget> {
           opacity: opacity,
           child: Transform.scale(
             scale: cfg.logoScale.clamp(0.1, 5.0),
-            child: Image.file(
-              file,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
-            ),
+            child: content,
           ),
         ),
       ),

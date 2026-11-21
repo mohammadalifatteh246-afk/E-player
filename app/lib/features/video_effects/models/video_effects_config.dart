@@ -61,6 +61,7 @@ class VideoEffectsConfig {
   // --- Logo / Watermark Overlay (VLC logo.c parity) ---
   bool logoEnabled;
   String? logoPath;
+  String? logoText;
   VideoOverlayPosition logoPosition;
   double logoOpacity; // 0.0 to 1.0 (VLC 0-255 mapped)
   double logoScale; // 0.2 to 2.0 (default 1.0)
@@ -118,6 +119,7 @@ class VideoEffectsConfig {
     this.wallBezel = 4.0,
     this.logoEnabled = false,
     this.logoPath,
+    this.logoText,
     this.logoPosition = VideoOverlayPosition.topRight,
     this.logoOpacity = 0.85,
     this.logoScale = 1.0,
@@ -171,6 +173,7 @@ class VideoEffectsConfig {
     double? wallBezel,
     bool? logoEnabled,
     String? logoPath,
+    String? logoText,
     VideoOverlayPosition? logoPosition,
     double? logoOpacity,
     double? logoScale,
@@ -222,6 +225,7 @@ class VideoEffectsConfig {
       wallBezel: wallBezel ?? this.wallBezel,
       logoEnabled: logoEnabled ?? this.logoEnabled,
       logoPath: logoPath ?? this.logoPath,
+      logoText: logoText ?? this.logoText,
       logoPosition: logoPosition ?? this.logoPosition,
       logoOpacity: logoOpacity ?? this.logoOpacity,
       logoScale: logoScale ?? this.logoScale,
@@ -301,6 +305,7 @@ class VideoEffectsConfig {
     wallBezel = 4.0;
     logoEnabled = false;
     logoPath = null;
+    logoText = null;
     logoPosition = VideoOverlayPosition.topRight;
     logoOpacity = 0.85;
     logoScale = 1.0;
@@ -382,6 +387,7 @@ class VideoEffectsConfig {
   void resetOverlay() {
     logoEnabled = false;
     logoPath = null;
+    logoText = null;
     logoPosition = VideoOverlayPosition.topRight;
     logoOpacity = 0.85;
     logoScale = 1.0;
@@ -703,6 +709,7 @@ class VideoEffectsConfig {
         'wallBezel': wallBezel,
         'logoEnabled': logoEnabled,
         'logoPath': logoPath,
+        'logoText': logoText,
         'logoPosition': logoPosition.name,
         'logoOpacity': logoOpacity,
         'logoScale': logoScale,
@@ -764,6 +771,7 @@ class VideoEffectsConfig {
       wallBezel: (json['wallBezel'] as num?)?.toDouble() ?? 4.0,
       logoEnabled: json['logoEnabled'] as bool? ?? false,
       logoPath: json['logoPath'] as String?,
+      logoText: json['logoText'] as String?,
       logoPosition: json['logoPosition'] != null
           ? VideoOverlayPosition.fromString(json['logoPosition'] as String)
           : VideoOverlayPosition.topRight,

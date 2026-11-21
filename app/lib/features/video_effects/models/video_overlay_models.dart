@@ -6,10 +6,12 @@ enum VideoOverlayPosition {
   topLeft(5, 'Top-Left', Alignment.topLeft),
   topCenter(4, 'Top-Center', Alignment.topCenter),
   topRight(6, 'Top-Right', Alignment.topRight),
+  centerLeft(1, 'Center-Left', Alignment.centerLeft),
+  center(0, 'Center', Alignment.center),
+  centerRight(2, 'Center-Right', Alignment.centerRight),
   bottomLeft(9, 'Bottom-Left', Alignment.bottomLeft),
   bottomCenter(8, 'Bottom-Center', Alignment.bottomCenter),
-  bottomRight(10, 'Bottom-Right', Alignment.bottomRight),
-  center(0, 'Center', Alignment.center);
+  bottomRight(10, 'Bottom-Right', Alignment.bottomRight);
 
   final int vlcBitmask;
   final String label;
