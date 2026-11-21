@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../models/cast_device.dart';
+import 'ssdp_discovery_service.dart';
 
 /// Transport interface for sending and receiving raw mDNS datagrams.
 abstract class CastSocketTransport {
@@ -36,13 +37,29 @@ class DefaultCastSocketTransport implements CastSocketTransport {
     try {
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0, reuseAddress: true, reusePort: false);
       _socket?.broadcastEnabled = true;
-      _socket?.multicastHops = 1;
+      _socket?.multicastHops = 255;
+      _socket?.multicastLoopback = false;
 
+      final mDnsGroup = InternetAddress('224.0.0.251');
       try {
-        _socket?.joinMulticast(InternetAddress('224.0.0.251'));
+        _socket?.joinMulticast(mDnsGroup);
       } catch (_) {
         // Platform or interface limitation joining multicast group
       }
+
+      try {
+        final interfaces = await NetworkInterface.list(
+          type: InternetAddressType.IPv4,
+          includeLoopback: false,
+        );
+        for (final iface in interfaces) {
+          try {
+            _socket?.joinMulticast(mDnsGroup, iface);
+          } catch (_) {
+            // Ignore non-multicast or unjoinable interface
+          }
+        }
+      } catch (_) {}
 
       _socket?.listen((event) {
         if (event == RawSocketEvent.read) {
@@ -93,14 +110,19 @@ class CastDiscoveryService {
   ];
 
   final CastSocketTransport transport;
+  final SsdpDiscoveryService? ssdpService;
   final Map<String, CastDevice> _devices = {};
   final StreamController<List<CastDevice>> _devicesController = StreamController<List<CastDevice>>.broadcast();
   StreamSubscription<RawSocketEventData>? _subscription;
+  StreamSubscription<List<CastDevice>>? _ssdpSubscription;
   Timer? _queryTimer;
   bool _isDiscovering = false;
 
-  CastDiscoveryService({CastSocketTransport? transport})
-      : transport = transport ?? DefaultCastSocketTransport();
+  CastDiscoveryService({
+    CastSocketTransport? transport,
+    SsdpDiscoveryService? ssdpService,
+  })  : transport = transport ?? DefaultCastSocketTransport(),
+        ssdpService = ssdpService ?? (transport != null ? null : SsdpDiscoveryService());
 
   bool get isDiscovering => _isDiscovering;
 
@@ -108,7 +130,7 @@ class CastDiscoveryService {
 
   Stream<List<CastDevice>> get devicesStream => _devicesController.stream;
 
-  /// Starts mDNS device discovery for the specified [serviceTypes].
+  /// Starts mDNS and SSDP device discovery for the specified [serviceTypes].
   Future<void> startDiscovery({
     Duration period = const Duration(seconds: 4),
     List<String> serviceTypes = kDefaultServiceTypes,
@@ -120,6 +142,15 @@ class CastDiscoveryService {
     _subscription = transport.incomingEvents.listen((event) {
       handleIncomingPacket(event.data, fallbackHost: event.senderAddress.address);
     });
+
+    try {
+      await ssdpService?.startDiscovery();
+      _ssdpSubscription = ssdpService?.devicesStream.listen((ssdpDevices) {
+        for (final device in ssdpDevices) {
+          addOrUpdateDevice(device);
+        }
+      });
+    } catch (_) {}
 
     // Send initial queries
     await _broadcastQueries(serviceTypes);
@@ -139,6 +170,11 @@ class CastDiscoveryService {
     _queryTimer = null;
     await _subscription?.cancel();
     _subscription = null;
+    await _ssdpSubscription?.cancel();
+    _ssdpSubscription = null;
+    try {
+      await ssdpService?.stopDiscovery();
+    } catch (_) {}
     await transport.close();
   }
 
@@ -158,12 +194,18 @@ class CastDiscoveryService {
   /// Clears all discovered devices.
   void clearDevices() {
     _devices.clear();
+    try {
+      ssdpService?.clearDevices();
+    } catch (_) {}
     _devicesController.add(currentDevices);
   }
 
   /// Disposes controller and discovery resources.
   Future<void> dispose() async {
     await stopDiscovery();
+    try {
+      await ssdpService?.dispose();
+    } catch (_) {}
     await _devicesController.close();
   }
 
@@ -177,7 +219,9 @@ class CastDiscoveryService {
   }
 
   /// Builds a DNS PTR query packet for [serviceFqdn].
-  static Uint8List encodeDnsPtrQuery(String serviceFqdn) {
+  /// By default sets the RFC 6762 QU (unicast-response) bit in QCLASS (0x8001),
+  /// instructing responders to send unicast responses to our ephemeral UDP port.
+  static Uint8List encodeDnsPtrQuery(String serviceFqdn, {bool unicastResponse = true}) {
     final buffer = BytesBuilder();
 
     // DNS Header
@@ -204,8 +248,9 @@ class CastDiscoveryService {
     // QTYPE: PTR (12)
     buffer.add([0x00, 0x0C]);
 
-    // QCLASS: IN (1)
-    buffer.add([0x00, 0x01]);
+    // QCLASS: IN (1) with RFC 6762 Section 5.4 QU bit (0x8001)
+    final qclass = unicastResponse ? 0x8001 : 0x0001;
+    buffer.add([(qclass >> 8) & 0xFF, qclass & 0xFF]);
 
     return buffer.toBytes();
   }

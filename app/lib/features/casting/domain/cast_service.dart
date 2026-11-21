@@ -5,11 +5,13 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 
 import 'cast_models.dart';
+import 'dlna_client.dart';
 import 'local_streaming_daemon.dart';
 import '../../cast/data/cast_discovery_service.dart';
 import '../../cast/models/cast_device.dart' as mdns;
 
 export 'cast_models.dart';
+export 'dlna_client.dart';
 export 'local_streaming_daemon.dart';
 
 /// Service managing network device discovery radar and remote casting session
@@ -34,53 +36,7 @@ class CastService extends ChangeNotifier {
   LocalStreamingDaemon get streamingDaemon =>
       _streamingDaemon ??= LocalStreamingDaemon();
 
-  final List<CastDevice> _devices = [
-    CastDevice(
-      id: 'chromecast_living_room',
-      name: 'Living Room Chromecast Ultra',
-      protocol: CastProtocol.chromecast,
-      model: 'Google Chromecast Ultra 4K',
-      ipAddress: '192.168.1.104',
-      signalPercentage: 98,
-      resolutionCapability: '4K UHD · 60 FPS',
-    ),
-    CastDevice(
-      id: 'appletv_studio',
-      name: 'Studio Apple TV 4K',
-      protocol: CastProtocol.airplay,
-      model: 'Apple TV 4K (3rd Gen)',
-      ipAddress: '192.168.1.118',
-      signalPercentage: 92,
-      resolutionCapability: '4K Dolby Vision',
-    ),
-    CastDevice(
-      id: 'sony_bravia_theater',
-      name: 'Home Theater Sony Bravia',
-      protocol: CastProtocol.dlna,
-      model: 'Sony XR-65A80J OLED',
-      ipAddress: '192.168.1.150',
-      signalPercentage: 100,
-      resolutionCapability: '4K HDR10 · eARC',
-    ),
-    CastDevice(
-      id: 'samsung_bedroom',
-      name: 'Bedroom Samsung Neo QLED',
-      protocol: CastProtocol.dlna,
-      model: 'Samsung QN90B 55"',
-      ipAddress: '192.168.1.162',
-      signalPercentage: 76,
-      resolutionCapability: '4K UHD · HDR',
-    ),
-    CastDevice(
-      id: 'shield_guest',
-      name: 'Guest Room Android TV',
-      protocol: CastProtocol.chromecast,
-      model: 'NVIDIA Shield TV Pro',
-      ipAddress: '192.168.1.175',
-      signalPercentage: 68,
-      resolutionCapability: '4K 60FPS · AI Upscale',
-    ),
-  ];
+  final List<CastDevice> _devices = [];
 
   CastDevice? _connectedDevice;
   CastSession? _activeSession;
@@ -99,8 +55,33 @@ class CastService extends ChangeNotifier {
   bool get isRemotePlaying => _isRemotePlaying;
   String get audioRoute => _audioRoute;
 
-  CastService({CastDiscoveryService? discoveryService})
-      : _discoveryService = discoveryService ?? CastDiscoveryService() {
+  /// Register or update a device discovered or manually added
+  void registerDevice(CastDevice device) {
+    final index = _devices.indexWhere((d) => d.id == device.id);
+    if (index >= 0) {
+      _devices[index] = device;
+    } else {
+      _devices.add(device);
+    }
+    notifyListeners();
+  }
+
+  /// Clear all discovered devices
+  void clearDevices() {
+    _devices.clear();
+    notifyListeners();
+  }
+
+  DlnaClient? _dlnaClient;
+  DlnaClient get dlnaClient => _dlnaClient ??= DlnaClient();
+
+  CastService({
+    CastDiscoveryService? discoveryService,
+    DlnaClient? dlnaClient,
+  })  : _discoveryService = discoveryService ?? CastDiscoveryService() {
+    if (dlnaClient != null) {
+      _dlnaClient = dlnaClient;
+    }
     _initDiscovery();
     startScan();
   }
@@ -127,6 +108,7 @@ class CastService extends ChangeNotifier {
         ipAddress: discovered.host,
         signalPercentage: 92,
         resolutionCapability: '1080p / 4K UHD',
+        metadata: discovered.properties,
       );
       if (index >= 0) {
         _devices[index] = mappedDevice;
@@ -316,6 +298,19 @@ class CastService extends ChangeNotifier {
       }
     }
 
+    // If target is a DLNA / UPnP Smart TV with an AVTransport control URL, dispatch playback
+    if (device.protocol == CastProtocol.dlna && streamUrl != null) {
+      final controlUrl = device.metadata?['controlUrl'] as String?;
+      if (controlUrl != null && controlUrl.isNotEmpty) {
+        try {
+          await dlnaClient.setAvTransportUri(controlUrl, streamUrl, title: resolvedTitle);
+          await dlnaClient.play(controlUrl);
+        } catch (e) {
+          debugPrint('DLNA AVTransport trigger error: $e');
+        }
+      }
+    }
+
     _activeSession = CastSession(
       device: device,
       mediaTitle: resolvedTitle,
@@ -354,6 +349,15 @@ class CastService extends ChangeNotifier {
   Future<void> disconnect() async {
     _telemetryTimer?.cancel();
     _telemetryTimer = null;
+
+    if (_connectedDevice != null && _connectedDevice!.protocol == CastProtocol.dlna) {
+      final controlUrl = _connectedDevice!.metadata?['controlUrl'] as String?;
+      if (controlUrl != null && controlUrl.isNotEmpty) {
+        try {
+          await dlnaClient.stop(controlUrl);
+        } catch (_) {}
+      }
+    }
 
     if (_streamingDaemon != null && _streamingDaemon!.isRunning) {
       await _streamingDaemon!.stopSession();
@@ -416,6 +420,16 @@ class CastService extends ChangeNotifier {
         _boundPlayer!.play();
       } else {
         _boundPlayer!.pause();
+      }
+    }
+    if (_connectedDevice != null && _connectedDevice!.protocol == CastProtocol.dlna) {
+      final controlUrl = _connectedDevice!.metadata?['controlUrl'] as String?;
+      if (controlUrl != null && controlUrl.isNotEmpty) {
+        if (_isRemotePlaying) {
+          dlnaClient.play(controlUrl);
+        } else {
+          dlnaClient.pause(controlUrl);
+        }
       }
     }
     notifyListeners();

@@ -177,10 +177,13 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
                     ),
                     const SizedBox(height: 10),
 
-                    // Target Devices Cards
-                    ...displayedDevices.map((device) {
-                      return _buildDeviceTile(context, castService, device);
-                    }),
+                    // Target Devices Cards or Empty State Card
+                    if (displayedDevices.isEmpty)
+                      _buildEmptyDevicesCard(context, castService)
+                    else
+                      ...displayedDevices.map((device) {
+                        return _buildDeviceTile(context, castService, device);
+                      }),
                   ],
                 ),
               ),
@@ -339,8 +342,10 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
           const SizedBox(height: 10),
           Text(
             castService.isScanning
-                ? 'Broadcasting discovery probes across local subnet 192.168.1.0/24...'
-                : 'Found 5 local wireless display targets ready for 4K streaming.',
+                ? 'Broadcasting discovery probes across local subnet (mDNS & SSDP)...'
+                : castService.devices.isEmpty
+                    ? 'Scan complete. No wireless displays detected on local network.'
+                    : 'Found ${castService.devices.length} wireless display target(s) ready for 4K streaming.',
             style: EDesign.caption.copyWith(color: EDesign.textSecondary),
             textAlign: TextAlign.center,
           ),
@@ -733,6 +738,97 @@ class _CastSheetState extends State<CastSheet> with SingleTickerProviderStateMix
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyDevicesCard(BuildContext context, CastService castService) {
+    final isScanning = castService.isScanning;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: EDesign.cardDecoration(
+        color: EDesign.elevatedSurface,
+        radius: EDesign.r18,
+        borderColor: isScanning ? EDesign.primary.withValues(alpha: 0.3) : EDesign.border,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isScanning
+                  ? EDesign.primary.withValues(alpha: 0.12)
+                  : EDesign.surface,
+              border: Border.all(
+                color: isScanning
+                    ? EDesign.primary.withValues(alpha: 0.4)
+                    : EDesign.border,
+              ),
+            ),
+            child: isScanning
+                ? const SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(EDesign.primary),
+                    ),
+                  )
+                : const Icon(
+                    Icons.tv_off_rounded,
+                    color: EDesign.textSecondary,
+                    size: 32,
+                  ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            isScanning
+                ? 'Scanning local Wi-Fi...'
+                : 'No casting devices detected on this network.',
+            style: EDesign.h3.copyWith(
+              color: EDesign.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isScanning
+                ? 'Broadcasting mDNS (RFC 6762 QU-bit) & SSDP UPnP probes across active network adapters. Searching for Chromecasts, Google TVs, Apple TVs, and Smart TVs...'
+                : 'Ensure your TV, Chromecast, or streaming box is connected to the same Wi-Fi network. Tap "Scan for Devices" to re-probe.',
+            style: EDesign.caption.copyWith(
+              color: EDesign.textSecondary,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (!isScanning) ...[
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: EDesign.primary,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(EDesign.r12),
+                ),
+              ),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                castService.startScan();
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text(
+                'Scan for Devices',
+                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

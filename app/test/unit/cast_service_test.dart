@@ -8,6 +8,7 @@ void main() {
     late Directory tempDir;
     late File tempVideo;
     late File tempSrt;
+    late CastDevice sampleDevice;
 
     setUp(() async {
       service = CastService();
@@ -17,6 +18,16 @@ void main() {
 
       tempSrt = File('${tempDir.path}/clip.srt');
       await tempSrt.writeAsString('1\n00:00:01,000 --> 00:00:03,000\nSub text\n');
+
+      sampleDevice = CastDevice(
+        id: 'sample_device_1',
+        name: 'Living Room TV',
+        protocol: CastProtocol.chromecast,
+        model: 'Google Chromecast Ultra 4K',
+        ipAddress: '192.168.1.104',
+        signalPercentage: 95,
+        resolutionCapability: '4K UHD · 60 FPS',
+      );
     });
 
     tearDown(() async {
@@ -26,25 +37,49 @@ void main() {
       }
     });
 
-    test('1. Initializes with default devices and starts scanning', () {
-      expect(service.devices.isNotEmpty, isTrue);
-      expect(service.devices.length, greaterThanOrEqualTo(5));
+    test('1. Initializes with empty device list and starts scanning', () {
+      expect(service.devices.isEmpty, isTrue);
       expect(service.isScanning, isTrue);
       expect(service.connectedDevice, isNull);
     });
 
     test('2. Discovers multi-protocol sinks (Chromecast, AirPlay, DLNA, Miracast)', () {
-      final chromecast = service.devices.where((d) => d.protocol == CastProtocol.chromecast);
-      expect(chromecast.isNotEmpty, isTrue);
-      expect(chromecast.first.protocol.label, 'Chromecast V2');
+      final chromecast = CastDevice(
+        id: 'test_cc',
+        name: 'Test Chromecast',
+        protocol: CastProtocol.chromecast,
+        model: 'Google Chromecast Ultra',
+        ipAddress: '192.168.1.104',
+        signalPercentage: 98,
+        resolutionCapability: '4K UHD',
+      );
+      final airplay = CastDevice(
+        id: 'test_ap',
+        name: 'Test Apple TV',
+        protocol: CastProtocol.airplay,
+        model: 'Apple TV 4K',
+        ipAddress: '192.168.1.118',
+        signalPercentage: 92,
+        resolutionCapability: '4K Dolby Vision',
+      );
+      final dlna = CastDevice(
+        id: 'test_dlna',
+        name: 'Test Sony Bravia',
+        protocol: CastProtocol.dlna,
+        model: 'Sony Bravia OLED',
+        ipAddress: '192.168.1.150',
+        signalPercentage: 100,
+        resolutionCapability: '4K HDR10',
+      );
 
-      final airplay = service.devices.where((d) => d.protocol == CastProtocol.airplay);
-      expect(airplay.isNotEmpty, isTrue);
-      expect(airplay.first.protocol.label, 'AirPlay 2');
+      service.registerDevice(chromecast);
+      service.registerDevice(airplay);
+      service.registerDevice(dlna);
 
-      final dlna = service.devices.where((d) => d.protocol == CastProtocol.dlna);
-      expect(dlna.isNotEmpty, isTrue);
-      expect(dlna.first.protocol.label, 'DLNA / UPnP');
+      expect(service.devices.length, 3);
+      expect(chromecast.protocol.label, 'Chromecast V2');
+      expect(airplay.protocol.label, 'AirPlay 2');
+      expect(dlna.protocol.label, 'DLNA / UPnP');
 
       // Verify Miracast enum attributes
       expect(CastProtocol.miracast.label, 'Miracast Direct');
@@ -79,6 +114,7 @@ void main() {
     });
 
     test('4. Connects to target device and updates connection state', () async {
+      service.registerDevice(sampleDevice);
       final target = service.devices.first;
       expect(target.isConnected, isFalse);
 
@@ -92,6 +128,7 @@ void main() {
     });
 
     test('5. Spawns LocalStreamingDaemon session when connecting with existing media file', () async {
+      service.registerDevice(sampleDevice);
       final target = service.devices.first;
 
       final success = await service.connect(
@@ -113,6 +150,7 @@ void main() {
     });
 
     test('6. Disconnects active session and terminates LocalStreamingDaemon gracefully', () async {
+      service.registerDevice(sampleDevice);
       final target = service.devices.first;
       await service.connect(
         target,
@@ -157,6 +195,7 @@ void main() {
     });
 
     test('9. Seek updates active session position', () async {
+      service.registerDevice(sampleDevice);
       final target = service.devices.first;
       await service.connect(target);
       expect(service.activeSession?.position, Duration.zero);
@@ -166,8 +205,18 @@ void main() {
     });
 
     test('10. Switching target device automatically tears down previous session', () async {
-      final device1 = service.devices[0];
-      final device2 = service.devices[1];
+      final device1 = sampleDevice;
+      final device2 = CastDevice(
+        id: 'sample_device_2',
+        name: 'Bedroom TV',
+        protocol: CastProtocol.dlna,
+        model: 'Samsung QLED',
+        ipAddress: '192.168.1.162',
+        signalPercentage: 80,
+        resolutionCapability: '4K UHD',
+      );
+      service.registerDevice(device1);
+      service.registerDevice(device2);
 
       await service.connect(device1, mediaPath: tempVideo.path);
       expect(service.connectedDevice?.id, device1.id);

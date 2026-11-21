@@ -98,5 +98,24 @@ void main() {
       await castService.stopScan();
       expect(castService.isScanning, isFalse);
     });
+
+    test('encodeDnsPtrQuery sets RFC 6762 QU unicast response bit (0x8001)', () {
+      final packet = CastDiscoveryService.encodeDnsPtrQuery('_googlecast._tcp.local');
+      // The last 4 bytes of question are QTYPE (0x00, 0x0C) and QCLASS (0x80, 0x01)
+      final length = packet.length;
+      expect(packet[length - 4], 0x00); // QTYPE high
+      expect(packet[length - 3], 0x0C); // QTYPE low (PTR)
+      expect(packet[length - 2], 0x80); // QCLASS high (QU bit = 0x8000)
+      expect(packet[length - 1], 0x01); // QCLASS low (IN = 0x0001)
+
+      // Test with unicastResponse: false
+      final nonQuPacket = CastDiscoveryService.encodeDnsPtrQuery(
+        '_googlecast._tcp.local',
+        unicastResponse: false,
+      );
+      final nonQuLen = nonQuPacket.length;
+      expect(nonQuPacket[nonQuLen - 2], 0x00);
+      expect(nonQuPacket[nonQuLen - 1], 0x01);
+    });
   });
 }
