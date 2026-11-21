@@ -27,6 +27,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onToggleTeletext;
   final VoidCallback? onCycleClosedCaptions;
   final VoidCallback? onToggleRecord;
+  final VoidCallback? onCycleDeinterlace;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -53,6 +54,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onToggleTeletext,
     this.onCycleClosedCaptions,
     this.onToggleRecord,
+    this.onCycleDeinterlace,
     this.focusNode,
     this.autofocus = true,
   });
@@ -427,6 +429,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isShift && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {
       widget.onUserActivity();
       widget.onToggleRecord!();
+      return KeyEventResult.handled;
+    }
+
+    // 20. Cycle Deinterlace Mode ('d') (VLC deinterlace.c parity)
+    if (event.logicalKey == LogicalKeyboardKey.keyD && !isCtrl && !isAlt && !isShift && widget.onCycleDeinterlace != null) {
+      widget.onUserActivity();
+      widget.onCycleDeinterlace!();
       return KeyEventResult.handled;
     }
 

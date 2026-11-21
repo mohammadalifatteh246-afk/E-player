@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'puzzle_wall_models.dart';
 import 'video_overlay_models.dart';
+import 'deinterlace_models.dart';
 
 export 'puzzle_wall_models.dart';
 export 'video_overlay_models.dart';
+export 'deinterlace_models.dart';
 
 /// Video Effects Configuration for E-Player.
 /// Reverse engineered from VLC media player's `adjust.c`, `sharpen.c`,
@@ -76,8 +78,14 @@ class VideoEffectsConfig {
   int marqueeOffsetY; // Pixel offset Y
   bool marqueeShowBackground; // Semi-transparent badge background
 
+  // --- Deinterlacing Filter (VLC deinterlace.c parity) ---
+  DeinterlaceMode deinterlaceMode;
+  DeinterlaceAlgorithm deinterlaceAlgorithm;
+
   VideoEffectsConfig({
     this.masterEnabled = true,
+    this.deinterlaceMode = DeinterlaceMode.off,
+    this.deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif,
     this.brightness = 0.0,
     this.contrast = 0.0,
     this.saturation = 0.0,
@@ -129,6 +137,8 @@ class VideoEffectsConfig {
   /// Deep copy of configuration
   VideoEffectsConfig copyWith({
     bool? masterEnabled,
+    DeinterlaceMode? deinterlaceMode,
+    DeinterlaceAlgorithm? deinterlaceAlgorithm,
     double? brightness,
     double? contrast,
     double? saturation,
@@ -178,6 +188,8 @@ class VideoEffectsConfig {
   }) {
     return VideoEffectsConfig(
       masterEnabled: masterEnabled ?? this.masterEnabled,
+      deinterlaceMode: deinterlaceMode ?? this.deinterlaceMode,
+      deinterlaceAlgorithm: deinterlaceAlgorithm ?? this.deinterlaceAlgorithm,
       brightness: brightness ?? this.brightness,
       contrast: contrast ?? this.contrast,
       saturation: saturation ?? this.saturation,
@@ -248,12 +260,15 @@ class VideoEffectsConfig {
         !puzzleEnabled &&
         !wallEnabled &&
         !logoEnabled &&
-        !marqueeEnabled;
+        !marqueeEnabled &&
+        deinterlaceMode == DeinterlaceMode.off;
   }
 
   /// Reset all effects to defaults
   void resetAll() {
     masterEnabled = true;
+    deinterlaceMode = DeinterlaceMode.off;
+    deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif;
     brightness = 0.0;
     contrast = 0.0;
     saturation = 0.0;
@@ -484,8 +499,16 @@ class VideoEffectsConfig {
       );
     }
 
+    // Deinterlacing filter (VLC deinterlace.c parity)
+    if (deinterlaceMode != DeinterlaceMode.off) {
+      filters.add(deinterlaceAlgorithm.mpvFilterString);
+    }
+
     return filters.join(',');
   }
+
+  /// Alias for buildMpvVfString
+  String toMpvFilterString() => buildMpvVfString();
 
   /// Calculates a 4x5 ColorFilter matrix for instant 60/120fps GPU preview
   /// in the Flutter UI layer while dragging sliders.
@@ -646,6 +669,8 @@ class VideoEffectsConfig {
   // --- Serialization ---
   Map<String, dynamic> toJson() => {
         'masterEnabled': masterEnabled,
+        'deinterlaceMode': deinterlaceMode.name,
+        'deinterlaceAlgorithm': deinterlaceAlgorithm.name,
         'brightness': brightness,
         'contrast': contrast,
         'saturation': saturation,
@@ -697,6 +722,14 @@ class VideoEffectsConfig {
   factory VideoEffectsConfig.fromJson(Map<String, dynamic> json) {
     return VideoEffectsConfig(
       masterEnabled: json['masterEnabled'] as bool? ?? true,
+      deinterlaceMode: DeinterlaceMode.values.firstWhere(
+        (e) => e.name == json['deinterlaceMode'],
+        orElse: () => DeinterlaceMode.off,
+      ),
+      deinterlaceAlgorithm: DeinterlaceAlgorithm.values.firstWhere(
+        (e) => e.name == json['deinterlaceAlgorithm'],
+        orElse: () => DeinterlaceAlgorithm.yadif,
+      ),
       brightness: (json['brightness'] as num?)?.toDouble() ?? 0.0,
       contrast: (json['contrast'] as num?)?.toDouble() ?? 0.0,
       saturation: (json['saturation'] as num?)?.toDouble() ?? 0.0,

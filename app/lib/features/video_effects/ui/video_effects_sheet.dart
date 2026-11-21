@@ -329,6 +329,78 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
               _notifyChange();
             },
           ),
+
+        const Divider(color: EDesign.border, height: 24),
+
+        _buildSectionHeader('Deinterlacing (VLC deinterlace.c)', () {
+          _config.deinterlaceMode = DeinterlaceMode.off;
+          _config.deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif;
+          _notifyChange(immediateVf: true);
+        }),
+
+        // Deinterlace Mode Segmented Selector (Off, Auto, On)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: SegmentedButton<DeinterlaceMode>(
+            segments: const [
+              ButtonSegment(
+                value: DeinterlaceMode.off,
+                label: Text('Off'),
+                icon: Icon(Icons.videocam_off_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: DeinterlaceMode.auto,
+                label: Text('Auto'),
+                icon: Icon(Icons.auto_awesome, size: 16),
+              ),
+              ButtonSegment(
+                value: DeinterlaceMode.on,
+                label: Text('On'),
+                icon: Icon(Icons.tune, size: 16),
+              ),
+            ],
+            selected: {_config.deinterlaceMode},
+            onSelectionChanged: (newSelection) {
+              _config.deinterlaceMode = newSelection.first;
+              _notifyChange(immediateVf: true);
+            },
+          ),
+        ),
+
+        // Algorithm Selector Chips (active when mode != off)
+        if (_config.deinterlaceMode != DeinterlaceMode.off) ...[
+          const SizedBox(height: 8),
+          const Text('Deinterlace Algorithm Preset', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: DeinterlaceAlgorithm.values.map((algo) {
+              final isSelected = _config.deinterlaceAlgorithm == algo;
+              return ChoiceChip(
+                label: Text(algo.label),
+                selected: isSelected,
+                selectedColor: EDesign.primaryCyan.withValues(alpha: 0.3),
+                labelStyle: TextStyle(
+                  color: isSelected ? EDesign.primaryCyan : EDesign.textPrimary,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 11,
+                ),
+                onSelected: (selected) {
+                  if (selected) {
+                    _config.deinterlaceAlgorithm = algo;
+                    _notifyChange(immediateVf: true);
+                  }
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _config.deinterlaceAlgorithm.description,
+            style: const TextStyle(color: EDesign.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
+          ),
+        ],
       ],
     );
   }

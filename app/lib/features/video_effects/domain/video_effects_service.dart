@@ -37,6 +37,7 @@ class VideoEffectsService {
         platform.setProperty('saturation', '0');
         platform.setProperty('gamma', '0');
         platform.setProperty('hue', '0');
+        platform.setProperty('deinterlace', 'no');
         _cancelDebounce();
         if (_lastAppliedVf.isNotEmpty) {
           platform.setProperty('vf', '');
@@ -52,6 +53,7 @@ class VideoEffectsService {
       platform.setProperty('saturation', config.saturation.round().toString());
       platform.setProperty('gamma', config.gamma.round().toString());
       platform.setProperty('hue', config.mpvHue.toString());
+      platform.setProperty('deinterlace', config.deinterlaceMode.mpvValue);
 
       // 2. Tier-2: libmpv Video Filter Pipeline (vf)
       final vfString = config.buildMpvVfString();

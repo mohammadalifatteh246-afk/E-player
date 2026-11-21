@@ -2494,6 +2494,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
             _streamRecorderController.isRecording ? Colors.redAccent : EDesign.primaryCyan,
           );
         },
+        onCycleDeinterlace: () {
+          setState(() {
+            _videoEffectsConfig.deinterlaceMode = _videoEffectsConfig.deinterlaceMode.next();
+          });
+          _videoEffectsService.apply(_player, _videoEffectsConfig, immediateVf: true);
+          _showFeedbackMessage(
+            'Deinterlace: ${_videoEffectsConfig.deinterlaceMode.label}',
+            Icons.horizontal_distribute,
+          );
+        },
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
