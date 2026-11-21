@@ -22,6 +22,10 @@ import '../../video_effects/ui/video_effects_sheet.dart';
 import '../../video_effects/ui/video_overlay_widget.dart';
 import '../../video_effects/ui/watermark_studio_sheet.dart';
 import '../../video_effects/ui/anaglyph_studio_sheet.dart';
+import '../../audio/domain/dual_audio_service.dart';
+import '../../audio/ui/dual_audio_sheet.dart';
+import '../../export/domain/media_converter_service.dart';
+import '../../export/ui/media_converter_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
@@ -86,6 +90,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final TeletextClosedCaptionController _teletextCcController;
   late final StreamRecorderController _streamRecorderController;
   late final WebRemoteService _webRemoteService;
+  late final DualAudioService _dualAudioService;
+  late final MediaConverterService _mediaConverterService;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -531,6 +537,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _webRemoteService.addListener(() {
       if (mounted) setState(() {});
     });
+    _dualAudioService = DualAudioService();
+    _dualAudioService.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _mediaConverterService = MediaConverterService();
+    _mediaConverterService.addListener(() {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
@@ -696,6 +710,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _teletextCcController.dispose();
     _streamRecorderController.dispose();
     _webRemoteService.dispose();
+    _dualAudioService.dispose();
+    _mediaConverterService.dispose();
     _playlistController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
@@ -2848,6 +2864,41 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 _videoEffectsService.apply(_player, updated, immediateVf: true);
                                 _videoEffectsService.saveToPreferences(updated);
                               },
+                            );
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_dual_audio_button'),
+                          icon: Icons.speaker_group_rounded,
+                          title: 'Dual Audio & Dubbing',
+                          subtitle: _dualAudioService.config.enabled
+                              ? 'Active (${_dualAudioService.config.routingMode.label})'
+                              : 'Multi-Device Sync',
+                          accentColor: _dualAudioService.config.enabled ? EDesign.primaryCyan : EDesign.textSecondary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            DualAudioSheet.show(
+                              context,
+                              service: _dualAudioService,
+                              player: _player,
+                            );
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_media_converter_button'),
+                          icon: Icons.transform_rounded,
+                          title: 'Convert & Extract',
+                          subtitle: _mediaConverterService.isConverting
+                              ? 'Converting (${_mediaConverterService.activeTask?.progressPercent}%)'
+                              : 'VLC Transcoder',
+                          accentColor: _mediaConverterService.isConverting ? Colors.amberAccent : EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            MediaConverterSheet.show(
+                              context,
+                              service: _mediaConverterService,
+                              initialSourcePath: _currentMediaPath ?? widget.mediaPath,
+                              currentDuration: _player.state.duration,
                             );
                           },
                         ),
