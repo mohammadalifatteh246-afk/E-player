@@ -26,6 +26,8 @@ import '../../audio/domain/dual_audio_service.dart';
 import '../../audio/ui/dual_audio_sheet.dart';
 import '../../export/domain/media_converter_service.dart';
 import '../../export/ui/media_converter_sheet.dart';
+import '../../network_stream/data/dlna_service.dart';
+import '../../network_stream/ui/dlna_server_browser_sheet.dart';
 import 'subtitle_settings_sheet.dart';
 import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
@@ -92,6 +94,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final WebRemoteService _webRemoteService;
   late final DualAudioService _dualAudioService;
   late final MediaConverterService _mediaConverterService;
+  late final DlnaService _dlnaService;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
   StreamSubscription<TrayPlaybackCommand>? _trayCommandSubscription;
@@ -545,6 +548,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _mediaConverterService.addListener(() {
       if (mounted) setState(() {});
     });
+    _dlnaService = DlnaService();
+    _dlnaService.addListener(() {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
@@ -712,6 +719,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _webRemoteService.dispose();
     _dualAudioService.dispose();
     _mediaConverterService.dispose();
+    _dlnaService.dispose();
     _playlistController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
@@ -2564,6 +2572,49 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
+  Future<void> _openDlnaBrowserSheet() async {
+    _controlsTimer?.cancel();
+    try {
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (ctx) => DlnaServerBrowserSheet(
+          dlnaService: _dlnaService,
+          onPlayMediaItem: (item) {
+            if (item.streamUrl.isNotEmpty) {
+              final mediaItem = MediaItem(
+                path: item.streamUrl,
+                name: item.title,
+                parentFolder: 'DLNA',
+                durationMs: item.duration?.inMilliseconds ?? 0,
+                lastPlayed: DateTime.now(),
+              );
+              _playMediaItem(mediaItem);
+            }
+          },
+          onEnqueueMediaItem: (item) {
+            if (item.streamUrl.isNotEmpty) {
+              _playlistController.addTrack(
+                MediaItem(
+                  path: item.streamUrl,
+                  name: item.title,
+                  parentFolder: 'DLNA',
+                  durationMs: item.duration?.inMilliseconds ?? 0,
+                  lastPlayed: DateTime.now(),
+                ),
+              );
+            }
+          },
+        ),
+      );
+    } finally {
+      if (mounted) {
+        _startControlsTimer();
+      }
+    }
+  }
+
   Future<void> _openCastSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -2900,6 +2951,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               initialSourcePath: _currentMediaPath ?? widget.mediaPath,
                               currentDuration: _player.state.duration,
                             );
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_dlna_browser_button'),
+                          icon: Icons.settings_input_antenna_rounded,
+                          title: 'DLNA / UPnP',
+                          subtitle: _dlnaService.isScanning
+                              ? 'Scanning...'
+                              : 'LAN Media Servers',
+                          accentColor: _dlnaService.servers.isNotEmpty ? EDesign.primaryCyan : EDesign.textSecondary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openDlnaBrowserSheet();
                           },
                         ),
                         _buildQuickOptionTile(

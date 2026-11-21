@@ -58,6 +58,11 @@ class PlaylistController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addTrack(MediaItem item) {
+    _items.add(item);
+    notifyListeners();
+  }
+
   void setCurrentPlayingPath(String path) {
     _currentPlayingPath = path;
     notifyListeners();
