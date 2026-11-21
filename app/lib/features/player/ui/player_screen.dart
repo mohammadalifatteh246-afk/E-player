@@ -46,6 +46,7 @@ import '../../subtitles/ui/teletext_closed_captions_sheet.dart';
 import '../../stream_recorder/data/stream_recorder_controller.dart';
 import '../../stream_recorder/ui/stream_recorder_badge_widget.dart';
 import '../../stream_recorder/ui/stream_recorder_sheet.dart';
+import '../services/desktop_drag_drop_service.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -77,6 +78,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   StreamSubscription<Duration>? _trayPositionSubscription;
   StreamSubscription<Duration>? _trayDurationSubscription;
   StreamSubscription<double>? _trayVolumeSubscription;
+  StreamSubscription<DroppedMediaEvent>? _dragDropSubscription;
+  String? _currentMediaPath;
 
   bool _isPlaying = true;
   bool _isLocked = false;
@@ -403,6 +406,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }
     });
 
+    DesktopDragDropService.instance.initialize();
+    _dragDropSubscription =
+        DesktopDragDropService.instance.stream.listen(_handleDroppedMedia);
+
     // Auto-orient listener (VLC parity: detects video aspect ratio upon header load)
     _player.stream.width.listen((w) {
       if (mounted) {
@@ -566,6 +573,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _trayDurationSubscription?.cancel();
     _trayVolumeSubscription?.cancel();
     _trayCommandSubscription?.cancel();
+    _dragDropSubscription?.cancel();
     DesktopTrayAudioService.instance.updatePlaybackState(isPlaying: false);
     _persistProgress();
     _controlsTimer?.cancel();
@@ -580,6 +588,55 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _aiEngine.shutdown();
     _player.dispose();
     super.dispose();
+  }
+
+  void _handleDroppedMedia(DroppedMediaEvent event) {
+    if (!mounted) return;
+
+    // 1. If subtitles dropped: attach subtitle track dynamically (VLC parity)
+    if (event.hasSubtitle) {
+      for (final subItem in event.subtitleItems) {
+        try {
+          _player.setSubtitleTrack(SubtitleTrack.uri(subItem.path));
+          _showFeedbackMessage(
+            'Subtitle attached: ${subItem.name}',
+            Icons.subtitles_rounded,
+            EDesign.primaryCyan,
+          );
+        } catch (e) {
+          debugPrint('[PlayerScreen] Failed to attach dropped subtitle: $e');
+        }
+      }
+      return;
+    }
+
+    // 2. If video or audio dropped: play primary media (VLC parity)
+    if (event.hasVideoAudio) {
+      final mediaItem = event.videoAudioItems.first;
+      try {
+        _player.open(Media(mediaItem.path));
+        setState(() {
+          _currentMediaPath = mediaItem.path;
+        });
+        _showFeedbackMessage(
+          'Playing: ${mediaItem.name}',
+          Icons.play_circle_fill_rounded,
+          EDesign.primaryCyan,
+        );
+      } catch (e) {
+        debugPrint('[PlayerScreen] Failed to open dropped media: $e');
+      }
+      return;
+    }
+
+    // 3. If unsupported file format dropped
+    if (event.primaryItem != null) {
+      _showFeedbackMessage(
+        'Unsupported format: ${event.primaryItem!.name}',
+        Icons.warning_amber_rounded,
+        Colors.orangeAccent,
+      );
+    }
   }
 
   String _formatDuration(Duration d) {
@@ -2616,9 +2673,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              widget.mediaPath.isNotEmpty
-                                  ? p.basename(widget.mediaPath)
-                                  : 'The Last Horizon.mkv',
+                              _currentMediaPath != null && _currentMediaPath!.isNotEmpty
+                                  ? p.basename(_currentMediaPath!)
+                                  : (widget.mediaPath.isNotEmpty
+                                      ? p.basename(widget.mediaPath)
+                                      : 'The Last Horizon.mkv'),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

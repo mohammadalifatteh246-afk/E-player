@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
@@ -13,6 +14,7 @@ import '../../library/domain/media_search_engine.dart';
 import '../../library/ui/folder_detail_screen.dart';
 import '../../../core/models/media_item.dart';
 import '../../player/ui/player_screen.dart';
+import '../../player/services/desktop_drag_drop_service.dart';
 import '../../casting/ui/casting_screen.dart';
 import '../../settings/ui/settings_screen.dart';
 import '../domain/media_group_service.dart';
@@ -48,6 +50,27 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<String> _selectedItemPaths = {};
 
   int get _selectedCount => _selectedGroupIds.length + _selectedItemPaths.length;
+
+  StreamSubscription<DroppedMediaEvent>? _dragDropSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    DesktopDragDropService.instance.initialize();
+    _dragDropSubscription =
+        DesktopDragDropService.instance.stream.listen(_handleDroppedMedia);
+  }
+
+  void _handleDroppedMedia(DroppedMediaEvent event) {
+    if (!mounted) return;
+    if (event.hasVideoAudio) {
+      final mediaPath = event.videoAudioItems.first.path;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PlayerScreen(mediaPath: mediaPath)),
+      );
+    }
+  }
 
   void _exitSelectionMode() {
     setState(() {
@@ -263,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _dragDropSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
