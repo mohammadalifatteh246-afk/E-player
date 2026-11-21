@@ -166,6 +166,7 @@ void main() {
 
       // AppBar Add button should still be present
       expect(find.byTooltip('Add Media / Folders'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 11));
     });
   });
 }

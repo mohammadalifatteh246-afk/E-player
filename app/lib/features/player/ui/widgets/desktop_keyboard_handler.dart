@@ -28,6 +28,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onCycleClosedCaptions;
   final VoidCallback? onToggleRecord;
   final VoidCallback? onCycleDeinterlace;
+  final VoidCallback? onTogglePlaylist;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -55,6 +56,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onCycleClosedCaptions,
     this.onToggleRecord,
     this.onCycleDeinterlace,
+    this.onTogglePlaylist,
     this.focusNode,
     this.autofocus = true,
   });
@@ -436,6 +438,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (event.logicalKey == LogicalKeyboardKey.keyD && !isCtrl && !isAlt && !isShift && widget.onCycleDeinterlace != null) {
       widget.onUserActivity();
       widget.onCycleDeinterlace!();
+      return KeyEventResult.handled;
+    }
+
+    // 21. Toggle Playlist Panel (Ctrl + L) (VLC parity: Ctrl+L toggles playlist)
+    if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyL && !isAlt && widget.onTogglePlaylist != null) {
+      widget.onUserActivity();
+      widget.onTogglePlaylist!();
       return KeyEventResult.handled;
     }
 

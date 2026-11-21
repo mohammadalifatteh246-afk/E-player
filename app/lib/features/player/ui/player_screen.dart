@@ -48,7 +48,10 @@ import '../../stream_recorder/ui/stream_recorder_badge_widget.dart';
 import '../../stream_recorder/ui/stream_recorder_sheet.dart';
 import '../services/desktop_drag_drop_service.dart';
 import '../../../core/db/database_helper.dart';
+import '../../../core/models/media_item.dart';
 import 'widgets/resume_playback_banner_widget.dart';
+import '../services/playlist_controller.dart';
+import 'widgets/undocked_playlist_panel_widget.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -85,6 +88,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _showResumePrompt = false;
   Duration? _savedResumePosition;
   bool _showRemainingTime = true;
+  late final PlaylistController _playlistController;
 
   bool _isPlaying = true;
   bool _isLocked = false;
@@ -466,6 +470,42 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _streamRecorderController.addListener(() {
       if (mounted) setState(() {});
     });
+    _playlistController = PlaylistController();
+    _playlistController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final lib = context.read<LibraryProvider>();
+        final all = lib.allFiles;
+        final currentPath = _currentMediaPath ?? widget.mediaPath;
+        if (all.isNotEmpty) {
+          _playlistController.setItems(all, activePath: currentPath);
+        } else if (currentPath.isNotEmpty) {
+          _playlistController.setItems([
+            MediaItem(
+              path: currentPath,
+              name: p.basename(currentPath),
+              parentFolder: p.dirname(currentPath),
+              lastPlayed: DateTime.now(),
+            )
+          ], activePath: currentPath);
+        }
+      } catch (_) {
+        final currentPath = _currentMediaPath ?? widget.mediaPath;
+        if (currentPath.isNotEmpty) {
+          _playlistController.setItems([
+            MediaItem(
+              path: currentPath,
+              name: p.basename(currentPath),
+              parentFolder: p.dirname(currentPath),
+              lastPlayed: DateTime.now(),
+            )
+          ], activePath: currentPath);
+        }
+      }
+    });
     _videoEffectsService.loadFromPreferences().then((cfg) {
       if (mounted) {
         setState(() => _videoEffectsConfig = cfg);
@@ -597,6 +637,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _puzzleWallController.dispose();
     _teletextCcController.dispose();
     _streamRecorderController.dispose();
+    _playlistController.dispose();
     _videoEffectsService.dispose();
     _aiEngine.shutdown();
     _player.dispose();
@@ -633,6 +674,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _showResumePrompt = false;
           _savedResumePosition = null;
         });
+        final playlistItem = MediaItem(
+          path: mediaItem.path,
+          name: mediaItem.name,
+          parentFolder: p.dirname(mediaItem.path),
+          lastPlayed: DateTime.now(),
+        );
+        if (!_playlistController.items.any((i) => i.path == mediaItem.path)) {
+          final updated = List<MediaItem>.from(_playlistController.items)..add(playlistItem);
+          _playlistController.setItems(updated, activePath: mediaItem.path);
+        } else {
+          _playlistController.setCurrentPlayingPath(mediaItem.path);
+        }
         _checkResumePosition();
         _showFeedbackMessage(
           'Playing: ${mediaItem.name}',
@@ -757,6 +810,120 @@ class _PlayerScreenState extends State<PlayerScreen> {
     SharedPreferences.getInstance().then((prefs) {
       prefs.setBool('player_show_remaining_time', _showRemainingTime);
     }).catchError((_) {});
+  }
+
+  void _togglePlaylist() {
+    _showControls();
+    if (_playlistController.isUndocked) {
+      _playlistController.toggleVisible();
+    } else {
+      _showDockedPlaylistSheet();
+    }
+  }
+
+  void _playMediaItem(MediaItem item) {
+    try {
+      _player.open(Media(item.path));
+      setState(() {
+        _currentMediaPath = item.path;
+        _showResumePrompt = false;
+        _savedResumePosition = null;
+      });
+      _playlistController.setCurrentPlayingPath(item.path);
+      _checkResumePosition();
+      _showFeedbackMessage(
+        'Playing: ${item.name}',
+        Icons.play_circle_fill_rounded,
+        EDesign.primaryCyan,
+      );
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to open track: $e');
+    }
+  }
+
+  void _showDockedPlaylistSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.65,
+          decoration: BoxDecoration(
+            color: EDesign.surface.withValues(alpha: 0.96),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(color: EDesign.primaryCyan.withValues(alpha: 0.3)),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.playlist_play_rounded, color: EDesign.primaryCyan, size: 24),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Playlist (Docked)',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        key: const Key('docked_playlist_undock_button'),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 16, color: EDesign.primaryCyan),
+                        label: const Text('Undock', style: TextStyle(color: EDesign.primaryCyan)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          setState(() {
+                            _playlistController.setUndocked(true);
+                            _playlistController.setVisible(true);
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Colors.white12, height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: _playlistController.items.length,
+                    separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 1),
+                    itemBuilder: (ctx, index) {
+                      final item = _playlistController.items[index];
+                      final isPlaying = item.path == (_currentMediaPath ?? widget.mediaPath);
+                      return ListTile(
+                        leading: Icon(
+                          isPlaying ? Icons.play_circle_fill_rounded : Icons.movie_outlined,
+                          color: isPlaying ? EDesign.primaryCyan : Colors.white60,
+                        ),
+                        title: Text(
+                          item.name,
+                          style: TextStyle(
+                            color: isPlaying ? EDesign.primaryCyan : Colors.white,
+                            fontWeight: isPlaying ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _playMediaItem(item);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _setSpeed(double speed) {
@@ -2649,6 +2816,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Icons.horizontal_distribute,
           );
         },
+        onTogglePlaylist: _togglePlaylist,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
         onUserActivity: _showControls,
         onBeforeSeek: () {
@@ -2782,21 +2950,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           ),
                         ),
 
-                        // Right: Minimal Spacer / Active Cast Pill
+                        // Right: Active Cast Pill & Playlist Toggle Button (Ctrl+L)
                         SizedBox(
-                          width: 80,
+                          width: 100,
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: Consumer<CastService>(
-                              builder: (context, castService, _) {
-                                final isCasting = castService.connectedDevice != null;
-                                if (!isCasting) return const SizedBox.shrink();
-                                return IconButton(
-                                  icon: const EVectorIcon(name: 'cast', size: 19, color: EDesign.primaryCyan),
-                                  tooltip: 'Casting to ${castService.connectedDevice!.name}',
-                                  onPressed: _openCastSheet,
-                                );
-                              },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Consumer<CastService>(
+                                  builder: (context, castService, _) {
+                                    final isCasting = castService.connectedDevice != null;
+                                    if (!isCasting) return const SizedBox.shrink();
+                                    return IconButton(
+                                      icon: const EVectorIcon(name: 'cast', size: 19, color: EDesign.primaryCyan),
+                                      tooltip: 'Casting to ${castService.connectedDevice!.name}',
+                                      onPressed: _openCastSheet,
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  key: const Key('hud_playlist_button'),
+                                  icon: const Icon(Icons.playlist_play_rounded, color: Colors.white, size: 22),
+                                  tooltip: 'Playlist (Ctrl+L)',
+                                  onPressed: _togglePlaylist,
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -3419,6 +3598,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       if (mounted) setState(() => _showResumePrompt = false);
                     },
                   ),
+                ),
+              ),
+
+            // VLC Undocked / Detached Floating Multi-Window Playlist Panel (--pl-dock-status=0 parity)
+            if (_playlistController.isVisible && _playlistController.isUndocked)
+              Positioned(
+                key: const Key('undocked_playlist_panel_overlay'),
+                left: _playlistController.position.dx,
+                top: _playlistController.position.dy,
+                child: UndockedPlaylistPanelWidget(
+                  controller: _playlistController,
+                  onSelectTrack: _playMediaItem,
+                  onClose: () {
+                    _playlistController.setVisible(false);
+                  },
+                  onDockToggle: () {
+                    _playlistController.setUndocked(false);
+                    _showDockedPlaylistSheet();
+                  },
                 ),
               ),
           ],
