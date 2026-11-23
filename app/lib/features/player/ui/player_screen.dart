@@ -88,6 +88,9 @@ import 'widgets/undocked_playlist_panel_widget.dart';
 import '../../web_remote/data/web_remote_service.dart';
 import '../../web_remote/ui/web_remote_sheet.dart';
 import '../../archive/services/archive_media_service.dart';
+import 'thunderbolt_volume_hud.dart';
+import 'celestial_brightness_hud.dart';
+import 'meteor_progress_bar.dart';
 
 export 'gesture_models.dart' show VolumeSafetyColors;
 export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, CropPreset, AspectCropController, BufferCachingSettingsController;
@@ -184,6 +187,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   GestureFeedbackEvent? _activeFeedbackEvent;
   bool _showFeedbackOverlay = false;
   Timer? _feedbackOverlayTimer;
+  bool _showVolumeThunderHud = false;
+  Timer? _volumeThunderTimer;
+  bool _showBrightnessArcHud = false;
+  Timer? _brightnessArcTimer;
 
   // Wing ripple indicators
   bool _leftWingRipple = false;
@@ -264,7 +271,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _controlsTimer?.cancel();
       _feedbackTimer?.cancel();
       _feedbackOverlayTimer?.cancel();
-      _wingRippleTimer?.cancel();
+    _volumeThunderTimer?.cancel();
+    _brightnessArcTimer?.cancel();
+    _wingRippleTimer?.cancel();
     } else {
       setState(() {
         _controlsVisible = true;
@@ -743,6 +752,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _scale = _gestureEngine.scale;
         _offset = _gestureEngine.panOffset;
 
+        if (event.type == GestureFeedbackType.volume) {
+          _volume = event.value;
+          _showVolumeThunderHud = true;
+          _volumeThunderTimer?.cancel();
+          _volumeThunderTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted) setState(() => _showVolumeThunderHud = false);
+          });
+        }
+
+        if (event.type == GestureFeedbackType.brightness) {
+          _brightness = event.value;
+          _showBrightnessArcHud = true;
+          _brightnessArcTimer?.cancel();
+          _brightnessArcTimer = Timer(const Duration(milliseconds: 1400), () {
+            if (mounted) setState(() => _showBrightnessArcHud = false);
+          });
+        }
+
         if (event.type == GestureFeedbackType.wingJump) {
           if (event.value < 0) {
             _leftWingRipple = true;
@@ -764,6 +791,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       });
 
       _feedbackOverlayTimer?.cancel();
+    _volumeThunderTimer?.cancel();
       _feedbackOverlayTimer =
           Timer(CinematicGestureConfig.feedbackLingeringDuration, () {
         if (mounted) {
@@ -822,6 +850,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _seekCommitSubscription?.cancel();
     _controlsInhibitedSubscription?.cancel();
     _feedbackOverlayTimer?.cancel();
+    _volumeThunderTimer?.cancel();
+    _brightnessArcTimer?.cancel();
     _wingRippleTimer?.cancel();
     _gestureEngine.dispose();
     _decoderTelemetrySubscription?.cancel();
@@ -1452,7 +1482,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _feedbackIcon = icon;
       _feedbackColor = color;
       _showFeedback = true;
+      if (msg.startsWith('Volume:') || msg == 'Mute') {
+        _showVolumeThunderHud = true;
+      }
+      if (msg.startsWith('Brightness:')) {
+        _showBrightnessArcHud = true;
+      }
     });
+    if (msg.startsWith('Volume:') || msg == 'Mute') {
+      _volumeThunderTimer?.cancel();
+      _volumeThunderTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted) setState(() => _showVolumeThunderHud = false);
+      });
+    }
+    if (msg.startsWith('Brightness:')) {
+      _brightnessArcTimer?.cancel();
+      _brightnessArcTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted) setState(() => _showBrightnessArcHud = false);
+      });
+    }
     _feedbackTimer?.cancel();
     _feedbackTimer = Timer(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _showFeedback = false);
@@ -4202,33 +4250,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             ],
                           ),
                         ),
-                        // Sleek Slider with Hotstar Orange Accent
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            activeTrackColor: const Color(0xFFFF5722),
-                            inactiveTrackColor: Colors.white24,
-                            thumbColor: const Color(0xFFFF5722),
-                            overlayColor: const Color(0xFFFF5722).withValues(alpha: 0.25),
-                            trackHeight: 3.0,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                          ),
-                          child: Slider(
-                            value: _position.inMilliseconds.toDouble().clamp(
-                              0.0,
-                              _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
-                            ),
-                            min: 0.0,
-                            max: _duration.inMilliseconds.toDouble() > 0 ? _duration.inMilliseconds.toDouble() : 1.0,
-                            onChangeStart: (_) {
+                        // Cosmic Meteor Video Playing Progress Bar with Live Fire Effects
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          child: MeteorProgressBar(
+                            position: _position,
+                            duration: _duration,
+                            buffered: _player.state.buffer,
+                            onSeekStart: () {
                               _controlsTimer?.cancel();
                             },
-                            onChangeEnd: (_) {
+                            onSeekEnd: () {
                               _startControlsTimer();
                             },
-                            onChanged: (v) {
+                            onSeek: (targetDuration) {
                               _aiEngine.invalidateQueue();
-                              _player.seek(Duration(milliseconds: v.toInt()));
+                              _player.seek(targetDuration);
                             },
                           ),
                         ),
@@ -4485,8 +4522,52 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ),
               ),
 
-            // Cinematic Gesture Feedback Overlay Card
-            if (_showFeedbackOverlay && _activeFeedbackEvent != null)
+            // Left-Edge Standalone Thunderbolt Volume HUD (Zero Box, Pure Floating Vector Lightning Meter)
+            if (_showVolumeThunderHud || (_showFeedbackOverlay && _activeFeedbackEvent?.type == GestureFeedbackType.volume))
+              Positioned(
+                left: 36,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: (_showVolumeThunderHud || (_showFeedbackOverlay && _activeFeedbackEvent?.type == GestureFeedbackType.volume)) ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: ThunderboltVolumeHud(
+                        volume: _activeFeedbackEvent?.type == GestureFeedbackType.volume
+                            ? _activeFeedbackEvent!.value
+                            : _player.state.volume,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Right-Edge Standalone Celestial Moon Phase Brightness HUD (Zero Box, Pure Floating Solar Arc)
+            if (_showBrightnessArcHud || (_showFeedbackOverlay && _activeFeedbackEvent?.type == GestureFeedbackType.brightness))
+              Positioned(
+                right: 36,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: (_showBrightnessArcHud || (_showFeedbackOverlay && _activeFeedbackEvent?.type == GestureFeedbackType.brightness)) ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 150),
+                      child: CelestialBrightnessHud(
+                        brightness: _activeFeedbackEvent?.type == GestureFeedbackType.brightness
+                            ? _activeFeedbackEvent!.value
+                            : _brightness,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Cinematic Gesture Feedback Overlay Card (Non-volume & non-brightness gestures: scrub, zoom, etc.)
+            if (_showFeedbackOverlay && _activeFeedbackEvent != null &&
+                _activeFeedbackEvent!.type != GestureFeedbackType.volume &&
+                _activeFeedbackEvent!.type != GestureFeedbackType.brightness)
               Positioned(
                 top: 90,
                 left: 0,
@@ -4502,16 +4583,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           color: EDesign.surface.withValues(alpha: 0.90),
                           borderRadius: BorderRadius.circular(EDesign.r18),
                           border: Border.all(
-                            color: (_activeFeedbackEvent?.type == GestureFeedbackType.volume)
-                                ? VolumeSafetyColors.resolve(_activeFeedbackEvent!.value).withValues(alpha: 0.8)
-                                : EDesign.primary.withValues(alpha: 0.6),
+                            color: EDesign.primary.withValues(alpha: 0.6),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: (_activeFeedbackEvent?.type == GestureFeedbackType.volume)
-                                  ? VolumeSafetyColors.resolveGlow(_activeFeedbackEvent!.value)
-                                  : Colors.black.withValues(alpha: 0.55),
+                              color: Colors.black.withValues(alpha: 0.55),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
@@ -4525,7 +4602,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
 
             // Glassmorphic OSD Feedback Pill Overlay (Shortcuts & Player Feedback)
-            if (_showFeedback)
+            if (_showFeedback &&
+                !(_showVolumeThunderHud && (_feedbackText.startsWith('Volume:') || _feedbackText == 'Mute')) &&
+                !(_showBrightnessArcHud && _feedbackText.startsWith('Brightness:')))
               Positioned(
                 top: 90,
                 left: 0,
