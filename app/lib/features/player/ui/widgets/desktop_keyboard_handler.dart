@@ -27,6 +27,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onToggleTeletext;
   final VoidCallback? onCycleClosedCaptions;
   final VoidCallback? onToggleRecord;
+  final VoidCallback? onOpenCdRipper;
   final VoidCallback? onCycleDeinterlace;
   final VoidCallback? onOpenDeinterlaceStudio;
   final VoidCallback? onOpenDvdNavigator;
@@ -58,6 +59,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onToggleTeletext,
     this.onCycleClosedCaptions,
     this.onToggleRecord,
+    this.onOpenCdRipper,
     this.onCycleDeinterlace,
     this.onOpenDeinterlaceStudio,
     this.onOpenDvdNavigator,
@@ -433,8 +435,13 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
       return KeyEventResult.handled;
     }
 
-    // 19. Toggle Stream Recording (Shift + R) (VLC record.c parity)
-    if (isShift && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {
+    // 19. Open Audio CD Ripper (Ctrl + Shift + R) / Toggle Stream Recording (Shift + R) (VLC parity)
+    if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyR && widget.onOpenCdRipper != null) {
+      widget.onUserActivity();
+      widget.onOpenCdRipper!();
+      return KeyEventResult.handled;
+    }
+    if (isShift && !isCtrl && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {
       widget.onUserActivity();
       widget.onToggleRecord!();
       return KeyEventResult.handled;

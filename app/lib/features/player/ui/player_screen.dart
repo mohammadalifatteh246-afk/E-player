@@ -26,6 +26,10 @@ import '../../video_effects/ui/deinterlace_motion_studio_sheet.dart';
 import '../../dvd/domain/dvd_models.dart';
 import '../../dvd/data/dvd_navigator_service.dart';
 import '../../dvd/ui/dvd_navigator_sheet.dart';
+import '../../cdda/domain/cdda_models.dart';
+import '../../cdda/data/cue_sheet_parser.dart';
+import '../../cdda/data/audio_cd_ripper_service.dart';
+import '../../cdda/ui/audio_cd_ripper_sheet.dart';
 import '../../audio/domain/dual_audio_service.dart';
 import '../../audio/ui/dual_audio_sheet.dart';
 import '../../export/domain/media_converter_service.dart';
@@ -102,6 +106,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final WebRemoteService _webRemoteService;
   late final DualAudioService _dualAudioService;
   late final MediaConverterService _mediaConverterService;
+  late final AudioCdRipperService _audioCdRipperService;
   late final DlnaService _dlnaService;
   late final OnlineStreamService _onlineStreamService;
   late final SleepTimerController _sleepTimerController;
@@ -566,6 +571,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _mediaConverterService.addListener(() {
       if (mounted) setState(() {});
     });
+    _audioCdRipperService = AudioCdRipperService();
+    _audioCdRipperService.addListener(() {
+      if (mounted) setState(() {});
+    });
     _dlnaService = DlnaService();
     _dlnaService.addListener(() {
       if (mounted) setState(() {});
@@ -772,6 +781,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _webRemoteService.dispose();
     _dualAudioService.dispose();
     _mediaConverterService.dispose();
+    _audioCdRipperService.dispose();
     _dlnaService.dispose();
     _onlineStreamService.dispose();
     _sleepTimerController.dispose();
@@ -2736,6 +2746,59 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  Future<void> _openCdRipperSheet() async {
+    _controlsTimer?.cancel();
+    final currentPath = _currentMediaPath ?? widget.mediaPath;
+    AudioCdDiscInfo? disc;
+
+    if (currentPath.toLowerCase().endsWith('.cue')) {
+      disc = await CueSheetParser.parseCueFile(
+        File(currentPath),
+        totalAudioDuration: _player.state.duration,
+      );
+    } else {
+      final cuePath = p.setExtension(currentPath, '.cue');
+      final cueFile = File(cuePath);
+      if (cueFile.existsSync()) {
+        disc = await CueSheetParser.parseCueFile(
+          cueFile,
+          totalAudioDuration: _player.state.duration,
+        );
+      }
+    }
+
+    disc ??= AudioCdDiscInfo(
+      albumTitle: p.basenameWithoutExtension(currentPath),
+      artist: 'Audio CD Track',
+      audioSourcePath: currentPath,
+      tracks: [
+        CdTrackInfo(
+          trackNumber: 1,
+          title: p.basenameWithoutExtension(currentPath),
+          artist: 'Audio CD Track',
+          startOffset: Duration.zero,
+          duration: _player.state.duration > Duration.zero
+              ? _player.state.duration
+              : const Duration(minutes: 3, seconds: 45),
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+
+    final outputDir = p.join(
+      p.dirname(currentPath),
+      '${p.basenameWithoutExtension(currentPath)}_Ripped',
+    );
+
+    await AudioCdRipperSheet.show(
+      context,
+      disc: disc,
+      ripperService: _audioCdRipperService,
+      outputDirectory: outputDir,
+    );
+  }
+
   Future<void> _openOnlineStreamSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -3118,6 +3181,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onTap: () {
                             Navigator.pop(ctx);
                             _openDvdNavigator();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_cd_ripper_button'),
+                          icon: Icons.disc_full_rounded,
+                          title: 'Audio CD Ripper',
+                          subtitle: _audioCdRipperService.isRipping
+                              ? 'Ripping (${_audioCdRipperService.progress.progressPercent.toStringAsFixed(0)}%)'
+                              : 'CUE / CDDA Digital Extractor (Ctrl+Shift+R)',
+                          accentColor: _audioCdRipperService.isRipping ? Colors.amberAccent : EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openCdRipperSheet();
                           },
                         ),
                         _buildQuickOptionTile(
@@ -3527,6 +3603,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         },
         onOpenDeinterlaceStudio: _openDeinterlaceMotionStudio,
         onOpenDvdNavigator: _openDvdNavigator,
+        onOpenCdRipper: _openCdRipperSheet,
         onTogglePlaylist: _togglePlaylist,
         onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
