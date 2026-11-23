@@ -29,6 +29,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onToggleRecord;
   final VoidCallback? onOpenCdRipper;
   final VoidCallback? onOpenTelnetRc;
+  final VoidCallback? onOpenSkinPicker;
   final VoidCallback? onCycleDeinterlace;
   final VoidCallback? onOpenDeinterlaceStudio;
   final VoidCallback? onOpenDvdNavigator;
@@ -62,6 +63,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onToggleRecord,
     this.onOpenCdRipper,
     this.onOpenTelnetRc,
+    this.onOpenSkinPicker,
     this.onCycleDeinterlace,
     this.onOpenDeinterlaceStudio,
     this.onOpenDvdNavigator,
@@ -447,6 +449,12 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyT && widget.onOpenTelnetRc != null) {
       widget.onUserActivity();
       widget.onOpenTelnetRc!();
+      return KeyEventResult.handled;
+    }
+    // 19c. Open Skins & Themes Engine (Ctrl + Shift + S) (VLC Skins2 parity)
+    if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS && widget.onOpenSkinPicker != null) {
+      widget.onUserActivity();
+      widget.onOpenSkinPicker!();
       return KeyEventResult.handled;
     }
     if (isShift && !isCtrl && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {

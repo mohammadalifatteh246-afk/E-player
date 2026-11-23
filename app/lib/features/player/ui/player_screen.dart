@@ -33,6 +33,8 @@ import '../../cdda/ui/audio_cd_ripper_sheet.dart';
 import '../../telnet_rc/domain/telnet_rc_models.dart';
 import '../../telnet_rc/data/telnet_rc_service.dart';
 import '../../telnet_rc/ui/telnet_rc_sheet.dart';
+import '../../skins/data/skin_theme_service.dart';
+import '../../skins/ui/skin_picker_sheet.dart';
 import '../../audio/domain/dual_audio_service.dart';
 import '../../audio/ui/dual_audio_sheet.dart';
 import '../../export/domain/media_converter_service.dart';
@@ -2863,6 +2865,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     TelnetRcSheet.show(context, _telnetRcService);
   }
 
+  void _openSkinPickerSheet() {
+    _controlsTimer?.cancel();
+    final skinService = context.read<SkinThemeService>();
+    SkinPickerSheet.show(context, skinService);
+  }
+
   Future<void> _openOnlineStreamSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -3274,6 +3282,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           },
                         ),
                         _buildQuickOptionTile(
+                          key: const Key('hud_skin_picker_button'),
+                          icon: Icons.palette_rounded,
+                          title: 'Skins & Themes Engine',
+                          subtitle: 'VLC Skins2 Presets (Ctrl+Shift+S)',
+                          accentColor: EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openSkinPickerSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
                           key: const Key('hud_dual_audio_button'),
                           icon: Icons.speaker_group_rounded,
                           title: 'Dual Audio & Dubbing',
@@ -3682,6 +3701,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onOpenDvdNavigator: _openDvdNavigator,
         onOpenCdRipper: _openCdRipperSheet,
         onOpenTelnetRc: _openTelnetRcSheet,
+        onOpenSkinPicker: _openSkinPickerSheet,
         onTogglePlaylist: _togglePlaylist,
         onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),

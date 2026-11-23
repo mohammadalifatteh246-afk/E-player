@@ -12,7 +12,7 @@ import 'features/trash/domain/trash_service.dart';
 import 'features/settings/domain/settings_provider.dart';
 import 'features/casting/domain/cast_service.dart';
 import 'features/home/domain/media_group_service.dart';
-import 'theme/e_player_theme.dart';
+import 'features/skins/data/skin_theme_service.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -54,12 +54,15 @@ class EPlayerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CastService()),
         ChangeNotifierProvider(create: (_) => MediaGroupService()),
         ChangeNotifierProvider(create: (_) => VideoGroupingService()),
+        ChangeNotifierProvider(create: (_) => SkinThemeService()),
       ],
-      child: MaterialApp(
-        title: 'E-Player',
-        theme: EPlayerTheme.darkTheme,
-        debugShowCheckedModeBanner: false,
-        home: const MainScaffold(),
+      child: Consumer<SkinThemeService>(
+        builder: (context, skinService, _) => MaterialApp(
+          title: 'E-Player',
+          theme: skinService.themeData,
+          debugShowCheckedModeBanner: false,
+          home: const MainScaffold(),
+        ),
       ),
     );
   }
