@@ -30,6 +30,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onOpenCdRipper;
   final VoidCallback? onOpenTelnetRc;
   final VoidCallback? onOpenSkinPicker;
+  final VoidCallback? onJumpToTime;
+  final VoidCallback? onOpenSmbBrowser;
   final VoidCallback? onCycleDeinterlace;
   final VoidCallback? onOpenDeinterlaceStudio;
   final VoidCallback? onOpenDvdNavigator;
@@ -64,6 +66,8 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onOpenCdRipper,
     this.onOpenTelnetRc,
     this.onOpenSkinPicker,
+    this.onJumpToTime,
+    this.onOpenSmbBrowser,
     this.onCycleDeinterlace,
     this.onOpenDeinterlaceStudio,
     this.onOpenDvdNavigator,
@@ -147,7 +151,7 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     }
 
     // 3. Mute Toggle (m)
-    if (event.logicalKey == LogicalKeyboardKey.keyM) {
+    if (event.logicalKey == LogicalKeyboardKey.keyM && !isCtrl && !isAlt) {
       widget.onUserActivity();
       final currentVol = widget.player.state.volume;
       if (currentVol > 0.0) {
@@ -455,6 +459,18 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyS && widget.onOpenSkinPicker != null) {
       widget.onUserActivity();
       widget.onOpenSkinPicker!();
+      return KeyEventResult.handled;
+    }
+    // 19d. Open SMB / Windows Network Share Browser (Ctrl + Shift + M) (VLC smb2.c parity)
+    if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyM && widget.onOpenSmbBrowser != null) {
+      widget.onUserActivity();
+      widget.onOpenSmbBrowser!();
+      return KeyEventResult.handled;
+    }
+    // 19e. Jump to Specific Time (Ctrl + T) (VLC goto_time.cpp parity)
+    if (isCtrl && !isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyT && widget.onJumpToTime != null) {
+      widget.onUserActivity();
+      widget.onJumpToTime!();
       return KeyEventResult.handled;
     }
     if (isShift && !isCtrl && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {

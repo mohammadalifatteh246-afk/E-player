@@ -43,6 +43,8 @@ import '../../network_stream/data/dlna_service.dart';
 import '../../network_stream/ui/dlna_server_browser_sheet.dart';
 import '../../network_stream/data/online_stream_service.dart';
 import '../../network_stream/ui/online_stream_sheet.dart';
+import '../../network_stream/data/smb_service.dart';
+import '../../network_stream/ui/smb_share_browser_sheet.dart';
 import '../../sleep_timer/data/sleep_timer_controller.dart';
 import '../../sleep_timer/ui/sleep_timer_sheet.dart';
 import 'subtitle_settings_sheet.dart';
@@ -50,6 +52,8 @@ import '../../subtitles/domain/dual_subtitle_controller.dart';
 import '../../subtitles/ui/dual_subtitle_sheet.dart';
 import '../../subtitles/ui/online_subtitles_sheet.dart';
 import 'audio_studio_sheet.dart';
+import '../domain/jump_to_time_models.dart';
+import 'jump_to_time_dialog.dart';
 import '../domain/video_rotation_service.dart';
 import '../domain/decoder_models.dart';
 import '../domain/decoder_pipeline_service.dart';
@@ -115,6 +119,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final TelnetRcService _telnetRcService;
   late final DlnaService _dlnaService;
   late final OnlineStreamService _onlineStreamService;
+  late final SmbShareService _smbShareService;
   late final SleepTimerController _sleepTimerController;
   bool _showZoomViewfinder = false;
   StreamSubscription<Duration>? _abRepeatPositionSubscription;
@@ -644,6 +649,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted) setState(() {});
     });
     _initOnlineStreamService();
+    _smbShareService = SmbShareService();
+    _smbShareService.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _initSmbShareService();
     _sleepTimerController = SleepTimerController(
       onPausePlayback: () {
         if (mounted) {
@@ -845,6 +855,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _telnetRcService.dispose();
     _dlnaService.dispose();
     _onlineStreamService.dispose();
+    _smbShareService.dispose();
     _sleepTimerController.dispose();
     _playlistController.dispose();
     _videoEffectsService.dispose();
@@ -2763,6 +2774,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  Future<void> _initSmbShareService() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _smbShareService.init(prefs);
+    } catch (e) {
+      debugPrint('[PlayerScreen] Failed to init SmbShareService: $e');
+    }
+  }
+
   void _openDeinterlaceMotionStudio() {
     _controlsTimer?.cancel();
     DeinterlaceMotionStudioSheet.show(
@@ -2869,6 +2889,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _controlsTimer?.cancel();
     final skinService = context.read<SkinThemeService>();
     SkinPickerSheet.show(context, skinService);
+  }
+
+  void _openJumpToTimeDialog() {
+    _controlsTimer?.cancel();
+    JumpToTimeDialog.show(
+      context,
+      currentPosition: _player.state.position,
+      totalDuration: _player.state.duration,
+      onSeek: (target) {
+        _player.seek(target);
+        _showFeedbackMessage(
+          'Jumped to ${JumpToTimeParser.formatDuration(target)}',
+          Icons.av_timer_rounded,
+        );
+      },
+    );
+  }
+
+  void _openSmbShareSheet() {
+    _controlsTimer?.cancel();
+    SmbShareBrowserSheet.show(
+      context,
+      smbService: _smbShareService,
+      onPlayMrl: (mrl) {
+        _player.open(Media(mrl));
+        _showFeedbackMessage('Connecting to SMB Share...', Icons.lan_rounded);
+      },
+    );
   }
 
   Future<void> _openOnlineStreamSheet() async {
@@ -3293,6 +3341,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           },
                         ),
                         _buildQuickOptionTile(
+                          key: const Key('hud_jump_to_time_button'),
+                          icon: Icons.av_timer_rounded,
+                          title: 'Jump to Specific Time',
+                          subtitle: 'Direct Precision Seeker (Ctrl+T)',
+                          accentColor: EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openJumpToTimeDialog();
+                          },
+                        ),
+                        _buildQuickOptionTile(
                           key: const Key('hud_dual_audio_button'),
                           icon: Icons.speaker_group_rounded,
                           title: 'Dual Audio & Dubbing',
@@ -3349,6 +3408,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onTap: () {
                             Navigator.pop(ctx);
                             _openOnlineStreamSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_smb_share_button'),
+                          icon: Icons.lan_rounded,
+                          title: 'SMB / Network Share',
+                          subtitle: 'Windows & Samba Shares (Ctrl+Shift+M)',
+                          accentColor: EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openSmbShareSheet();
                           },
                         ),
                         _buildQuickOptionTile(
@@ -3702,6 +3772,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onOpenCdRipper: _openCdRipperSheet,
         onOpenTelnetRc: _openTelnetRcSheet,
         onOpenSkinPicker: _openSkinPickerSheet,
+        onJumpToTime: _openJumpToTimeDialog,
+        onOpenSmbBrowser: _openSmbShareSheet,
         onTogglePlaylist: _togglePlaylist,
         onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
