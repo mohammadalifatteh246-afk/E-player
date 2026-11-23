@@ -30,6 +30,9 @@ import '../../cdda/domain/cdda_models.dart';
 import '../../cdda/data/cue_sheet_parser.dart';
 import '../../cdda/data/audio_cd_ripper_service.dart';
 import '../../cdda/ui/audio_cd_ripper_sheet.dart';
+import '../../telnet_rc/domain/telnet_rc_models.dart';
+import '../../telnet_rc/data/telnet_rc_service.dart';
+import '../../telnet_rc/ui/telnet_rc_sheet.dart';
 import '../../audio/domain/dual_audio_service.dart';
 import '../../audio/ui/dual_audio_sheet.dart';
 import '../../export/domain/media_converter_service.dart';
@@ -107,6 +110,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   late final DualAudioService _dualAudioService;
   late final MediaConverterService _mediaConverterService;
   late final AudioCdRipperService _audioCdRipperService;
+  late final TelnetRcService _telnetRcService;
   late final DlnaService _dlnaService;
   late final OnlineStreamService _onlineStreamService;
   late final SleepTimerController _sleepTimerController;
@@ -575,6 +579,60 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _audioCdRipperService.addListener(() {
       if (mounted) setState(() {});
     });
+    _telnetRcService = TelnetRcService();
+    _telnetRcService.statusProvider = () => TelnetPlayerSnapshot(
+          isPlaying: _player.state.playing,
+          title: p.basename(_currentMediaPath ?? widget.mediaPath),
+          position: _player.state.position,
+          duration: _player.state.duration,
+          volume: _volume,
+          isMuted: _volume == 0.0,
+          aspectRatio: _aspectRatio,
+          audioTrack: _player.state.track.audio.title ?? _player.state.track.audio.id,
+          subtitleTrack: _player.state.track.subtitle.title ?? _player.state.track.subtitle.id,
+        );
+    _telnetRcService.playlistProvider = () => _playlistController.items.map((i) => i.name).toList();
+    _telnetRcService.onPlay = () => _player.play();
+    _telnetRcService.onPause = () => _player.playOrPause();
+    _telnetRcService.onStop = () => _player.stop();
+    _telnetRcService.onSeek = (target) => _player.seek(target);
+    _telnetRcService.onSetVolume = (vol) {
+      if (mounted) {
+        setState(() => _volume = vol);
+        _player.setVolume(vol);
+      }
+    };
+    _telnetRcService.onStepFrame = () => _stepFrame();
+    _telnetRcService.onCycleAspectRatio = () => _cycleAspectRatio();
+    _telnetRcService.onToggleFullscreen = () => _toggleFullscreen();
+    _telnetRcService.onNext = () {
+      final nextTrack = _playlistController.getNextTrack();
+      if (nextTrack != null) _playMediaItem(nextTrack);
+    };
+    _telnetRcService.onPrevious = () {
+      final prevTrack = _playlistController.getPreviousTrack();
+      if (prevTrack != null) _playMediaItem(prevTrack);
+    };
+    _telnetRcService.onAddMedia = (path, playImmediate) {
+      final item = MediaItem(
+        path: path,
+        name: p.basename(path),
+        parentFolder: 'Telnet RC',
+        lastPlayed: DateTime.now(),
+      );
+      if (playImmediate) {
+        _playMediaItem(item);
+      } else {
+        _playlistController.addTrack(item);
+      }
+    };
+    _telnetRcService.onCycleAudioTrack = () => _cycleAudioTrack();
+    _telnetRcService.onCycleSubtitleTrack = () => _cycleSubtitleTrack();
+    _telnetRcService.onToggleABRepeat = () => _cycleABRepeat();
+    _telnetRcService.onClearPlaylist = () => _playlistController.setItems([]);
+    _telnetRcService.addListener(() {
+      if (mounted) setState(() {});
+    });
     _dlnaService = DlnaService();
     _dlnaService.addListener(() {
       if (mounted) setState(() {});
@@ -782,6 +840,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _dualAudioService.dispose();
     _mediaConverterService.dispose();
     _audioCdRipperService.dispose();
+    _telnetRcService.dispose();
     _dlnaService.dispose();
     _onlineStreamService.dispose();
     _sleepTimerController.dispose();
@@ -2799,6 +2858,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  void _openTelnetRcSheet() {
+    _controlsTimer?.cancel();
+    TelnetRcSheet.show(context, _telnetRcService);
+  }
+
   Future<void> _openOnlineStreamSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -3194,6 +3258,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onTap: () {
                             Navigator.pop(ctx);
                             _openCdRipperSheet();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_telnet_rc_button'),
+                          icon: Icons.terminal_rounded,
+                          title: 'CLI Remote Control',
+                          subtitle: _telnetRcService.isRunning
+                              ? 'Online (${_telnetRcService.status.connectionEndpoint})'
+                              : 'VLC rc.c TCP Terminal (Ctrl+Shift+T)',
+                          accentColor: _telnetRcService.isRunning ? EDesign.success : EDesign.primaryCyan,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openTelnetRcSheet();
                           },
                         ),
                         _buildQuickOptionTile(
@@ -3604,6 +3681,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         onOpenDeinterlaceStudio: _openDeinterlaceMotionStudio,
         onOpenDvdNavigator: _openDvdNavigator,
         onOpenCdRipper: _openCdRipperSheet,
+        onOpenTelnetRc: _openTelnetRcSheet,
         onTogglePlaylist: _togglePlaylist,
         onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),

@@ -28,6 +28,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
   final VoidCallback? onCycleClosedCaptions;
   final VoidCallback? onToggleRecord;
   final VoidCallback? onOpenCdRipper;
+  final VoidCallback? onOpenTelnetRc;
   final VoidCallback? onCycleDeinterlace;
   final VoidCallback? onOpenDeinterlaceStudio;
   final VoidCallback? onOpenDvdNavigator;
@@ -60,6 +61,7 @@ class DesktopKeyboardHandler extends StatefulWidget {
     this.onCycleClosedCaptions,
     this.onToggleRecord,
     this.onOpenCdRipper,
+    this.onOpenTelnetRc,
     this.onCycleDeinterlace,
     this.onOpenDeinterlaceStudio,
     this.onOpenDvdNavigator,
@@ -439,6 +441,12 @@ class _DesktopKeyboardHandlerState extends State<DesktopKeyboardHandler> {
     if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyR && widget.onOpenCdRipper != null) {
       widget.onUserActivity();
       widget.onOpenCdRipper!();
+      return KeyEventResult.handled;
+    }
+    // 19b. Open Telnet CLI Remote Control (Ctrl + Shift + T) (VLC rc.c parity)
+    if (isCtrl && isShift && !isAlt && event.logicalKey == LogicalKeyboardKey.keyT && widget.onOpenTelnetRc != null) {
+      widget.onUserActivity();
+      widget.onOpenTelnetRc!();
       return KeyEventResult.handled;
     }
     if (isShift && !isCtrl && event.logicalKey == LogicalKeyboardKey.keyR && widget.onToggleRecord != null) {
