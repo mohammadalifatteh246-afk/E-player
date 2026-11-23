@@ -84,6 +84,12 @@ class VideoEffectsConfig {
   // --- Deinterlacing Filter (VLC deinterlace.c parity) ---
   DeinterlaceMode deinterlaceMode;
   DeinterlaceAlgorithm deinterlaceAlgorithm;
+  DeinterlaceFieldOrder deinterlaceFieldOrder;
+
+  // --- Frame-by-Frame Motion Blur (VLC motionblur.c parity via libavfilter tmix) ---
+  bool motionBlurEnabled;
+  MotionBlurPreset motionBlurPreset;
+  int motionBlurFrames; // 2 to 7 (default 3)
 
   // --- 3D Anaglyph Stereoscopic Filter (VLC anaglyph.c & FFmpeg stereo3d parity) ---
   bool anaglyphEnabled;
@@ -96,6 +102,10 @@ class VideoEffectsConfig {
     this.masterEnabled = true,
     this.deinterlaceMode = DeinterlaceMode.off,
     this.deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif,
+    this.deinterlaceFieldOrder = DeinterlaceFieldOrder.auto,
+    this.motionBlurEnabled = false,
+    this.motionBlurPreset = MotionBlurPreset.cinematic,
+    this.motionBlurFrames = 3,
     this.anaglyphEnabled = false,
     this.anaglyphSource = AnaglyphSourceMode.synthetic2D,
     this.anaglyphMatrix = AnaglyphColorMatrix.redCyanDubois,
@@ -155,6 +165,10 @@ class VideoEffectsConfig {
     bool? masterEnabled,
     DeinterlaceMode? deinterlaceMode,
     DeinterlaceAlgorithm? deinterlaceAlgorithm,
+    DeinterlaceFieldOrder? deinterlaceFieldOrder,
+    bool? motionBlurEnabled,
+    MotionBlurPreset? motionBlurPreset,
+    int? motionBlurFrames,
     bool? anaglyphEnabled,
     AnaglyphSourceMode? anaglyphSource,
     AnaglyphColorMatrix? anaglyphMatrix,
@@ -212,6 +226,10 @@ class VideoEffectsConfig {
       masterEnabled: masterEnabled ?? this.masterEnabled,
       deinterlaceMode: deinterlaceMode ?? this.deinterlaceMode,
       deinterlaceAlgorithm: deinterlaceAlgorithm ?? this.deinterlaceAlgorithm,
+      deinterlaceFieldOrder: deinterlaceFieldOrder ?? this.deinterlaceFieldOrder,
+      motionBlurEnabled: motionBlurEnabled ?? this.motionBlurEnabled,
+      motionBlurPreset: motionBlurPreset ?? this.motionBlurPreset,
+      motionBlurFrames: motionBlurFrames ?? this.motionBlurFrames,
       anaglyphEnabled: anaglyphEnabled ?? this.anaglyphEnabled,
       anaglyphSource: anaglyphSource ?? this.anaglyphSource,
       anaglyphMatrix: anaglyphMatrix ?? this.anaglyphMatrix,
@@ -290,6 +308,7 @@ class VideoEffectsConfig {
         !logoEnabled &&
         !marqueeEnabled &&
         !anaglyphEnabled &&
+        !motionBlurEnabled &&
         deinterlaceMode == DeinterlaceMode.off;
   }
 
@@ -298,6 +317,10 @@ class VideoEffectsConfig {
     masterEnabled = true;
     deinterlaceMode = DeinterlaceMode.off;
     deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif;
+    deinterlaceFieldOrder = DeinterlaceFieldOrder.auto;
+    motionBlurEnabled = false;
+    motionBlurPreset = MotionBlurPreset.cinematic;
+    motionBlurFrames = 3;
     anaglyphEnabled = false;
     anaglyphSource = AnaglyphSourceMode.synthetic2D;
     anaglyphMatrix = AnaglyphColorMatrix.redCyanDubois;
@@ -359,6 +382,16 @@ class VideoEffectsConfig {
     anaglyphMatrix = AnaglyphColorMatrix.redCyanDubois;
     anaglyphParallax = 8.0;
     anaglyphSwapEyes = false;
+  }
+
+  /// Reset only deinterlace and motion blur settings (VLC deinterlace.c & motionblur.c parity)
+  void resetDeinterlaceAndMotionBlur() {
+    deinterlaceMode = DeinterlaceMode.off;
+    deinterlaceAlgorithm = DeinterlaceAlgorithm.yadif;
+    deinterlaceFieldOrder = DeinterlaceFieldOrder.auto;
+    motionBlurEnabled = false;
+    motionBlurPreset = MotionBlurPreset.cinematic;
+    motionBlurFrames = 3;
   }
 
   /// Reset only essential adjustments
@@ -546,7 +579,14 @@ class VideoEffectsConfig {
 
     // Deinterlacing filter (VLC deinterlace.c parity)
     if (deinterlaceMode != DeinterlaceMode.off) {
-      filters.add(deinterlaceAlgorithm.mpvFilterString);
+      filters.add(deinterlaceAlgorithm.buildFilterString(deinterlaceFieldOrder));
+    }
+
+    // Frame-by-Frame Motion Blur (VLC motionblur.c parity via libavfilter tmix)
+    if (motionBlurEnabled) {
+      final frames = motionBlurFrames.clamp(2, 7);
+      final weights = computeMotionBlurWeights(frames);
+      filters.add('tmix=frames=$frames:weights="$weights"');
     }
 
     // 3D Anaglyph filter (VLC anaglyph.c parity & FFmpeg stereo3d/rgbashift)
@@ -743,6 +783,10 @@ class VideoEffectsConfig {
         'masterEnabled': masterEnabled,
         'deinterlaceMode': deinterlaceMode.name,
         'deinterlaceAlgorithm': deinterlaceAlgorithm.name,
+        'deinterlaceFieldOrder': deinterlaceFieldOrder.name,
+        'motionBlurEnabled': motionBlurEnabled,
+        'motionBlurPreset': motionBlurPreset.name,
+        'motionBlurFrames': motionBlurFrames,
         'brightness': brightness,
         'contrast': contrast,
         'saturation': saturation,
@@ -808,6 +852,16 @@ class VideoEffectsConfig {
         (e) => e.name == json['deinterlaceAlgorithm'],
         orElse: () => DeinterlaceAlgorithm.yadif,
       ),
+      deinterlaceFieldOrder: DeinterlaceFieldOrder.values.firstWhere(
+        (e) => e.name == json['deinterlaceFieldOrder'],
+        orElse: () => DeinterlaceFieldOrder.auto,
+      ),
+      motionBlurEnabled: json['motionBlurEnabled'] as bool? ?? false,
+      motionBlurPreset: MotionBlurPreset.values.firstWhere(
+        (e) => e.name == json['motionBlurPreset'],
+        orElse: () => MotionBlurPreset.cinematic,
+      ),
+      motionBlurFrames: (json['motionBlurFrames'] as num?)?.toInt() ?? 3,
       anaglyphEnabled: json['anaglyphEnabled'] as bool? ?? false,
       anaglyphSource: AnaglyphSourceMode.values.firstWhere(
         (e) => e.name == json['anaglyphSource'],

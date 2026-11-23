@@ -7,6 +7,7 @@ import '../domain/video_effects_service.dart';
 import '../domain/puzzle_wall_controller.dart';
 import '../../player/services/interactive_zoom_controller.dart';
 import 'anaglyph_studio_sheet.dart';
+import 'deinterlace_motion_studio_sheet.dart';
 
 /// Interactive Video Effects Studio Sheet for E-Player.
 /// Matches VLC Media Player's Extended Video Effects dialog:
@@ -401,7 +402,57 @@ class _VideoEffectsSheetState extends State<VideoEffectsSheet>
             _config.deinterlaceAlgorithm.description,
             style: const TextStyle(color: EDesign.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
           ),
+          const SizedBox(height: 10),
+          const Text('Field Parity Dominance', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: DeinterlaceFieldOrder.values.map((order) {
+              final isSelected = _config.deinterlaceFieldOrder == order;
+              return ChoiceChip(
+                label: Text(order.label),
+                selected: isSelected,
+                selectedColor: EDesign.secondary.withValues(alpha: 0.3),
+                labelStyle: TextStyle(
+                  color: isSelected ? EDesign.secondary : EDesign.textPrimary,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 11,
+                ),
+                onSelected: (selected) {
+                  if (selected) {
+                    _config.deinterlaceFieldOrder = order;
+                    _notifyChange(immediateVf: true);
+                  }
+                },
+              );
+            }).toList(),
+          ),
         ],
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            key: const Key('open_deinterlace_motion_studio_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: EDesign.elevatedBackground,
+              foregroundColor: EDesign.primaryCyan,
+              side: const BorderSide(color: EDesign.primaryCyan),
+            ),
+            icon: const Icon(Icons.motion_photos_on_rounded, size: 18),
+            label: const Text('Open Motion Blur & Deinterlace Studio'),
+            onPressed: () {
+              DeinterlaceMotionStudioSheet.show(
+                context,
+                config: _config,
+                onConfigChanged: (cfg) {
+                  _config = cfg;
+                  _notifyChange(immediateVf: true);
+                },
+              );
+            },
+          ),
+        ),
       ],
     );
   }

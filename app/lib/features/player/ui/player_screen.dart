@@ -22,6 +22,7 @@ import '../../video_effects/ui/video_effects_sheet.dart';
 import '../../video_effects/ui/video_overlay_widget.dart';
 import '../../video_effects/ui/watermark_studio_sheet.dart';
 import '../../video_effects/ui/anaglyph_studio_sheet.dart';
+import '../../video_effects/ui/deinterlace_motion_studio_sheet.dart';
 import '../../audio/domain/dual_audio_service.dart';
 import '../../audio/ui/dual_audio_sheet.dart';
 import '../../export/domain/media_converter_service.dart';
@@ -2662,6 +2663,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
+  void _openDeinterlaceMotionStudio() {
+    _controlsTimer?.cancel();
+    DeinterlaceMotionStudioSheet.show(
+      context,
+      config: _videoEffectsConfig,
+      onConfigChanged: (updated) {
+        setState(() {
+          _videoEffectsConfig = updated;
+        });
+        _videoEffectsService.apply(_player, updated, immediateVf: true);
+        _videoEffectsService.saveToPreferences(updated);
+      },
+    );
+  }
+
   Future<void> _openOnlineStreamSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -3013,6 +3029,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 _videoEffectsService.saveToPreferences(updated);
                               },
                             );
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_deinterlace_motion_button'),
+                          icon: Icons.motion_photos_on_rounded,
+                          title: 'Motion & Deinterlace',
+                          subtitle: _videoEffectsConfig.motionBlurEnabled
+                              ? 'Blur (${_videoEffectsConfig.motionBlurFrames}f) • ${_videoEffectsConfig.deinterlaceMode.label}'
+                              : (_videoEffectsConfig.deinterlaceMode != DeinterlaceMode.off
+                                  ? 'Deint: ${_videoEffectsConfig.deinterlaceAlgorithm.label}'
+                                  : 'Off • Shift+D'),
+                          accentColor: (_videoEffectsConfig.motionBlurEnabled ||
+                                  _videoEffectsConfig.deinterlaceMode != DeinterlaceMode.off)
+                              ? EDesign.primaryCyan
+                              : EDesign.textSecondary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openDeinterlaceMotionStudio();
                           },
                         ),
                         _buildQuickOptionTile(
@@ -3420,6 +3454,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             Icons.horizontal_distribute,
           );
         },
+        onOpenDeinterlaceStudio: _openDeinterlaceMotionStudio,
         onTogglePlaylist: _togglePlaylist,
         onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
