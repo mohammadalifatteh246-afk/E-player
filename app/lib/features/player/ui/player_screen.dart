@@ -23,6 +23,9 @@ import '../../video_effects/ui/video_overlay_widget.dart';
 import '../../video_effects/ui/watermark_studio_sheet.dart';
 import '../../video_effects/ui/anaglyph_studio_sheet.dart';
 import '../../video_effects/ui/deinterlace_motion_studio_sheet.dart';
+import '../../dvd/domain/dvd_models.dart';
+import '../../dvd/data/dvd_navigator_service.dart';
+import '../../dvd/ui/dvd_navigator_sheet.dart';
 import '../../audio/domain/dual_audio_service.dart';
 import '../../audio/ui/dual_audio_sheet.dart';
 import '../../export/domain/media_converter_service.dart';
@@ -176,6 +179,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // Video Snapshot Preview Overlay (VLC Frame Capture Parity)
   SnapshotResult? _lastSnapshotResult;
   Timer? _snapshotPreviewTimer;
+
+  // DVD & Virtual ISO Title Set metadata (VLC dvdnav.c parity)
+  DvdMediaInfo? _currentDvdInfo;
 
   // Visual feedback overlay
   String _feedbackText = '';
@@ -701,6 +707,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
       }
     });
 
+    if (DvdNavigatorService.isDvdSource(widget.mediaPath)) {
+      DvdNavigatorService.inspectSource(widget.mediaPath).then((info) {
+        if (mounted && info != null) {
+          setState(() {
+            _currentDvdInfo = info;
+          });
+        }
+      });
+    }
+
     try {
       _player.open(Media(widget.mediaPath));
     } catch (e) {
@@ -1061,6 +1077,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _playMediaItem(MediaItem item) {
     try {
+      if (DvdNavigatorService.isDvdSource(item.path)) {
+        DvdNavigatorService.inspectSource(item.path).then((info) {
+          if (mounted && info != null) {
+            setState(() {
+              _currentDvdInfo = info;
+            });
+            _showFeedbackMessage('DVD Loaded: ${info.volumeLabel}', Icons.album_rounded, EDesign.primaryCyan);
+          }
+        });
+      } else {
+        _currentDvdInfo = null;
+      }
+
       _player.open(Media(item.path));
       setState(() {
         _currentMediaPath = item.path;
@@ -2678,6 +2707,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  void _openDvdNavigator() {
+    final info = _currentDvdInfo;
+    if (info == null) {
+      _showFeedbackMessage('No DVD or ISO loaded', Icons.album_outlined, EDesign.warning);
+      return;
+    }
+    _controlsTimer?.cancel();
+    DvdNavigatorSheet.show(
+      context,
+      dvdInfo: info,
+      onSelectTitle: (title) {
+        setState(() {
+          _currentDvdInfo?.selectedTitleIndex = title.titleIndex;
+        });
+        if (title.vobFiles.isNotEmpty) {
+          _player.open(Media(title.vobFiles.first));
+        }
+        _showFeedbackMessage('Switched to Title ${title.titleIndex}', Icons.album_rounded);
+      },
+      onSeekToChapter: (chapter) {
+        setState(() {
+          _currentDvdInfo?.selectedChapterIndex = chapter.chapterIndex;
+        });
+        _player.seek(chapter.startOffset);
+        _showFeedbackMessage('Jumped to ${chapter.label} (${chapter.formattedTime})', Icons.bookmark_added_rounded);
+      },
+    );
+  }
+
   Future<void> _openOnlineStreamSheet() async {
     _controlsTimer?.cancel();
     try {
@@ -3047,6 +3105,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           onTap: () {
                             Navigator.pop(ctx);
                             _openDeinterlaceMotionStudio();
+                          },
+                        ),
+                        _buildQuickOptionTile(
+                          key: const Key('hud_dvd_navigator_button'),
+                          icon: Icons.album_rounded,
+                          title: 'DVD Navigator',
+                          subtitle: _currentDvdInfo != null
+                              ? '${_currentDvdInfo!.volumeLabel} (Title ${_currentDvdInfo!.selectedTitleIndex})'
+                              : 'Virtual ISO / VIDEO_TS (Ctrl+Shift+D)',
+                          accentColor: _currentDvdInfo != null ? EDesign.primaryCyan : EDesign.textSecondary,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _openDvdNavigator();
                           },
                         ),
                         _buildQuickOptionTile(
@@ -3455,6 +3526,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           );
         },
         onOpenDeinterlaceStudio: _openDeinterlaceMotionStudio,
+        onOpenDvdNavigator: _openDvdNavigator,
         onTogglePlaylist: _togglePlaylist,
         onOpenNetworkStream: _openOnlineStreamSheet,
         onShowOsd: (msg, icon, [color]) => _showFeedbackMessage(msg, icon, color),
@@ -3631,6 +3703,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                             _sleepTimerController.state.formattedRemaining,
                                             style: const TextStyle(
                                               color: Colors.cyanAccent,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                if (_currentDvdInfo != null)
+                                  InkWell(
+                                    key: const Key('hud_dvd_top_badge'),
+                                    onTap: _openDvdNavigator,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      margin: const EdgeInsets.only(right: 6),
+                                      decoration: BoxDecoration(
+                                        color: EDesign.primaryCyan.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: EDesign.primaryCyan, width: 1),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.album_rounded, color: EDesign.primaryCyan, size: 14),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'DVD • T${_currentDvdInfo!.selectedTitleIndex} Ch${_currentDvdInfo!.selectedChapterIndex}',
+                                            style: const TextStyle(
+                                              color: EDesign.primaryCyan,
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                             ),
