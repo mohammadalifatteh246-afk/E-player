@@ -45,7 +45,7 @@ class ThunderColorResolver {
   }
 }
 
-/// Custom Clipper for the razor-sharp 10-point vector Thunderbolt silhouette.
+/// Custom Clipper for the razor-sharp needle-thin vector Thunderbolt silhouette.
 /// Normalized from viewBox="0 0 100 300".
 class ThunderboltClipper extends CustomClipper<Path> {
   const ThunderboltClipper();
@@ -56,17 +56,17 @@ class ThunderboltClipper extends CustomClipper<Path> {
     final h = size.height;
     final path = Path();
 
-    // 10 mathematically crisp vertices (normalized 100 x 300 viewBox)
-    path.moveTo(0.75 * w, 0.0);                       // Pt 0: Top sharp needle
-    path.lineTo(0.10 * w, (135.0 / 300.0) * h);      // Pt 1: Left tooth 1
-    path.lineTo(0.36 * w, (138.0 / 300.0) * h);      // Pt 2: Left inner 1
-    path.lineTo(0.18 * w, (185.0 / 300.0) * h);      // Pt 3: Left tooth 2
-    path.lineTo(0.38 * w, (187.0 / 300.0) * h);      // Pt 4: Left inner 2
-    path.lineTo(0.15 * w, 1.00 * h);                 // Pt 5: Bottom sharp needle
-    path.lineTo(0.88 * w, (165.0 / 300.0) * h);      // Pt 6: Right tooth 2
-    path.lineTo(0.62 * w, (162.0 / 300.0) * h);      // Pt 7: Right inner 2
-    path.lineTo(0.92 * w, (112.0 / 300.0) * h);      // Pt 8: Right tooth 1
-    path.lineTo(0.58 * w, (110.0 / 300.0) * h);      // Pt 9: Right inner 1
+    // 10 mathematically crisp slender vertices (normalized 100 x 300 viewBox)
+    path.moveTo(0.72 * w, 0.0);                       // Pt 0: Top sharp needle
+    path.lineTo(0.15 * w, (132.0 / 300.0) * h);      // Pt 1: Left tooth 1
+    path.lineTo(0.40 * w, (135.0 / 300.0) * h);      // Pt 2: Left inner 1
+    path.lineTo(0.20 * w, (183.0 / 300.0) * h);      // Pt 3: Left tooth 2
+    path.lineTo(0.42 * w, (186.0 / 300.0) * h);      // Pt 4: Left inner 2
+    path.lineTo(0.22 * w, 1.00 * h);                 // Pt 5: Bottom sharp needle
+    path.lineTo(0.82 * w, (165.0 / 300.0) * h);      // Pt 6: Right tooth 2
+    path.lineTo(0.60 * w, (162.0 / 300.0) * h);      // Pt 7: Right inner 2
+    path.lineTo(0.85 * w, (114.0 / 300.0) * h);      // Pt 8: Right tooth 1
+    path.lineTo(0.58 * w, (111.0 / 300.0) * h);      // Pt 9: Right inner 1
     path.close();
 
     return path;
@@ -84,8 +84,8 @@ class ThunderboltStrokePainter extends CustomPainter {
 
   const ThunderboltStrokePainter({
     required this.strokeColor,
-    this.strokeWidth = 1.6,
-    this.glowRadius = 12.0,
+    this.strokeWidth = 1.2,
+    this.glowRadius = 8.0,
   });
 
   @override
@@ -97,7 +97,7 @@ class ThunderboltStrokePainter extends CustomPainter {
       final glowPaint = Paint()
         ..color = strokeColor.withValues(alpha: 0.45)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth * 2.5
+        ..strokeWidth = strokeWidth * 2.2
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowRadius);
       canvas.drawPath(path, glowPaint);
     }
@@ -120,11 +120,11 @@ class ThunderboltStrokePainter extends CustomPainter {
   }
 }
 
-/// E-Player Medium-Thin Standalone Thunderbolt Volume HUD.
+/// E-Player Small & Very Thin Standalone Thunderbolt Volume HUD.
 ///
 /// Features:
 /// - Floating standalone HUD on screen (Zero Box / Zero Border / No container outline).
-/// - Sleek medium-thin razor-sharp 10-point vector thunderbolt silhouette.
+/// - Ultra-compact, razor-sharp needle-thin 10-point vector thunderbolt silhouette.
 /// - Fluid bottom-to-top liquid energy fill (NO horizontal bars or tick marks).
 /// - Dynamic 4-tier color interpolation: White -> Blue -> Orange -> Crimson.
 /// - Floating glow percentage typography next to the bolt.
@@ -136,8 +136,8 @@ class ThunderboltVolumeHud extends StatefulWidget {
   const ThunderboltVolumeHud({
     super.key,
     required this.volume,
-    this.width = 38.0,
-    this.height = 240.0,
+    this.width = 20.0,
+    this.height = 175.0,
   });
 
   @override
@@ -234,15 +234,15 @@ class _ThunderboltVolumeHudState extends State<ThunderboltVolumeHud>
                       size: Size(widget.width, widget.height),
                       painter: ThunderboltStrokePainter(
                         strokeColor: themeColor,
-                        strokeWidth: 1.5,
-                        glowRadius: pulseGlow,
+                        strokeWidth: 1.2,
+                        glowRadius: pulseGlow * 0.7,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
 
               // 2. Floating Typography (No Box, Just Clean Glowing Text)
               Column(
@@ -253,7 +253,7 @@ class _ThunderboltVolumeHudState extends State<ThunderboltVolumeHud>
                     '${widget.volume.round()}%',
                     style: TextStyle(
                       color: themeColor,
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.w900,
                       fontFamily: 'monospace',
                       shadows: [
@@ -264,7 +264,7 @@ class _ThunderboltVolumeHudState extends State<ThunderboltVolumeHud>
                         ),
                         Shadow(
                           color: glowColor,
-                          blurRadius: pulseGlow,
+                          blurRadius: pulseGlow * 0.7,
                         ),
                       ],
                     ),
@@ -274,9 +274,9 @@ class _ThunderboltVolumeHudState extends State<ThunderboltVolumeHud>
                     statusLabel,
                     style: TextStyle(
                       color: themeColor.withValues(alpha: 0.9),
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.1,
+                      letterSpacing: 1.0,
                       shadows: [
                         Shadow(
                           color: Colors.black.withValues(alpha: 0.85),

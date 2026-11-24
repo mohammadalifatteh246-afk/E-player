@@ -791,11 +791,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
       });
 
       _feedbackOverlayTimer?.cancel();
-    _volumeThunderTimer?.cancel();
       _feedbackOverlayTimer =
           Timer(CinematicGestureConfig.feedbackLingeringDuration, () {
         if (mounted) {
-          setState(() => _showFeedbackOverlay = false);
+          setState(() {
+            _showFeedbackOverlay = false;
+            _showVolumeThunderHud = false;
+            _showBrightnessArcHud = false;
+          });
         }
       });
     });
@@ -1774,6 +1777,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
     setState(() {
       _scale = _gestureEngine.scale;
       _offset = _gestureEngine.panOffset;
+    });
+    // Ensure HUD auto-dismiss after gesture release
+    _volumeThunderTimer?.cancel();
+    _volumeThunderTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _showVolumeThunderHud = false);
+    });
+    _brightnessArcTimer?.cancel();
+    _brightnessArcTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _showBrightnessArcHud = false);
     });
   }
 
@@ -4537,6 +4549,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         volume: _activeFeedbackEvent?.type == GestureFeedbackType.volume
                             ? _activeFeedbackEvent!.value
                             : _player.state.volume,
+                        width: 20.0,
+                        height: 175.0,
                       ),
                     ),
                   ),
@@ -4558,6 +4572,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         brightness: _activeFeedbackEvent?.type == GestureFeedbackType.brightness
                             ? _activeFeedbackEvent!.value
                             : _brightness,
+                        width: 64.0,
+                        height: 200.0,
                       ),
                     ),
                   ),

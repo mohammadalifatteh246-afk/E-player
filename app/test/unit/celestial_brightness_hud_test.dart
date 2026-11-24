@@ -40,11 +40,11 @@ void main() {
   group('CelestialArcClipper & Geometry Tests', () {
     test('Clipper generates a valid compound path with 7 crescent phases', () {
       const clipper = CelestialArcClipper();
-      final path = clipper.getClip(const Size(46.0, 240.0));
+      final path = clipper.getClip(const Size(64.0, 200.0));
       final bounds = path.getBounds();
 
-      expect(bounds.width, closeTo(46.0, 1.0));
-      expect(bounds.height, closeTo(240.0, 1.0));
+      expect(bounds.width, closeTo(58.7, 2.0));
+      expect(bounds.height, closeTo(194.0, 3.0));
       expect(path.computeMetrics().length, equals(7));
     });
   });

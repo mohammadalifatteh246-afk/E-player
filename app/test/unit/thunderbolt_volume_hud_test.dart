@@ -50,12 +50,12 @@ void main() {
   group('ThunderboltClipper & Geometry Tests', () {
     test('Clipper generates a valid closed path with 10 vertices', () {
       const clipper = ThunderboltClipper();
-      final path = clipper.getClip(const Size(38.0, 240.0));
+      final path = clipper.getClip(const Size(20.0, 175.0));
       final bounds = path.getBounds();
 
-      expect(bounds.width, closeTo(31.2, 1.0));
-      expect(bounds.height, closeTo(240.0, 1.0));
-      expect(path.contains(const Offset(19.0, 120.0)), isTrue);
+      expect(bounds.width, closeTo(14.0, 1.0));
+      expect(bounds.height, closeTo(175.0, 1.0));
+      expect(path.contains(const Offset(10.0, 90.0)), isTrue);
     });
   });
 
