@@ -1,15 +1,18 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/models/media_item.dart';
 import '../../../core/db/database_helper.dart';
+import 'drive_scanner_models.dart';
 import 'media_scanner_service.dart';
 import 'media_search_engine.dart';
 import 'video_grouping_service.dart';
 
+export 'drive_scanner_models.dart';
 export 'video_grouping_service.dart';
 
 class LibraryProvider extends ChangeNotifier {
@@ -18,6 +21,10 @@ class LibraryProvider extends ChangeNotifier {
   List<MediaItem> _allFiles = [];
   GroupMode _groupMode = GroupMode.none;
   static const String _kGroupModePrefKey = 'eplayer_video_grouping_mode';
+  static const String _kScannedDrivesMetaPrefKey = 'eplayer_scanned_drives_meta';
+  static const String _kCustomScanFoldersPrefKey = 'eplayer_custom_scan_folders';
+  Map<String, DateTime> _driveScanTimestamps = {};
+  List<String> _customScanFolders = [];
   bool _isDisposed = false;
 
   final MediaScannerService _scannerService = MediaScannerService();
@@ -100,6 +107,21 @@ class LibraryProvider extends ChangeNotifier {
           (m) => m.name == savedMode,
           orElse: () => GroupMode.none,
         );
+      }
+
+      final drivesMetaRaw = prefs.getString(_kScannedDrivesMetaPrefKey);
+      if (drivesMetaRaw != null && drivesMetaRaw.isNotEmpty) {
+        final decoded = jsonDecode(drivesMetaRaw) as Map<String, dynamic>;
+        _driveScanTimestamps = {
+          for (final entry in decoded.entries)
+            if (DateTime.tryParse(entry.value.toString()) != null)
+              entry.key: DateTime.parse(entry.value.toString()),
+        };
+      }
+
+      final savedCustomFolders = prefs.getStringList(_kCustomScanFoldersPrefKey);
+      if (savedCustomFolders != null) {
+        _customScanFolders = List<String>.from(savedCustomFolders);
       }
     } catch (_) {}
 
@@ -260,10 +282,122 @@ class LibraryProvider extends ChangeNotifier {
     await _loadFromDB();
   }
 
-  // --- VLC-Inspired Scanning Engine ---
+  // --- VLC-Inspired Multi-Drive Scanning Engine ---
 
   bool isScanning = false;
   String scanProgress = '';
+
+  List<String> get customScanFolders => List.unmodifiable(_customScanFolders);
+
+  DateTime? getLastScanTimestamp(String driveOrFolderPath) {
+    final key = DriveVolumeInfo.normalizeKey(driveOrFolderPath);
+    return _driveScanTimestamps[key];
+  }
+
+  /// Discovers all logical drives/partitions and merges live indexed counts + scan timestamps.
+  List<DriveVolumeInfo> discoverDrives({List<String>? overrideDrives}) {
+    final drives = overrideDrives ?? MediaScannerService.getAvailableDrives();
+    final systemDrive = Platform.environment['SystemDrive'] ?? 'C:';
+    final systemRoot = DriveVolumeInfo.normalizeKey(systemDrive);
+
+    final countsByRoot = <String, int>{};
+    for (final item in _allFiles) {
+      final root = DriveVolumeInfo.extractDriveRoot(item.path);
+      if (root != null) {
+        final key = DriveVolumeInfo.normalizeKey(root);
+        countsByRoot[key] = (countsByRoot[key] ?? 0) + 1;
+      }
+    }
+
+    return drives.map((rawPath) {
+      final key = DriveVolumeInfo.normalizeKey(rawPath);
+      final count = countsByRoot[key] ?? 0;
+      final lastScanned = _driveScanTimestamps[key];
+      final isSystem = key.toLowerCase() == systemRoot.toLowerCase();
+      return DriveVolumeInfo(
+        rootPath: rawPath,
+        label: DriveVolumeInfo.formatDriveLabel(
+          rawPath,
+          systemDriveLetter: systemDrive,
+        ),
+        indexedFileCount: count,
+        lastScannedAt: lastScanned,
+        isSystemDrive: isSystem,
+      );
+    }).toList();
+  }
+
+  /// Registers a custom folder root for scanning in Multi-Drive Studio.
+  Future<void> addCustomScanFolder(String folderPath) async {
+    final trimmed = folderPath.trim();
+    if (trimmed.isEmpty) return;
+    final key = DriveVolumeInfo.normalizeKey(trimmed);
+    final alreadyExists = _customScanFolders.any(
+      (f) => DriveVolumeInfo.normalizeKey(f).toLowerCase() == key.toLowerCase(),
+    );
+    if (!alreadyExists) {
+      _customScanFolders.add(trimmed);
+      await _persistDriveScannerMeta();
+      if (!_isDisposed) notifyListeners();
+    }
+  }
+
+  /// Removes a custom folder from Multi-Drive Studio list.
+  Future<void> removeCustomScanFolder(String folderPath) async {
+    final key = DriveVolumeInfo.normalizeKey(folderPath).toLowerCase();
+    _customScanFolders.removeWhere(
+      (f) => DriveVolumeInfo.normalizeKey(f).toLowerCase() == key,
+    );
+    await _persistDriveScannerMeta();
+    if (!_isDisposed) notifyListeners();
+  }
+
+  int countFilesUnderPath(String folderPath) {
+    final prefix = Platform.isWindows ? folderPath.toLowerCase() : folderPath;
+    int count = 0;
+    for (final item in _allFiles) {
+      final itemPath = Platform.isWindows ? item.path.toLowerCase() : item.path;
+      if (itemPath.startsWith(prefix)) count++;
+    }
+    return count;
+  }
+
+  Future<void> _recordScanTimestamps(List<String> paths) async {
+    final now = DateTime.now();
+    final systemDrives = MediaScannerService.getAvailableDrives()
+        .map((d) => DriveVolumeInfo.normalizeKey(d).toLowerCase())
+        .toSet();
+
+    for (final path in paths) {
+      final key = DriveVolumeInfo.normalizeKey(path);
+      _driveScanTimestamps[key] = now;
+
+      // Track non-drive-root folder paths as custom scan folders automatically
+      final isRootDrive =
+          RegExp(r'^[A-Za-z]:\\?$').hasMatch(key) || systemDrives.contains(key.toLowerCase());
+      if (!isRootDrive) {
+        final alreadySaved = _customScanFolders.any(
+          (f) => DriveVolumeInfo.normalizeKey(f).toLowerCase() == key.toLowerCase(),
+        );
+        if (!alreadySaved) {
+          _customScanFolders.add(path.trim());
+        }
+      }
+    }
+    await _persistDriveScannerMeta();
+  }
+
+  Future<void> _persistDriveScannerMeta() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = {
+        for (final entry in _driveScanTimestamps.entries)
+          entry.key: entry.value.toIso8601String(),
+      };
+      await prefs.setString(_kScannedDrivesMetaPrefKey, jsonEncode(encoded));
+      await prefs.setStringList(_kCustomScanFoldersPrefKey, _customScanFolders);
+    } catch (_) {}
+  }
 
   /// Cancels any running scan
   void cancelScan() {
@@ -331,6 +465,78 @@ class LibraryProvider extends ChangeNotifier {
     }
   }
 
+  /// Scans multiple selected drives or custom folders in a single batch.
+  Future<void> scanDrives(
+    List<String> driveOrFolderPaths, {
+    bool showHiddenFiles = false,
+    bool skipSystemDirectories = true,
+  }) async {
+    if (isScanning) return;
+    final targets = driveOrFolderPaths.where((p) => p.trim().isNotEmpty).toList();
+    if (targets.isEmpty) return;
+
+    if (Platform.isAndroid) {
+      final granted = await MediaScannerService.requestAndroidPermissions();
+      if (!granted) {
+        scanProgress = 'Storage permission denied. Please grant permission in App Settings.';
+        notifyListeners();
+        return;
+      }
+    }
+
+    isScanning = true;
+    scanProgress = 'Preparing multi-drive scan (${targets.length} locations)...';
+    notifyListeners();
+
+    try {
+      await _executeScan(
+        targets,
+        showHiddenFiles: showHiddenFiles,
+        skipSystemDirectories: skipSystemDirectories,
+      );
+      await _recordScanTimestamps(targets);
+    } catch (e) {
+      scanProgress = 'Error: $e';
+    } finally {
+      isScanning = false;
+      if (!_isDisposed) notifyListeners();
+    }
+  }
+
+  /// Scans all detected logical drives across the system (C:\, D:\, E:\, etc.).
+  Future<void> scanAllDrives({
+    bool showHiddenFiles = false,
+    bool skipSystemDirectories = true,
+  }) async {
+    final drives = MediaScannerService.getAvailableDrives();
+    await scanDrives(
+      drives,
+      showHiddenFiles: showHiddenFiles,
+      skipSystemDirectories: skipSystemDirectories,
+    );
+  }
+
+  /// Scans only drives that have NOT been scanned yet (0 indexed files & no recorded scan).
+  Future<void> scanUnscannedDrives({
+    bool showHiddenFiles = false,
+    bool skipSystemDirectories = true,
+  }) async {
+    final unscanned = discoverDrives()
+        .where((d) => !d.isScanned)
+        .map((d) => d.rootPath)
+        .toList();
+    if (unscanned.isEmpty) {
+      scanProgress = 'All detected drives have already been scanned.';
+      notifyListeners();
+      return;
+    }
+    await scanDrives(
+      unscanned,
+      showHiddenFiles: showHiddenFiles,
+      skipSystemDirectories: skipSystemDirectories,
+    );
+  }
+
   /// User directory scan via folder picker with enhanced VLC crawling and extension filtering
   Future<void> scanDirectory([String? directoryPath]) async {
     if (isScanning) return;
@@ -355,20 +561,32 @@ class LibraryProvider extends ChangeNotifier {
 
     try {
       await _executeScan([selectedDirectory]);
+      await _recordScanTimestamps([selectedDirectory]);
     } catch (e) {
       scanProgress = 'Error: $e';
     } finally {
       isScanning = false;
-      notifyListeners();
+      if (!_isDisposed) notifyListeners();
     }
   }
 
-  Future<void> _executeScan(List<String> paths) async {
-    await for (final progress in _scannerService.scanDirectories(paths)) {
+  Future<void> _executeScan(
+    List<String> paths, {
+    bool showHiddenFiles = false,
+    bool skipSystemDirectories = true,
+  }) async {
+    await for (final progress in _scannerService.scanDirectories(
+      paths,
+      showHiddenFiles: showHiddenFiles,
+      skipSystemDirectories: skipSystemDirectories,
+    )) {
       _lastScanProgress = progress;
+      final prefix = progress.totalRoots > 1
+          ? '[Drive ${progress.currentRootIndex}/${progress.totalRoots}: ${progress.activeRoot}] '
+          : '';
       scanProgress =
-          'Scanned: ${progress.scannedEntities} | Media: ${progress.mediaFilesFound} (${p.basename(progress.currentDirectory)})';
-      notifyListeners();
+          '${prefix}Scanned: ${progress.scannedEntities} | Media: ${progress.mediaFilesFound} (${p.basename(progress.currentDirectory)})';
+      if (!_isDisposed) notifyListeners();
     }
 
     scanProgress =

@@ -17,6 +17,7 @@ import '../../media_info/ui/media_info_sheet.dart';
 import '../../vault/domain/vault_service.dart';
 import '../../trash/domain/trash_service.dart';
 import 'widgets/video_group_card.dart';
+import 'drive_scanner_studio_sheet.dart';
 import '../../network_stream/ui/network_browser_view.dart';
 
 /// Screen 8: Media Library (Cinematic Multi-Format Media Workstation)
@@ -629,6 +630,10 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TrashScreen()));
             } else if (val == 'export') {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ExportScreen()));
+            } else if (val == 'drive_studio') {
+              DriveScannerStudioSheet.show(context, provider: provider);
+            } else if (val == 'scan_all_drives') {
+              provider.scanAllDrives();
             } else if (val == 'system_scan') {
               provider.scanSystemMediaDirectories();
             }
@@ -645,12 +650,32 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               ),
             ),
             const PopupMenuItem(
+              value: 'drive_studio',
+              child: Row(
+                children: [
+                  Icon(Icons.storage_rounded, color: EDesign.primaryCyan, size: 20),
+                  SizedBox(width: 12),
+                  Text('Multi-Drive Studio (C:, D:, USB)', style: TextStyle(color: EDesign.textPrimary)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'scan_all_drives',
+              child: Row(
+                children: [
+                  Icon(Icons.radar_rounded, color: EDesign.success, size: 20),
+                  SizedBox(width: 12),
+                  Text('Scan All Drives', style: TextStyle(color: EDesign.textPrimary)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
               value: 'system_scan',
               child: Row(
                 children: [
                   Icon(Icons.sync_rounded, color: EDesign.primary, size: 20),
                   SizedBox(width: 12),
-                  Text('Scan Device Media', style: TextStyle(color: EDesign.textPrimary)),
+                  Text('Quick Scan (User Folders)', style: TextStyle(color: EDesign.textPrimary)),
                 ],
               ),
             ),
@@ -751,7 +776,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
 
   Widget _buildFloatingScanButton(LibraryProvider provider) {
     return FloatingActionButton.extended(
-      onPressed: provider.isScanning ? null : () => provider.scanSystemMediaDirectories(),
+      onPressed: () => DriveScannerStudioSheet.show(context, provider: provider),
       backgroundColor: EDesign.primary,
       foregroundColor: Colors.black,
       icon: provider.isScanning
@@ -760,9 +785,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               height: 18,
               child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.2),
             )
-          : const Icon(Icons.sync_rounded, size: 20),
+          : const Icon(Icons.storage_rounded, size: 20),
       label: Text(
-        provider.isScanning ? 'Indexing Media...' : 'Scan Media',
+        provider.isScanning ? 'Scanning Drives...' : 'Scan Drives',
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
       ),
     );
@@ -798,7 +823,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Scanning Device Directories (Videos, Music, Downloads)...',
+                  'Multi-Drive Media Indexing Active...',
                   style: TextStyle(
                     color: EDesign.primary,
                     fontWeight: FontWeight.bold,
@@ -1824,10 +1849,10 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             SizedBox(
               height: 48,
               child: ElevatedButton.icon(
-                onPressed: provider.isScanning ? null : () => provider.scanSystemMediaDirectories(),
-                icon: const Icon(Icons.sync_rounded, size: 20),
+                onPressed: () => DriveScannerStudioSheet.show(context, provider: provider),
+                icon: const Icon(Icons.storage_rounded, size: 20),
                 label: const Text(
-                  'Scan Device Media',
+                  'Open Multi-Drive Studio',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -1838,6 +1863,15 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: provider.isScanning ? null : () => provider.scanSystemMediaDirectories(),
+              icon: const Icon(Icons.sync_rounded, size: 16, color: EDesign.primaryCyan),
+              label: const Text(
+                'Quick Scan Default Folders',
+                style: TextStyle(color: EDesign.primaryCyan, fontSize: 13),
               ),
             ),
           ],

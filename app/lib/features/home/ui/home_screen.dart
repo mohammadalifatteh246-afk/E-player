@@ -12,6 +12,7 @@ import '../../library/domain/library_provider.dart';
 import '../../library/domain/media_scanner_service.dart';
 import '../../library/domain/media_search_engine.dart';
 import '../../library/ui/folder_detail_screen.dart';
+import '../../library/ui/drive_scanner_studio_sheet.dart';
 import '../../../core/models/media_item.dart';
 import '../../player/ui/player_screen.dart';
 import '../../player/services/desktop_drag_drop_service.dart';
@@ -1873,6 +1874,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: EDesign.primaryCyan.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.storage_rounded, size: 20, color: EDesign.primaryCyan),
+                ),
+                title: const Text('Multi-Drive & Partition Studio', style: TextStyle(color: EDesign.textPrimary, fontWeight: FontWeight.bold)),
+                subtitle: const Text('Scan multiple drives (C:, D:, USB) & unscanned drives', style: TextStyle(color: EDesign.textMuted, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  DriveScannerStudioSheet.show(context, provider: provider);
+                },
+              ),
+              const Divider(color: EDesign.border, height: 1),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -8,11 +9,16 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/models/media_item.dart';
 import '../../../core/db/database_helper.dart';
 
-/// Progress information emitted during directory scanning.
+typedef DirectoryExistsChecker = bool Function(String path);
+
+/// Progress information emitted during directory and multi-drive scanning.
 class ScanProgress {
   final int scannedEntities;
   final int mediaFilesFound;
   final String currentDirectory;
+  final String activeRoot;
+  final int currentRootIndex;
+  final int totalRoots;
   final bool isCompleted;
   final String? errorMessage;
 
@@ -20,6 +26,9 @@ class ScanProgress {
     this.scannedEntities = 0,
     this.mediaFilesFound = 0,
     this.currentDirectory = '',
+    this.activeRoot = '',
+    this.currentRootIndex = 0,
+    this.totalRoots = 0,
     this.isCompleted = false,
     this.errorMessage,
   });
@@ -28,6 +37,9 @@ class ScanProgress {
     int? scannedEntities,
     int? mediaFilesFound,
     String? currentDirectory,
+    String? activeRoot,
+    int? currentRootIndex,
+    int? totalRoots,
     bool? isCompleted,
     String? errorMessage,
   }) {
@@ -35,6 +47,9 @@ class ScanProgress {
       scannedEntities: scannedEntities ?? this.scannedEntities,
       mediaFilesFound: mediaFilesFound ?? this.mediaFilesFound,
       currentDirectory: currentDirectory ?? this.currentDirectory,
+      activeRoot: activeRoot ?? this.activeRoot,
+      currentRootIndex: currentRootIndex ?? this.currentRootIndex,
+      totalRoots: totalRoots ?? this.totalRoots,
       isCompleted: isCompleted ?? this.isCompleted,
       errorMessage: errorMessage ?? this.errorMessage,
     );
@@ -119,6 +134,116 @@ class MediaScannerService {
     '.sub',
     '.idx',
   };
+
+  /// System / OS protected or developer cache directories skipped during full-drive scans
+  static const Set<String> systemSkipDirectories = {
+    'system volume information',
+    r'$recycle.bin',
+    r'$windows.~bt',
+    r'$windows.~ws',
+    'windows',
+    'program files',
+    'program files (x86)',
+    'programdata',
+    'recovery',
+    'perflogs',
+    'msocache',
+    'config.msi',
+    'appdata',
+    'windowsapps',
+    'wpsystem',
+    'node_modules',
+    '.git',
+    '.dart_tool',
+    '.gradle',
+    '.idea',
+    '.vscode',
+    '__pycache__',
+    'proc',
+    'sys',
+    'dev',
+  };
+
+  /// Discovers all logical drives / mounted storage volumes on the host OS.
+  static List<String> getAvailableDrives({
+    DirectoryExistsChecker? existsChecker,
+    bool? isWindowsOverride,
+  }) {
+    final checkExists = existsChecker ?? (path) => Directory(path).existsSync();
+    final isWin = isWindowsOverride ?? Platform.isWindows;
+
+    if (isWin) {
+      final drives = <String>[];
+      for (int i = 65; i <= 90; i++) {
+        final driveLetter = '${String.fromCharCode(i)}:\\';
+        try {
+          if (checkExists(driveLetter)) {
+            drives.add(driveLetter);
+          }
+        } catch (_) {}
+      }
+      return drives.isNotEmpty ? drives : [r'C:\'];
+    }
+
+    if (Platform.isAndroid) {
+      final roots = <String>[];
+      if (checkExists('/storage/emulated/0')) {
+        roots.add('/storage/emulated/0');
+      }
+      try {
+        final storage = Directory('/storage');
+        if (storage.existsSync()) {
+          for (final entity in storage.listSync(followLinks: false)) {
+            if (entity is Directory &&
+                entity.path != '/storage/emulated' &&
+                entity.path != '/storage/self' &&
+                !roots.contains(entity.path)) {
+              roots.add(entity.path);
+            }
+          }
+        }
+      } catch (_) {}
+      return roots.isNotEmpty ? roots : ['/'];
+    }
+
+    // macOS / Linux mount roots
+    final roots = <String>[];
+    for (final mountBase in ['/Volumes', '/media', '/mnt']) {
+      try {
+        final dir = Directory(mountBase);
+        if (dir.existsSync()) {
+          for (final entity in dir.listSync(followLinks: false)) {
+            if (entity is Directory && !roots.contains(entity.path)) {
+              roots.add(entity.path);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    if (checkExists('/')) {
+      roots.insert(0, '/');
+    }
+    return roots.isNotEmpty ? roots : ['/'];
+  }
+
+  /// Determines whether a child directory or file entry should be skipped during crawling.
+  static bool shouldSkipEntry(
+    String entryName, {
+    required bool isDirectory,
+    bool showHiddenFiles = false,
+    bool skipSystemDirectories = true,
+  }) {
+    if (entryName.isEmpty) return true;
+    if (!showHiddenFiles && (entryName.startsWith('.') || entryName.startsWith('\$'))) {
+      return true;
+    }
+    if (isDirectory &&
+        skipSystemDirectories &&
+        systemSkipDirectories.contains(entryName.toLowerCase())) {
+      return true;
+    }
+    return false;
+  }
 
   bool _isCancelled = false;
 
@@ -278,10 +403,12 @@ class MediaScannerService {
     return subtitles;
   }
 
-  /// Scans multiple directories asynchronously, reports progress, and batches database persistence
+  /// Scans multiple drives or directories asynchronously with resilient per-directory
+  /// BFS traversal (never aborts on OS permission-denied folders) and batches SQLite writes.
   Stream<ScanProgress> scanDirectories(
     List<String> directoryPaths, {
     bool showHiddenFiles = false,
+    bool skipSystemDirectories = true,
     int batchSize = 100,
   }) async* {
     _isCancelled = false;
@@ -289,90 +416,137 @@ class MediaScannerService {
     int mediaFilesFound = 0;
     final List<MediaItem> buffer = [];
 
-    yield const ScanProgress(
+    // Preserve insertion order while removing empty / duplicate targets
+    final seen = <String>{};
+    final roots = <String>[];
+    for (final raw in directoryPaths) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) continue;
+      final dedupKey = Platform.isWindows ? trimmed.toLowerCase() : trimmed;
+      if (seen.add(dedupKey)) {
+        roots.add(trimmed);
+      }
+    }
+
+    yield ScanProgress(
       scannedEntities: 0,
       mediaFilesFound: 0,
-      currentDirectory: 'Starting media scanner...',
+      currentDirectory: 'Starting multi-drive media scanner...',
+      activeRoot: roots.isNotEmpty ? roots.first : '',
+      currentRootIndex: 0,
+      totalRoots: roots.length,
       isCompleted: false,
     );
 
-    for (final dirPath in directoryPaths) {
+    for (int rootIndex = 0; rootIndex < roots.length; rootIndex++) {
       if (_isCancelled) break;
 
-      final directory = Directory(dirPath);
-      if (!await directory.exists()) continue;
+      final dirPath = roots[rootIndex];
+      final rootDir = Directory(dirPath);
+      try {
+        if (!await rootDir.exists()) continue;
+      } catch (_) {
+        continue;
+      }
 
       yield ScanProgress(
         scannedEntities: scannedEntities,
         mediaFilesFound: mediaFilesFound,
         currentDirectory: dirPath,
+        activeRoot: dirPath,
+        currentRootIndex: rootIndex + 1,
+        totalRoots: roots.length,
         isCompleted: false,
       );
 
-      try {
-        await for (final entity in directory.list(
-          recursive: true,
-          followLinks: false,
-        )) {
-          if (_isCancelled) break;
+      final queue = ListQueue<Directory>()..add(rootDir);
 
-          scannedEntities++;
+      while (queue.isNotEmpty && !_isCancelled) {
+        final currentDir = queue.removeFirst();
 
-          // Skip hidden directories/files unless explicitly enabled (matches VLC show-hiddenfiles)
-          final name = p.basename(entity.path);
-          if (!showHiddenFiles && (name.startsWith('.') || name.startsWith('\$'))) {
-            continue;
-          }
+        try {
+          await for (final entity in currentDir
+              .list(recursive: false, followLinks: false)
+              .handleError((_) {})) {
+            if (_isCancelled) break;
+            if (entity is Link) continue;
 
-          if (entity is File) {
-            final ext = p.extension(entity.path).toLowerCase();
+            scannedEntities++;
+            final isDir = entity is Directory;
+            final name = p.basename(entity.path);
 
-            // Ignore blacklisted file types
-            if (ignoredExtensions.contains(ext)) {
+            if (shouldSkipEntry(
+              name,
+              isDirectory: isDir,
+              showHiddenFiles: showHiddenFiles,
+              skipSystemDirectories: skipSystemDirectories,
+            )) {
               continue;
             }
 
-            // Check if matches video or audio whitelist
-            if (videoExtensions.contains(ext) || audioExtensions.contains(ext)) {
-              try {
-                final stat = await entity.stat();
-                final item = MediaItem(
-                  path: entity.path,
-                  name: p.basename(entity.path),
-                  parentFolder: entity.parent.path,
-                  sizeBytes: stat.size,
-                  durationMs: 0,
-                  lastPositionMs: 0,
-                  isFavorite: false,
-                  lastPlayed: stat.modified,
+            if (isDir) {
+              queue.add(entity);
+              if (scannedEntities % 80 == 0) {
+                yield ScanProgress(
+                  scannedEntities: scannedEntities,
+                  mediaFilesFound: mediaFilesFound,
+                  currentDirectory: entity.path,
+                  activeRoot: dirPath,
+                  currentRootIndex: rootIndex + 1,
+                  totalRoots: roots.length,
+                  isCompleted: false,
                 );
+              }
+            } else if (entity is File) {
+              final ext = p.extension(entity.path).toLowerCase();
 
-                buffer.add(item);
-                mediaFilesFound++;
+              if (ignoredExtensions.contains(ext)) {
+                continue;
+              }
 
-                // Yield progress update periodically
-                if (mediaFilesFound % 10 == 0 || scannedEntities % 50 == 0) {
-                  yield ScanProgress(
-                    scannedEntities: scannedEntities,
-                    mediaFilesFound: mediaFilesFound,
-                    currentDirectory: entity.parent.path,
-                    isCompleted: false,
+              if (videoExtensions.contains(ext) || audioExtensions.contains(ext)) {
+                try {
+                  final stat = await entity.stat();
+                  final item = MediaItem(
+                    path: entity.path,
+                    name: name,
+                    parentFolder: entity.parent.path,
+                    sizeBytes: stat.size,
+                    durationMs: 0,
+                    lastPositionMs: 0,
+                    isFavorite: false,
+                    lastPlayed: stat.modified,
                   );
-                }
 
-                // Batch insert into database to maximize SQLite throughput
-                if (buffer.length >= batchSize) {
-                  await DatabaseHelper.instance.insertBatch(List.from(buffer));
-                  buffer.clear();
+                  buffer.add(item);
+                  mediaFilesFound++;
+
+                  if (mediaFilesFound % 10 == 0 || scannedEntities % 80 == 0) {
+                    yield ScanProgress(
+                      scannedEntities: scannedEntities,
+                      mediaFilesFound: mediaFilesFound,
+                      currentDirectory: entity.parent.path,
+                      activeRoot: dirPath,
+                      currentRootIndex: rootIndex + 1,
+                      totalRoots: roots.length,
+                      isCompleted: false,
+                    );
+                  }
+
+                  if (buffer.length >= batchSize) {
+                    await DatabaseHelper.instance.insertBatch(List.from(buffer));
+                    buffer.clear();
+                  }
+                } catch (_) {
+                  // Ignore single file permission/read errors and keep scanning
                 }
-              } catch (_) {
-                // Ignore single file I/O permissions errors and proceed
               }
             }
           }
+        } catch (e) {
+          // Gracefully skip protected / unreadable subdirectories without aborting the drive scan
+          debugPrint('Skipping inaccessible directory ${currentDir.path}: $e');
         }
-      } catch (e) {
-        debugPrint('Error scanning directory $dirPath: $e');
       }
     }
 
@@ -386,6 +560,9 @@ class MediaScannerService {
       scannedEntities: scannedEntities,
       mediaFilesFound: mediaFilesFound,
       currentDirectory: _isCancelled ? 'Scan cancelled' : 'Scan completed',
+      activeRoot: roots.isNotEmpty ? roots.last : '',
+      currentRootIndex: roots.length,
+      totalRoots: roots.length,
       isCompleted: true,
     );
   }
