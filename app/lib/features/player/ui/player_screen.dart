@@ -88,6 +88,8 @@ import 'widgets/undocked_playlist_panel_widget.dart';
 import '../../web_remote/data/web_remote_service.dart';
 import '../../web_remote/ui/web_remote_sheet.dart';
 import '../../archive/services/archive_media_service.dart';
+import '../../external_launch/data/external_launch_service.dart';
+import '../../external_launch/domain/external_launch_models.dart';
 import 'thunderbolt_volume_hud.dart';
 import 'celestial_brightness_hud.dart';
 import 'meteor_progress_bar.dart';
@@ -97,8 +99,15 @@ export 'playback_enhancements.dart' show ABRepeatState, ABRepeatController, Crop
 
 class PlayerScreen extends StatefulWidget {
   final String mediaPath;
+  final List<String> extraPaths;
+  final String? displayTitle;
 
-  const PlayerScreen({super.key, required this.mediaPath});
+  const PlayerScreen({
+    super.key,
+    required this.mediaPath,
+    this.extraPaths = const [],
+    this.displayTitle,
+  });
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -827,19 +836,160 @@ class _PlayerScreenState extends State<PlayerScreen> {
       });
     }
 
-    try {
-      _player.open(Media(widget.mediaPath));
-    } catch (e) {
-      debugPrint("Media open err: $e");
+    ExternalLaunchService.instance
+        .registerActivePlayerHandler(_handleWarmExternalLaunch);
+    if (widget.displayTitle != null && widget.displayTitle!.isNotEmpty) {
+      _externalDisplayNames[widget.mediaPath] = widget.displayTitle!;
     }
+
+    _openInitialMediaWithExtras();
     _startControlsTimer();
+  }
+
+  final Map<String, String> _externalDisplayNames = {};
+
+  void _openInitialMediaWithExtras() {
+    final initialKind = ExternalLaunchParser.classifyTarget(
+      widget.mediaPath,
+      displayName: widget.displayTitle,
+    );
+
+    if (initialKind == ExternalMediaKind.playlist ||
+        initialKind == ExternalMediaKind.archive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _handleDroppedMedia(
+          DroppedMediaEvent(items: [DroppedItem.fromPath(widget.mediaPath)]),
+        );
+      });
+    } else {
+      try {
+        _player.open(Media(widget.mediaPath));
+      } catch (e) {
+        debugPrint("Media open err: $e");
+      }
+    }
+
+    if (widget.extraPaths.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final primaryName = widget.displayTitle ?? p.basename(widget.mediaPath);
+        final primaryItem = MediaItem(
+          path: widget.mediaPath,
+          name: primaryName,
+          parentFolder: p.dirname(widget.mediaPath),
+          lastPlayed: DateTime.now(),
+        );
+        final queueItems = <MediaItem>[primaryItem];
+
+        for (final extra in widget.extraPaths) {
+          final kind = ExternalLaunchParser.classifyTarget(extra);
+          if (kind == ExternalMediaKind.subtitle) {
+            try {
+              _player.setSubtitleTrack(SubtitleTrack.uri(extra));
+            } catch (_) {}
+          } else if (kind != ExternalMediaKind.unknown) {
+            queueItems.add(
+              MediaItem(
+                path: extra,
+                name: ExternalLaunchParser.extractDisplayName(extra),
+                parentFolder: p.dirname(extra),
+                lastPlayed: DateTime.now(),
+              ),
+            );
+          }
+        }
+
+        if (queueItems.length > 1) {
+          _playlistController.setItems(queueItems, activePath: widget.mediaPath);
+        }
+      });
+    }
+  }
+
+  Future<bool> _handleWarmExternalLaunch(ExternalLaunchRequest req) async {
+    if (!mounted) return false;
+    _externalDisplayNames[req.uri] = req.displayName;
+
+    if (req.kind == ExternalMediaKind.subtitle) {
+      try {
+        await _player.setSubtitleTrack(SubtitleTrack.uri(req.uri));
+        _showFeedbackMessage(
+          'Subtitle attached: ${req.displayName}',
+          Icons.subtitles_rounded,
+          EDesign.primaryCyan,
+        );
+      } catch (e) {
+        debugPrint('[PlayerScreen] Warm subtitle attach failed: $e');
+      }
+      return true;
+    }
+
+    if (req.kind == ExternalMediaKind.playlist ||
+        req.kind == ExternalMediaKind.archive) {
+      _handleDroppedMedia(
+        DroppedMediaEvent(items: [DroppedItem.fromPath(req.uri)]),
+      );
+      return true;
+    }
+
+    final behavior = ExternalLaunchService.instance.warmLaunchBehavior;
+    final mediaItem = MediaItem(
+      path: req.uri,
+      name: req.displayName,
+      parentFolder: req.kind == ExternalMediaKind.networkStream
+          ? 'External Stream'
+          : p.dirname(req.uri),
+      lastPlayed: DateTime.now(),
+    );
+
+    if (behavior == WarmLaunchBehavior.enqueueToPlaylist) {
+      if (_playlistController.items.isEmpty) {
+        final activePath = _currentMediaPath ?? widget.mediaPath;
+        _playlistController.setItems([
+          MediaItem(
+            path: activePath,
+            name: _externalDisplayNames[activePath] ?? p.basename(activePath),
+            parentFolder: p.dirname(activePath),
+            lastPlayed: DateTime.now(),
+          ),
+        ], activePath: activePath);
+      }
+      _playlistController.addTrack(mediaItem);
+      _showFeedbackMessage(
+        'Queued: ${req.displayName}',
+        Icons.queue_music_rounded,
+        EDesign.primaryCyan,
+      );
+      return true;
+    }
+
+    _playMediaItem(mediaItem);
+    for (final extra in req.extraUris) {
+      final extraKind = ExternalLaunchParser.classifyTarget(extra);
+      if (extraKind == ExternalMediaKind.subtitle) {
+        try {
+          await _player.setSubtitleTrack(SubtitleTrack.uri(extra));
+        } catch (_) {}
+      } else if (extraKind != ExternalMediaKind.unknown) {
+        _playlistController.addTrack(
+          MediaItem(
+            path: extra,
+            name: ExternalLaunchParser.extractDisplayName(extra),
+            parentFolder: p.dirname(extra),
+            lastPlayed: DateTime.now(),
+          ),
+        );
+      }
+    }
+    return true;
   }
 
   void _persistProgress() {
     if (!mounted) return;
     try {
       context.read<LibraryProvider>().updateWatchProgress(
-            widget.mediaPath,
+            _currentMediaPath ?? widget.mediaPath,
             _position.inMilliseconds,
             _duration.inMilliseconds,
           );
@@ -848,6 +998,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    ExternalLaunchService.instance
+        .unregisterActivePlayerHandler(_handleWarmExternalLaunch);
     _abRepeatPositionSubscription?.cancel();
     _gestureFeedbackSubscription?.cancel();
     _seekCommitSubscription?.cancel();
@@ -3948,11 +4100,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
-                              _currentMediaPath != null && _currentMediaPath!.isNotEmpty
-                                  ? p.basename(_currentMediaPath!)
-                                  : (widget.mediaPath.isNotEmpty
-                                      ? p.basename(widget.mediaPath)
-                                      : 'The Last Horizon.mkv'),
+                              _externalDisplayNames[_currentMediaPath ?? widget.mediaPath] ??
+                                  (_currentMediaPath != null && _currentMediaPath!.isNotEmpty
+                                      ? p.basename(_currentMediaPath!)
+                                      : (widget.mediaPath.isNotEmpty
+                                          ? p.basename(widget.mediaPath)
+                                          : 'The Last Horizon.mkv')),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

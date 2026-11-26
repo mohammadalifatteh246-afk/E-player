@@ -11,8 +11,11 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Rational
 import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
@@ -21,11 +24,13 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity: FlutterActivity() {
     companion object {
         private const val SCANNER_CHANNEL = "com.example.app/media_scanner"
         private const val PIP_CHANNEL = "com.example.app/pip"
+        private const val EXTERNAL_LAUNCH_CHANNEL = "com.example.app/external_launch"
         private const val ACTION_PIP_PLAY = "com.example.app.ACTION_PIP_PLAY"
         private const val ACTION_PIP_PAUSE = "com.example.app.ACTION_PIP_PAUSE"
         private const val ACTION_PIP_FORWARD = "com.example.app.ACTION_PIP_FORWARD"
@@ -41,11 +46,52 @@ class MainActivity: FlutterActivity() {
     private val PERMISSION_REQUEST_CODE = 1001
     private var pendingResult: MethodChannel.Result? = null
     private var pipChannel: MethodChannel? = null
+    private var externalLaunchChannel: MethodChannel? = null
+    private var pendingExternalLaunch: Map<String, Any?>? = null
     private var pipReceiver: BroadcastReceiver? = null
     private var isPlayingState: Boolean = false
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        pendingExternalLaunch = extractLaunchPayload(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val payload = extractLaunchPayload(intent) ?: return
+        if (externalLaunchChannel != null) {
+            externalLaunchChannel?.invokeMethod("onExternalLaunch", payload)
+        } else {
+            pendingExternalLaunch = payload
+        }
+    }
+
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // External Launch Intent Channel (ACTION_VIEW / ACTION_SEND cold + singleTop warm)
+        externalLaunchChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, EXTERNAL_LAUNCH_CHANNEL).apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getInitialLaunch" -> {
+                        val payload = pendingExternalLaunch ?: extractLaunchPayload(intent)
+                        pendingExternalLaunch = null
+                        result.success(payload)
+                    }
+                    "getPlatformCapabilities" -> {
+                        result.success(
+                            mapOf(
+                                "platform" to "android",
+                                "actionViewSupported" to true,
+                                "launchMode" to "singleTop"
+                            )
+                        )
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
 
         // Media Scanner Channel
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCANNER_CHANNEL).setMethodCallHandler { call, result ->
@@ -411,5 +457,128 @@ class MainActivity: FlutterActivity() {
         }
 
         return mediaItems
+    }
+
+    private fun extractLaunchPayload(intent: Intent?): Map<String, Any?>? {
+        if (intent == null) return null
+        val action = intent.action ?: return null
+
+        val targetUri: Uri? = when (action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> {
+                val streamUri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                }
+                streamUri ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.let { text ->
+                    val trimmed = text.trim()
+                    if (trimmed.contains("://")) Uri.parse(trimmed) else null
+                }
+            }
+            else -> null
+        }
+
+        if (targetUri == null) return null
+
+        val mimeType = intent.type ?: try {
+            contentResolver.getType(targetUri)
+        } catch (_: Exception) {
+            null
+        }
+        val displayName = queryDisplayName(targetUri)
+        val resolvedTarget = resolvePlayableTarget(targetUri, displayName, mimeType)
+
+        return mapOf(
+            "uri" to resolvedTarget,
+            "originalUri" to targetUri.toString(),
+            "displayName" to displayName,
+            "mimeType" to mimeType,
+            "source" to "android_intent"
+        )
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        if ("file".equals(uri.scheme, ignoreCase = true)) {
+            return uri.path?.let { File(it).name }
+        }
+        try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) {
+                        val name = cursor.getString(idx)
+                        if (!name.isNullOrBlank()) return name
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return uri.lastPathSegment
+    }
+
+    private fun resolvePlayableTarget(uri: Uri, displayName: String?, mimeType: String?): String {
+        val scheme = uri.scheme?.lowercase() ?: ""
+        if (scheme == "file") {
+            return uri.path ?: uri.toString()
+        }
+        if (scheme == "http" || scheme == "https" || scheme == "rtsp" ||
+            scheme == "rtmp" || scheme == "mms" || scheme == "smb") {
+            return uri.toString()
+        }
+
+        // Try direct readable _data path first (gives instant seek & sidecar subtitle detection)
+        if (scheme == "content") {
+            try {
+                contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val idx = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                        if (idx >= 0) {
+                            val dataPath = cursor.getString(idx)
+                            if (!dataPath.isNullOrBlank() && File(dataPath).canRead()) {
+                                return dataPath
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            }
+
+            // Copy lightweight sidecars (subtitles, playlists, archives) into cacheDir so Dart File APIs can read them
+            val ext = (displayName ?: "").substringAfterLast('.', "").lowercase()
+            val isSidecarFile = ext in setOf("srt", "vtt", "ass", "ssa", "sub", "m3u", "m3u8", "xspf", "pls", "zip", "tar") ||
+                (mimeType?.contains("subrip") == true) ||
+                (mimeType?.contains("mpegurl") == true) ||
+                (mimeType?.contains("xspf") == true)
+            if (isSidecarFile) {
+                try {
+                    val safeName = (displayName ?: "external_${System.currentTimeMillis()}.$ext")
+                        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                    val cached = File(cacheDir, "ext_${System.currentTimeMillis()}_$safeName")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(cached).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    if (cached.exists() && cached.length() > 0) {
+                        return cached.absolutePath
+                    }
+                } catch (_: Exception) {
+                }
+            }
+
+            // Scoped storage FileProvider video/audio: pass live OS descriptor to libmpv via fdclose://
+            try {
+                val pfd = contentResolver.openFileDescriptor(uri, "r")
+                if (pfd != null) {
+                    val fd = pfd.detachFd()
+                    return "fdclose://$fd"
+                }
+            } catch (_: Exception) {
+            }
+        }
+
+        return uri.toString()
     }
 }

@@ -5,6 +5,8 @@ import '../../../ui/theme/e_design_tokens.dart';
 import '../../player/ui/audio_studio_sheet.dart';
 import '../../player/ui/subtitle_settings_sheet.dart';
 import '../domain/settings_provider.dart';
+import '../../external_launch/data/external_launch_service.dart';
+import '../../external_launch/ui/external_launch_studio_sheet.dart';
 
 /// Screen 5: Cyber-Stitch Settings Hub
 /// Master Cyberpunk media engine settings hub with hardware decoders,
@@ -559,6 +561,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
                 const SizedBox(height: 24),
 
+                // 6b. OS Integration & External File Launch Studio
+                _buildSectionHeader('OS INTEGRATION & EXTERNAL LAUNCH', Icons.rocket_launch_rounded, EDesign.primaryCyan),
+                const SizedBox(height: 10),
+                _buildCard([
+                  ListenableBuilder(
+                    listenable: ExternalLaunchService.instance,
+                    builder: (context, _) => _buildValueTile(
+                      key: const Key('settings_external_launch_studio_tile'),
+                      title: 'External Launch & Open-With Studio',
+                      subtitle: 'Android ACTION_VIEW intents, Windows CLI & single-instance IPC',
+                      icon: Icons.open_in_new_rounded,
+                      value: ExternalLaunchService.instance.windowsFileAssocRegistered
+                          ? 'Registered'
+                          : 'Configure',
+                      onTap: () => ExternalLaunchStudioSheet.show(
+                        context,
+                        service: ExternalLaunchService.instance,
+                      ),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 24),
+
                 // 7. Storage, Shaders & Cache
                 _buildSectionHeader('STORAGE & CACHE DIAGNOSTICS', Icons.storage_rounded, EDesign.danger),
                 const SizedBox(height: 10),
@@ -810,6 +835,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildValueTile({
+    Key? key,
     required String title,
     required String subtitle,
     required IconData icon,
@@ -817,6 +843,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required VoidCallback onTap,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       borderRadius: BorderRadius.circular(EDesign.r16),
       child: Padding(

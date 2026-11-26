@@ -35,6 +35,96 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Direct external video playback intents (file://, content://, HTTP/RTSP/SMB streams) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="file"/>
+                <data android:scheme="content"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
+                <data android:scheme="rtsp"/>
+                <data android:scheme="rtmp"/>
+                <data android:scheme="mms"/>
+                <data android:scheme="smb"/>
+                <data android:mimeType="video/*"/>
+            </intent-filter>
+
+            <!-- Direct external audio playback intents -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="file"/>
+                <data android:scheme="content"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
+                <data android:scheme="rtsp"/>
+                <data android:scheme="rtmp"/>
+                <data android:scheme="mms"/>
+                <data android:scheme="smb"/>
+                <data android:mimeType="audio/*"/>
+            </intent-filter>
+
+            <!-- Playlists & subtitle files opened directly from Android file managers -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="file"/>
+                <data android:scheme="content"/>
+                <data android:scheme="http"/>
+                <data android:scheme="https"/>
+                <data android:mimeType="application/x-mpegurl"/>
+                <data android:mimeType="application/vnd.apple.mpegurl"/>
+                <data android:mimeType="application/xspf+xml"/>
+                <data android:mimeType="audio/x-mpegurl"/>
+                <data android:mimeType="audio/x-scpls"/>
+                <data android:mimeType="application/x-subrip"/>
+            </intent-filter>
+
+            <!-- Fallback path-extension matcher when Android file managers omit exact MIME types -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="file"/>
+                <data android:scheme="content"/>
+                <data android:host="*"/>
+                <data android:mimeType="*/*"/>
+                <data android:pathPattern=".*\\.mp4"/>
+                <data android:pathPattern=".*\\.MP4"/>
+                <data android:pathPattern=".*\\.mkv"/>
+                <data android:pathPattern=".*\\.MKV"/>
+                <data android:pathPattern=".*\\.avi"/>
+                <data android:pathPattern=".*\\.mov"/>
+                <data android:pathPattern=".*\\.webm"/>
+                <data android:pathPattern=".*\\.flv"/>
+                <data android:pathPattern=".*\\.ts"/>
+                <data android:pathPattern=".*\\.m4v"/>
+                <data android:pathPattern=".*\\.mp3"/>
+                <data android:pathPattern=".*\\.flac"/>
+                <data android:pathPattern=".*\\.wav"/>
+                <data android:pathPattern=".*\\.aac"/>
+                <data android:pathPattern=".*\\.ogg"/>
+                <data android:pathPattern=".*\\.opus"/>
+                <data android:pathPattern=".*\\.m3u"/>
+                <data android:pathPattern=".*\\.m3u8"/>
+                <data android:pathPattern=".*\\.xspf"/>
+                <data android:pathPattern=".*\\.pls"/>
+                <data android:pathPattern=".*\\.srt"/>
+                <data android:pathPattern=".*\\.ass"/>
+                <data android:pathPattern=".*\\.vtt"/>
+            </intent-filter>
+
+            <!-- Android Share Sheet -> Play directly in E-Player -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="video/*"/>
+                <data android:mimeType="audio/*"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
