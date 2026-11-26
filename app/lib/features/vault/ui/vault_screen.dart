@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../ui/theme/e_design_tokens.dart';
 import '../../library/domain/library_provider.dart';
 import '../domain/vault_service.dart';
+import 'vault_storage_recovery_studio_sheet.dart';
 import '../../player/ui/player_screen.dart';
 
 /// Screen 10: Secret Vault Screen (High-Security Biometric & Encrypted Workstation)
@@ -335,6 +336,19 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
     );
   }
 
+  Future<void> _openStorageRecoveryStudio() async {
+    final service = context.read<VaultService>();
+    await VaultStorageRecoveryStudioSheet.show(context, service: service);
+    if (!mounted) return;
+    if (service.isUnlocked && !service.isDecoyMode) {
+      await _loadItems();
+    } else {
+      setState(() {
+        _vaultItems = [];
+      });
+    }
+  }
+
   // --- 1. APP BAR ---
   PreferredSizeWidget _buildAppBar(BuildContext context, VaultService vaultService) {
     String title = 'Secret Vault';
@@ -361,6 +375,12 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
         ],
       ),
       actions: [
+        IconButton(
+          key: const Key('vault_open_studio_appbar_btn'),
+          icon: const Icon(Icons.storage_rounded, color: EDesign.primaryCyan),
+          tooltip: 'Storage & Recovery Studio (D:\\ / SD Card)',
+          onPressed: _openStorageRecoveryStudio,
+        ),
         if (vaultService.isUnlocked)
           IconButton(
             icon: const Icon(Icons.lock, color: EDesign.primary),
@@ -445,6 +465,19 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (service.activeVaultPath != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  service.activeVaultPath!,
+                  style: const TextStyle(
+                    color: EDesign.primaryCyan,
+                    fontSize: 11,
+                    fontFamily: 'Consolas',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
               const SizedBox(height: 22),
 
               // 4 Illuminated PIN Dots
@@ -495,6 +528,22 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
                   color: EDesign.textMuted,
                   fontSize: 11,
                   fontStyle: FontStyle.italic,
+                ),
+              ),
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                key: const Key('vault_locked_open_studio_btn'),
+                onPressed: _openStorageRecoveryStudio,
+                icon: const Icon(Icons.storage_rounded, size: 16),
+                label: const Text('Mount D:\\ / SD Vault or Recover Key'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: EDesign.primaryCyan,
+                  side: BorderSide(
+                    color: EDesign.primaryCyan.withValues(alpha: 0.45),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(EDesign.r12),
+                  ),
                 ),
               ),
             ],
@@ -824,6 +873,51 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
                       onChanged: (v) => vaultService.setAutoLock(v),
                     ),
                   ],
+                ),
+                const Divider(color: EDesign.border, height: 1),
+                const SizedBox(height: 8),
+                InkWell(
+                  key: const Key('vault_unlocked_open_studio_btn'),
+                  borderRadius: BorderRadius.circular(EDesign.r8),
+                  onTap: _openStorageRecoveryStudio,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.storage_rounded,
+                            size: 16, color: EDesign.primaryCyan),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Storage & Recovery Studio (D:\\ / SD Card)',
+                                style: TextStyle(
+                                  color: EDesign.primaryCyan,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (vaultService.activeVaultPath != null)
+                                Text(
+                                  vaultService.activeVaultPath!,
+                                  style: const TextStyle(
+                                    color: EDesign.textMuted,
+                                    fontSize: 10,
+                                    fontFamily: 'Consolas',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded,
+                            size: 13, color: EDesign.primaryCyan),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
